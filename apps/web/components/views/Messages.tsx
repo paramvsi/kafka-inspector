@@ -7,13 +7,15 @@ import {
   type DecodeAs,
   type RawMessage,
   type RawMessagePage,
+  type SavedFilter,
   type TopicSummary,
 } from '@ki/core';
-import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField } from '@ki/ui';
+import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField, useToast } from '@ki/ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runFilter, type FilterResult } from '../../lib/filter';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocal } from '../../lib/local';
 import {
   decodeMessage,
@@ -213,10 +215,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     ? (rows.find((m) => `${m.partition}:${m.offset}` === msgParam) ??
       raws.find((m) => `${m.partition}:${m.offset}` === msgParam))
     : undefined;
-  const [savedFilters, setSavedFilters] = useLocal<Array<{ name: string; expr: string }>>(
-    'ki-saved-filters',
-    [],
-  );
+  const [savedFilters, saveFilter] = useSavedFilters();
   const [maskOpen, setMaskOpen] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
@@ -479,11 +478,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (naming.trim())
-                    setSavedFilters([
-                      ...savedFilters.filter((f) => f.name !== naming.trim()),
-                      { name: naming.trim(), expr },
-                    ]);
+                  if (naming.trim()) saveFilter({ name: naming.trim(), expr });
                   setNaming(null);
                 }
                 if (e.key === 'Escape') setNaming(null);
@@ -771,3 +766,26 @@ function ColumnPicker({
 }
 
 export { toHex };
+
+/** F-04: saved filters in the agent DB when the client offers it, else per-browser localStorage (demo). */
+function useSavedFilters(): [SavedFilter[], (f: SavedFilter) => void] {
+  const { client, clusterId } = useKafka();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const remote = client.savedFilters;
+  const [local, setLocal] = useLocal<SavedFilter[]>('ki-saved-filters', []);
+  const fromAgent = useKafkaQuery(['saved-filters'], (c) =>
+    c.savedFilters ? c.savedFilters.list() : Promise.resolve([]),
+  );
+  if (!remote) return [local, (f) => setLocal([...local.filter((x) => x.name !== f.name), f])];
+  return [
+    fromAgent.data ?? [],
+    (f) =>
+      void remote
+        .save(f)
+        .then(() => qc.invalidateQueries({ queryKey: [clusterId, 'saved-filters'] }))
+        .catch((e: Error) =>
+          toast({ tone: 'crit', title: `Couldn't save filter ${f.name}`, body: e.message }),
+        ),
+  ];
+}

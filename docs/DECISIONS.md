@@ -60,7 +60,7 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Reset offsets has no typed confirmation (prompt 03) — F-62 and `ResetOffsets.dc.html` don't have one; the dry run is the confirmation | Spec wins over prompts |
 | 2026-11-15 | `?preview=loading|disconnected|readonly` previews designed states on the demo | Prompt 03 asks for a dev flag; disconnect only happens for real in agent mode |
 | 2026-11-15 | Add cluster (demo): "Local agent" stores the agent URL and checks it is reachable; Kafka credentials are never typed into the browser. "Remember password" removed. REST proxy shown as v2 | A browser can't speak Kafka's protocol (D-01); rule 6 |
-| 2026-11-15 | Saved filters, masking rules, starred topics and saved clusters live in localStorage in both modes | Per-viewer conveniences; AGENT_API has no endpoints for them |
+| 2026-11-15 | Saved filters live in the agent DB in Self (`GET/PUT /api/filters`, added to AGENT_API) and localStorage in Demo; masking rules, starred topics and saved clusters stay in localStorage in both modes | F-04 names the agent DB for filters; the others are per-viewer conveniences |
 | 2026-11-15 | Status words in text use the `-text` tokens (`ok-text`, …); base `ok/warn/crit` only for dots, lines and fills | `--ok` on white is 4.39:1, below AA for text |
 | 2026-11-15 | Topology is custom SVG + HTML in the reference's three-column layout, not React Flow | Matches `Topology.dc.html` exactly; saves the React Flow bundle; pan/zoom/fit are transforms |
 | 2026-11-15 | Demo lag window is 10 samples at 1 s (ARCHITECTURE updated); seeded "group stalled or stopped" rule fires after 30 s | Phase 3 gate needs Stalled within 10 s; simulated consumers track the produced rate per tick so forecasts stay stable on a short window |
@@ -74,6 +74,7 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | The shell renders one tree before and after boot (`KafkaProvider ctx` is null while booting), so menus opened during boot stay open (was a known minor issue and a flaky e2e) | Guard test in `e2e/shell.spec.ts` |
 | 2026-11-15 | Nightly workflow runs Playwright on Chromium, Firefox and WebKit; CI on push runs Chromium + reduced motion | prompts/08 |
 | 2026-11-15 | F-36 demo config edit: `writes.updateTopicConfig(changes)` where `null` resets to the default (also for the simulator's built-in overrides); only known topic configs, numeric/boolean values validated; logged as a `config` event and replayed from IndexedDB. Create-topic `configs` now show as overrides (they were dropped before) | F-36 "Edit in Demo"; keeps the change inside `KafkaClient.writes` |
+| 2026-11-15 | Agent CSP: worker scripts get `script-src 'self' 'unsafe-eval'; connect-src 'none'`; pages keep no eval. Found by the agent e2e: JS filters failed in self-hosted mode under the page CSP | F-42 must work in both modes; the worker is the sandbox |
 
 ## DECISION-PENDING (needs the owner's go-ahead)
 

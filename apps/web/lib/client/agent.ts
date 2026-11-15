@@ -226,5 +226,9 @@ export function createAgentClient(): KafkaClient {
       return () => conn.delete(cb);
     },
     signOut: () => api('POST', '/api/auth/logout'),
+    savedFilters: {
+      list: () => api('GET', '/api/filters'),
+      save: (f) => api('PUT', `/api/filters/${encodeURIComponent(f.name)}`, { expr: f.expr }),
+    },
   };
 }

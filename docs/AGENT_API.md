@@ -66,6 +66,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 ## Alerts (app data — allowed in read-only mode)
 
 - `GET /api/alerts/rules`, `POST /api/alerts/rules`, `PUT /api/alerts/rules/{id}`, `DELETE /api/alerts/rules/{id}`
+- `GET /api/filters` → `[{ name, expr }]`; `PUT /api/filters/{name}` with `{ expr }` → 204 (saved message-browser filters, F-04; app data like alert rules)
 - `GET /api/alerts/events?state=firing|resolved|all&limit=` ; `POST /api/alerts/events/{id}/mute` `{ until }` ; `POST /api/alerts/events/{id}/ack`
 - Evaluator runs after each sampler pass using the shared lag rules.
 
@@ -99,7 +100,7 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 
 - Run as non-root; read-only root filesystem except `/data`.
 - Never log config values containing `PASSWORD`, `SECRET`, `TOKEN`, `KEY`; mask in `/api/.../config` responses.
-- Session timeout 12 h; login rate limiting; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`).
+- Session timeout 12 h; login rate limiting; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`). Worker scripts (`/_next/static/chunks/turbopack-worker-*`) get their own CSP — `script-src 'self' 'unsafe-eval'; connect-src 'none'` — so the message filter can compile expressions but has no network; pages never allow eval.
 - Startup log line lists clusters and security protocol only.
 
 ## Notes from the build (phase 4)

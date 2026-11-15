@@ -34,6 +34,20 @@ test('self-hosted: sign in, read-only chrome, real topics, groups and decoded me
   await expect(drawer.getByRole('button', { name: 'Reprocess to topic' })).toBeDisabled();
   await drawer.getByRole('button', { name: 'Close' }).click();
 
+  // F-04: a saved filter lives in the agent DB, so it survives a reload and another browser
+  await page.goto('/app/topics/view/?name=orders&tab=messages&filter=value.total%20%3E%200');
+  await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByLabel('Filter name').fill('e2e paid orders');
+  await page.getByLabel('Filter name').press('Enter');
+  await expect
+    .poll(async () => (await page.request.get('/api/filters')).json())
+    .toContainEqual({ name: 'e2e paid orders', expr: 'value.total > 0' });
+  await page.reload();
+  await expect(page.getByRole('option', { name: 'e2e paid orders' })).toBeAttached({
+    timeout: 15_000,
+  });
+
   await nav.getByRole('link', { name: /^Consumer groups/ }).click();
   await expect(page.getByRole('row', { name: /order-service/ })).toBeVisible({ timeout: 30_000 });
   await page

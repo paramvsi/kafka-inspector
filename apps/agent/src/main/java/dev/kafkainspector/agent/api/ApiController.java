@@ -9,6 +9,7 @@ import dev.kafkainspector.agent.kafka.KafkaService;
 import dev.kafkainspector.agent.kafka.MessageService;
 import dev.kafkainspector.agent.kafka.Sampler;
 import dev.kafkainspector.agent.kafka.Views;
+import dev.kafkainspector.agent.prefs.SavedFilters;
 import dev.kafkainspector.agent.schemas.SchemaRegistry;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,10 +33,11 @@ public class ApiController {
     private final HistoryRepository history;
     private final SchemaRegistry registry;
     private final AlertService alerts;
+    private final SavedFilters filters;
     private final String version;
     private final Map<String, List<Double>[]> trendCache = new ConcurrentHashMap<>();
 
-    public ApiController(Clusters clusters, Sampler sampler, KafkaService kafka, MessageService messages, HistoryRepository history, SchemaRegistry registry, AlertService alerts, Optional<BuildProperties> build) {
+    public ApiController(Clusters clusters, Sampler sampler, KafkaService kafka, MessageService messages, HistoryRepository history, SchemaRegistry registry, AlertService alerts, SavedFilters filters, Optional<BuildProperties> build) {
         this.clusters = clusters;
         this.sampler = sampler;
         this.kafka = kafka;
@@ -43,6 +45,7 @@ public class ApiController {
         this.history = history;
         this.registry = registry;
         this.alerts = alerts;
+        this.filters = filters;
         this.version = build.map(BuildProperties::getVersion).orElse("0.1.0");
     }
 
@@ -274,6 +277,21 @@ public class ApiController {
     @GetMapping("/clusters/{c}/topology")
     public Dto.Topology topology(@PathVariable String c) {
         return Views.topology(state(c));
+    }
+
+    // ── saved filters (F-04, app data) ──
+
+    @GetMapping("/filters")
+    public List<SavedFilters.Filter> savedFilters() {
+        return filters.list();
+    }
+
+    public record FilterBody(String expr) {}
+
+    @PutMapping("/filters/{name}")
+    public ResponseEntity<Void> saveFilter(@PathVariable String name, @RequestBody FilterBody body) {
+        filters.save(name, body.expr());
+        return ResponseEntity.noContent().build();
     }
 
     // ── alerts (app data — allowed in read-only mode) ──

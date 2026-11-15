@@ -406,6 +406,11 @@ export interface AlertQuery {
   limit?: number;
 }
 
+export interface SavedFilter {
+  name: string;
+  expr: string;
+}
+
 export interface NewTopic {
   name: string;
   partitions: number;
@@ -539,6 +544,12 @@ export interface KafkaClient {
       dryRun: boolean,
     ): Promise<ResetPreview>;
     deleteGroup(clusterId: string, groupId: string): Promise<void>;
+  };
+
+  /** Saved message-browser filters in the agent DB (F-04). Absent → the app keeps them in localStorage. */
+  savedFilters?: {
+    list(): Promise<SavedFilter[]>;
+    save(f: SavedFilter): Promise<void>;
   };
 
   /** Connection state for live data (agent mode: WebSocket with reconnect back-off). */

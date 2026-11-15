@@ -255,6 +255,30 @@ class AgentIntegrationTest {
 
     @Test
     @Order(9)
+    void savedFiltersLiveInTheAgentDbAndAreValidated() throws Exception {
+        signIn();
+        assertEquals(204, send("PUT", "/api/filters/big%20orders", "{\"expr\":\"value.total > 100\"}").statusCode());
+        assertEquals(204, send("PUT", "/api/filters/big%20orders", "{\"expr\":\"value.total > 500\"}").statusCode());
+        var list = get("/api/filters");
+        assertEquals(1, list.size());
+        assertEquals("big orders", list.get(0).path("name").asString());
+        assertEquals("value.total > 500", list.get(0).path("expr").asString());
+        HttpResponse<String> bad = send("PUT", "/api/filters/x", "{\"expr\":\"\"}");
+        assertEquals(400, bad.statusCode());
+    }
+
+    @Test
+    @Order(10)
+    void workerScriptsMayEvalButHaveNoNetworkWhilePagesMayNotEval() throws Exception {
+        String worker = send("GET", "/_next/static/chunks/turbopack-worker-test.js", null).headers().firstValue("content-security-policy").orElseThrow();
+        assertTrue(worker.contains("'unsafe-eval'"), worker);
+        assertTrue(worker.contains("connect-src 'none'"), worker);
+        String page = send("GET", "/app/", null).headers().firstValue("content-security-policy").orElseThrow();
+        assertFalse(page.contains("'unsafe-eval'"), page);
+    }
+
+    @Test
+    @Order(11)
     void servesTheWebAppAndRedirectsRoot() throws Exception {
         HttpResponse<String> root = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/")).build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(302, root.statusCode());
