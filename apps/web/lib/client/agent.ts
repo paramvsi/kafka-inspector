@@ -179,6 +179,11 @@ export function createAgentClient(): KafkaClient {
     return () => {
       subs.delete(id);
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ op: 'unsub', id }));
+      // nothing left to stream: a pending reconnect would only open an idle socket
+      if (subs.size === 0) {
+        clearTimeout(retry);
+        retry = undefined;
+      }
     };
   };
 

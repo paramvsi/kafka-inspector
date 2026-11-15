@@ -119,7 +119,11 @@ export function GroupDetailView() {
           },
         ]}
       />
-      {tab === 'partitions' ? <Partitions rows={d.partitions} groupId={d.summary.groupId} /> : <Members d={d} />}
+      {tab === 'partitions' ? (
+        <Partitions rows={d.partitions} groupId={d.summary.groupId} />
+      ) : (
+        <Members d={d} />
+      )}
       <ResetOffsetsDialog
         open={url.get('reset') === '1'}
         onClose={() => url.set({ reset: undefined })}

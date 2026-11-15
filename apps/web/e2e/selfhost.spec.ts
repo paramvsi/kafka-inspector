@@ -13,7 +13,7 @@ test('Run on your own Kafka: generates files locally — nothing leaves the brow
   await page.getByLabel('Bootstrap servers').fill('b-1.acme:9096,b-2.acme:9096');
   await page.getByLabel('Password', { exact: false }).count(); // there is no password field
   await expect(page.getByRole('tabpanel')).toContainText(
-    'KI_CLUSTERS_0_BOOTSTRAP: b-1.acme:9096,b-2.acme:9096',
+    'KI_CLUSTERS_0_BOOTSTRAP: "b-1.acme:9096,b-2.acme:9096"',
   );
   await page.getByRole('tab', { name: '.env' }).click();
   await expect(page.getByRole('tabpanel')).toContainText('KI_CLUSTERS_0_SASL_PASSWORD=');

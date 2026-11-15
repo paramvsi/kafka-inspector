@@ -6,6 +6,7 @@ test('quotes per RFC 4180 and neutralises formulas', () => {
   expect(csvCell('plain')).toBe('plain');
   expect(csvCell('a,b')).toBe('"a,b"');
   expect(csvCell('=HYPERLINK("http://x")')).toBe('"\'=HYPERLINK(""http://x"")"');
-  expect(csvCell(-5)).toBe("'-5");
+  expect(csvCell(-5)).toBe('-5');
+  expect(csvCell('-5+cmd')).toBe("'-5+cmd");
   expect(csvCell(null)).toBe('');
 });

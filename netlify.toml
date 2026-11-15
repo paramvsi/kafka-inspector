@@ -13,3 +13,9 @@
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# The message-filter worker runs user expressions: same policy as the agent's (no network, eval allowed).
+[[headers]]
+  for = "/_next/static/chunks/turbopack-worker-*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'"

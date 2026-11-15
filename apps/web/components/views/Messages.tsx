@@ -126,9 +126,10 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [paused, setPaused] = useState(false);
   const [unseen, setUnseen] = useState(0);
   const atTop = useRef(true);
+  // a new tail (topic/partition/live) starts empty; Resume continues the same list
+  useEffect(() => setRing([]), [live, topic, p]);
   useEffect(() => {
     if (!live || paused) return;
-    setRing([]);
     return client.tail(
       clusterId,
       { topic, partition: p === 'all' ? 'all' : Number(p), maxRate: 50 },

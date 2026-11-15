@@ -12,7 +12,12 @@ export interface SelfHostForm {
 export const IMAGE = 'ghcr.io/paramvsi/kafka-inspector:1.0.0';
 
 const sasl = (f: SelfHostForm) => f.security.startsWith('SASL');
-const yamlStr = (s: string) => (/^[\w./:,-]+$/.test(s) ? s : JSON.stringify(s));
+// always double-quoted: YAML would turn yes/no/on/null/123 into booleans, null or numbers
+const yamlStr = (s: string) => JSON.stringify(s);
+
+/** Rule 6: credentials typed into a URL never reach a generated file. */
+const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]*@/i;
+const withoutUserinfo = (url: string) => url.replace(USERINFO, '$1');
 
 /** Non-secret settings, shared by compose and docker run. */
 export function envSettings(f: SelfHostForm): Array<[string, string]> {
@@ -22,7 +27,8 @@ export function envSettings(f: SelfHostForm): Array<[string, string]> {
     ['KI_CLUSTERS_0_SECURITY', f.security],
   ];
   if (sasl(f)) out.push(['KI_CLUSTERS_0_SASL_MECHANISM', f.mechanism]);
-  if (f.schemaRegistry) out.push(['KI_CLUSTERS_0_SCHEMA_REGISTRY', f.schemaRegistry]);
+  if (f.schemaRegistry)
+    out.push(['KI_CLUSTERS_0_SCHEMA_REGISTRY', withoutUserinfo(f.schemaRegistry)]);
   out.push(['KI_READ_ONLY', 'true']);
   return out;
 }
@@ -94,6 +100,10 @@ export function warnings(f: SelfHostForm): string[] {
     );
   if (!/^[^,\s]+:\d+(,\s*[^,\s]+:\d+)*$/.test(f.bootstrap.trim()))
     w.push('Bootstrap servers are host:port pairs separated by commas.');
+  if (USERINFO.test(f.schemaRegistry))
+    w.push(
+      'The Schema Registry URL contained a username or password; it was left out of the files. Turn on registry authentication and put the values in .env.',
+    );
   if (f.security === 'SASL_PLAINTEXT' || f.security === 'PLAINTEXT')
     w.push('Credentials and data travel unencrypted with this security setting.');
   return w;

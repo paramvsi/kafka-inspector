@@ -60,16 +60,27 @@ export type SchemaLookup = (id: number) => Promise<SchemaVersion | undefined>;
 
 const utf8 = new TextDecoder('utf-8', { fatal: true });
 
-/** Caches registry lookups by id (and remembers misses). */
-export function cachedLookup(fetchById: (id: number) => Promise<SchemaVersion>): SchemaLookup {
-  const cache = new Map<number, Promise<SchemaVersion | undefined>>();
+/**
+ * Caches registry lookups by id. A miss (unknown id, or the registry failing) is remembered for 30 s, so a
+ * poison message doesn't hit the registry per row, yet a transient error doesn't stick until reload.
+ */
+export function cachedLookup(
+  fetchById: (id: number) => Promise<SchemaVersion>,
+  now: () => number = Date.now,
+  missTtlMs = 30_000,
+): SchemaLookup {
+  const cache = new Map<number, { p: Promise<SchemaVersion | undefined>; missAt?: number }>();
   return (id) => {
-    if (!cache.has(id))
-      cache.set(
-        id,
-        fetchById(id).catch(() => undefined),
-      );
-    return cache.get(id)!;
+    const hit = cache.get(id);
+    if (hit && (hit.missAt === undefined || now() - hit.missAt < missTtlMs)) return hit.p;
+    const entry: { p: Promise<SchemaVersion | undefined>; missAt?: number } = {
+      p: fetchById(id).catch(() => {
+        entry.missAt = now();
+        return undefined;
+      }),
+    };
+    cache.set(id, entry);
+    return entry.p;
   };
 }
 

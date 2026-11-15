@@ -26,24 +26,35 @@ const spawn = () =>
     name: 'message-filter',
   });
 
+// ponytail: a fresh worker gets a longer first budget (its module load counts against the timer);
+// switch to a 'ready' handshake if first-run timings ever matter
+const FIRST_RUN_MS = 5000;
+let warm = false;
+
 export function runFilter(expr: string, messages: FilterInput[]): Promise<FilterResult> {
-  worker ??= spawn();
+  if (!worker) {
+    worker = spawn();
+    warm = false;
+  }
+  const budget = warm ? WATCHDOG_MS : FIRST_RUN_MS;
   const id = ++seq;
   const w = worker;
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       w.terminate();
       if (worker === w) worker = null;
+      warm = false;
       resolve({
         matches: [],
         scanned: 0,
         timedOut: true,
-        error: 'The filter took longer than 1 s and was stopped. Check for loops.',
+        error: `The filter took longer than ${budget / 1000} s and was stopped. Check for loops.`,
       });
-    }, WATCHDOG_MS);
+    }, budget);
     const onMsg = (e: MessageEvent) => {
       if (e.data.id !== id) return;
       clearTimeout(timer);
+      warm = true;
       w.removeEventListener('message', onMsg);
       resolve(
         e.data.error && !e.data.matches ? { matches: [], scanned: 0, error: e.data.error } : e.data,

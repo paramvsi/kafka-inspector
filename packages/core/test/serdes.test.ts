@@ -175,6 +175,27 @@ test('base64 round trip, hex dump lines, cached lookups remember misses', async 
   expect(calls).toBe(2);
 });
 
+test('a failed schema lookup is retried after 30 s instead of sticking until reload', async () => {
+  let t = 0;
+  let up = false;
+  let calls = 0;
+  const lk = cachedLookup(
+    async () => {
+      calls++;
+      if (!up) throw new Error('503');
+      return REG[112]!;
+    },
+    () => t,
+  );
+  expect(await lk(112)).toBeUndefined();
+  up = true;
+  t = 10_000;
+  expect(await lk(112)).toBeUndefined(); // still within the miss window
+  t = 31_000;
+  expect(await lk(112)).toBe(REG[112]);
+  expect(calls).toBe(2);
+});
+
 test('masking: mask, replace, remove, wildcards, topic globs', () => {
   const v = {
     email: 'a@b.c',

@@ -14,8 +14,8 @@ const f: SelfHostForm = {
 describe('Run on your own Kafka generator', () => {
   test('compose has settings and read-only, never secret values', () => {
     const c = compose(f);
-    expect(c).toContain('KI_CLUSTERS_0_BOOTSTRAP: b-1.prod-us-2:9096,b-2.prod-us-2:9096');
-    expect(c).toContain('KI_CLUSTERS_0_SASL_MECHANISM: SCRAM-SHA-512');
+    expect(c).toContain('KI_CLUSTERS_0_BOOTSTRAP: "b-1.prod-us-2:9096,b-2.prod-us-2:9096"');
+    expect(c).toContain('KI_CLUSTERS_0_SASL_MECHANISM: "SCRAM-SHA-512"');
     expect(c).toContain('KI_READ_ONLY: "true"');
     expect(c).toContain('env_file: .env');
     expect(c).toContain('cap_drop:\n      - ALL');
@@ -45,4 +45,18 @@ describe('Run on your own Kafka generator', () => {
       'KI_ADMIN_PASSWORD',
     ]);
   });
+});
+
+test('credentials in a registry URL never reach the files; YAML-ish values stay strings', () => {
+  const g = {
+    ...f,
+    name: 'yes',
+    schemaRegistry: 'https://svc-user:s3cret@registry.example:8081',
+  };
+  const all = compose(g) + dockerRun(g) + dotenv(g);
+  expect(all).not.toContain('s3cret');
+  expect(all).not.toContain('svc-user');
+  expect(compose(g)).toContain('KI_CLUSTERS_0_SCHEMA_REGISTRY: "https://registry.example:8081"');
+  expect(compose(g)).toContain('KI_CLUSTERS_0_NAME: "yes"');
+  expect(warnings(g).join(' ')).toContain('left out of the files');
 });

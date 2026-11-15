@@ -44,6 +44,19 @@ test('a subscribe during reconnect back-off opens one socket, not two', () => {
   expect(FakeSocket.all).toHaveLength(2);
 });
 
+test('the last unsubscribe during back-off cancels the pending reconnect', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080' });
+  const client = createAgentClient();
+  const off = client.subscribe('local', 'metrics', () => {});
+  FakeSocket.all[0]!.up();
+  FakeSocket.all[0]!.down();
+  off();
+  vi.advanceTimersByTime(60_000);
+  expect(FakeSocket.all).toHaveLength(1);
+});
+
 test('a non-JSON error page becomes an ApiError with the status', async () => {
   vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080', pathname: '/', search: '' });
   vi.stubGlobal('fetch', async () => new Response('<html>502 Bad Gateway</html>', { status: 502 }));
