@@ -23,7 +23,10 @@
   },
   "dependencies": {
     "@ki/core": "workspace:*",
+    "@ki/simulator": "workspace:*",
     "@ki/ui": "workspace:*",
+    "@tanstack/react-query": "^5.107.1",
+    "comlink": "4.4.2",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1"

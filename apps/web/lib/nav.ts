@@ -33,14 +33,27 @@ const SECTIONS: NavSection[] = [
 ];
 
 /** Sidebar sections for a mode (F-01: Chaos panel and Run on your Kafka are demo only). */
-export const navFor = (mode: Mode): NavSection[] =>
+type Counts = { brokers: number; topics: number; groups: number; alerts: number };
+
+/** Sidebar sections for a mode (F-01: Chaos panel and Run on your Kafka are demo only), with live counts. */
+export const navFor = (mode: Mode, counts?: Counts): NavSection[] =>
   SECTIONS.map((s) => ({
     ...s,
-    items: s.items.filter((i) => mode === 'demo' || !DEMO_ONLY.has(i.key)),
+    items: s.items
+      .filter((i) => mode === 'demo' || !DEMO_ONLY.has(i.key))
+      .map((i) => {
+        if (!counts) return i;
+        if (i.key === 'brokers') return { ...i, count: counts.brokers };
+        if (i.key === 'topics') return { ...i, count: counts.topics };
+        if (i.key === 'groups') return { ...i, count: counts.groups };
+        if (i.key === 'alerts' && counts.alerts > 0)
+          return { ...i, count: counts.alerts, countTone: 'crit' as const };
+        return i;
+      }),
   }));
 
 // Breadcrumb copy follows the Topbar references (e.g. "Run on your own Kafka").
-const CRUMBS: Record<string, { active: string; crumb: string; parent?: string }> = {
+const CRUMBS: Record<string, { active?: string; crumb: string; parent?: string }> = {
   '/app/': { active: 'overview', crumb: 'Overview' },
   '/app/brokers/': { active: 'brokers', crumb: 'Brokers' },
   '/app/topics/': { active: 'topics', crumb: 'Topics' },
@@ -53,6 +66,7 @@ const CRUMBS: Record<string, { active: string; crumb: string; parent?: string }>
   '/app/chaos/': { active: 'chaos', crumb: 'Chaos panel' },
   '/app/clusters/': { active: 'clusters', crumb: 'Clusters' },
   '/app/self-host/': { active: 'selfhost', crumb: 'Run on your own Kafka' },
+  '/app/debug/': { crumb: 'Debug' },
 };
 
 /** Location for a pathname; tolerates a missing trailing slash (dev server) and unknown paths. */
