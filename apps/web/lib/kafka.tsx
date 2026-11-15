@@ -9,6 +9,7 @@ import {
   type QueryKey,
 } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useApp } from './app';
 import { pickClient } from './client/pick';
 
 interface Ctx {
@@ -92,15 +93,18 @@ export function useKafkaQuery<T>(
 /** Live stream channel → latest payload (batched to 1/s by the client). */
 export function useStream<T>(channel: StreamChannel): T | undefined {
   const { client, clusterId } = useKafka();
+  const { live } = useApp();
   const qc = useQueryClient();
   const [data, setData] = useState<T | undefined>(() =>
     qc.getQueryData<T>([clusterId, 'stream', channel]),
   );
   useEffect(() => {
+    // Paused (Live indicator off): keep showing the last values.
+    if (!live) return;
     return client.subscribe(clusterId, channel, (e: StreamEvent) => {
       qc.setQueryData([clusterId, 'stream', channel], e.data);
       setData(e.data as T);
     });
-  }, [client, clusterId, channel, qc]);
+  }, [client, clusterId, channel, qc, live]);
   return data;
 }

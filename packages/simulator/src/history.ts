@@ -52,21 +52,39 @@ export class History {
     return this.data.has(key);
   }
 
-  series(key: string, from: number, maxPoints = 400): Array<[number, number]> {
+  /** Points from `from` to now, averaged into at most `maxPoints` equal time buckets (smooth across resolutions). */
+  series(key: string, from: number, maxPoints = 240): Array<[number, number]> {
     const arr = this.data.get(key);
-    if (!arr) return [];
+    if (!arr || this.times.length === 0) return [];
     const start = lowerBound(this.times, from);
-    const n = this.times.length - start;
-    const step = Math.max(1, Math.ceil(n / maxPoints));
-    const out: Array<[number, number]> = [];
-    for (let i = start; i < this.times.length; i += step) {
-      const v = arr[i]!;
-      if (!Number.isNaN(v)) out.push([this.times[i]!, v]);
-    }
-    // always include the newest point
     const last = this.times.length - 1;
-    if (last >= start && out.at(-1)?.[0] !== this.times[last])
-      out.push([this.times[last]!, arr[last]!]);
+    if (start > last) return [];
+    const t0 = this.times[start]!,
+      t1 = this.times[last]!;
+    const width = Math.max(1, (t1 - t0) / maxPoints);
+    const out: Array<[number, number]> = [];
+    let bucket = -1,
+      sum = 0,
+      n = 0,
+      bt = 0;
+    const flush = () => {
+      if (n) out.push([bt, sum / n]);
+    };
+    for (let i = start; i <= last; i++) {
+      const v = arr[i]!;
+      if (Number.isNaN(v)) continue;
+      const b = Math.floor((this.times[i]! - t0) / width);
+      if (b !== bucket) {
+        flush();
+        bucket = b;
+        sum = 0;
+        n = 0;
+      }
+      sum += v;
+      n++;
+      bt = this.times[i]!;
+    }
+    flush();
     return out;
   }
 

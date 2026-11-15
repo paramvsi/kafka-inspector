@@ -115,6 +115,11 @@ html.theme-switching * {
     overlay var(--dur-instant) allow-discrete,
     display var(--dur-instant) allow-discrete;
 }
+.ki-popover-left {
+  top: calc(var(--space-4) + 72px);
+  left: var(--space-3);
+  right: auto;
+}
 .ki-popover:popover-open {
   opacity: 1;
   transform: none;
@@ -128,5 +133,223 @@ html.theme-switching * {
   .ki-popover:popover-open {
     opacity: 0;
     transform: translateY(calc(-1 * var(--move-xs)));
+  }
+}
+
+/* ───────── Motion classes (docs/MOTION.md). Durations/easings from tokens only. ───────── */
+
+/* Status badge: one ring pulse when it turns Warn/Stalled/Stopped */
+.ki-pulse-ring {
+  box-shadow: none;
+  outline: 2px solid currentColor;
+  animation: ki-ring var(--flash-dur) var(--ease-exit) 1 forwards;
+}
+@keyframes ki-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+/* KPI value flash: copper tint fading out */
+.ki-flash {
+  background: var(--copper-soft);
+  animation: ki-fade-out var(--flash-dur) var(--ease-exit) 1 forwards;
+}
+@keyframes ki-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Skeleton shimmer (1.2 s loop = 0.6 × pulse period); static fill when motion is reduced */
+.ki-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover) 0%,
+    var(--line) 50%,
+    var(--surface-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: ki-shimmer calc(var(--pulse-period) * 0.6) linear infinite;
+}
+@keyframes ki-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Dialog: backdrop fade; panel fade + scale(0.98→1) */
+.ki-dialog,
+.ki-drawer {
+  opacity: 0;
+  transition:
+    opacity var(--dur-instant) var(--ease-exit),
+    transform var(--dur-instant) var(--ease-exit),
+    overlay var(--dur-instant) allow-discrete,
+    display var(--dur-instant) allow-discrete;
+}
+.ki-dialog {
+  transform: scale(0.98);
+}
+.ki-drawer {
+  transform: translateX(var(--move-drawer));
+}
+.ki-dialog[open],
+.ki-drawer[open] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-enter),
+    transform var(--dur-fast) var(--ease-enter),
+    overlay var(--dur-fast) allow-discrete,
+    display var(--dur-fast) allow-discrete;
+}
+.ki-drawer[open] {
+  transition-duration: var(--dur-base);
+}
+@starting-style {
+  .ki-dialog[open] {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  .ki-drawer[open] {
+    opacity: 0;
+    transform: translateX(var(--move-drawer));
+  }
+}
+.ki-dialog::backdrop,
+.ki-drawer::backdrop {
+  background: color-mix(in srgb, var(--bg-sidebar) 62%, transparent);
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-standard),
+    overlay var(--dur-fast) allow-discrete,
+    display var(--dur-fast) allow-discrete;
+}
+.ki-dialog[open]::backdrop,
+.ki-drawer[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  .ki-dialog[open]::backdrop,
+  .ki-drawer[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* Tooltip: fade + 4 px rise, opens after a short delay, closes instantly */
+.ki-tip-body {
+  opacity: 0;
+  translate: 0 var(--move-xs);
+  transition:
+    opacity 0s,
+    translate 0s;
+}
+.ki-tip:hover .ki-tip-body,
+.ki-tip:focus-within .ki-tip-body {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-enter) var(--dur-slow),
+    translate var(--dur-fast) var(--ease-enter) var(--dur-slow);
+}
+
+/* Banner: height reveal (grid rows 0fr → 1fr) + fade */
+.ki-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: ki-reveal var(--dur-base) var(--ease-enter);
+}
+@keyframes ki-reveal {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+
+/* Toast: slide up 8 px + fade in; fade + slide right out */
+.ki-toast {
+  animation: ki-toast-in var(--dur-fast) var(--ease-enter);
+}
+.ki-toast-leave {
+  animation: ki-toast-out var(--dur-instant) var(--ease-exit) forwards;
+}
+@keyframes ki-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--move-sm));
+  }
+}
+@keyframes ki-toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(var(--move-sm));
+  }
+}
+
+/* List insert (Needs attention, alerts): slide down 8 px + fade */
+.ki-insert {
+  animation: ki-insert var(--dur-base) var(--ease-enter);
+}
+@keyframes ki-insert {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--move-sm)));
+  }
+}
+
+/* Content swap after loading: 120 ms-class fade (base under reduced motion is 120 ms) */
+.ki-fade-in {
+  animation: ki-fade-in var(--dur-fast) var(--ease-enter);
+}
+@keyframes ki-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: no pulses, flashes, shimmer or movement; fades stay short. */
+:root[data-motion='reduced']
+  :is(.ki-pulse-ring, .ki-flash, .ki-skeleton, .ki-insert, .ki-toast, .ki-toast-leave, .ki-reveal),
+:root[data-motion='reduced'] :is(.ki-dialog, .ki-drawer) {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full'])
+    :is(
+      .ki-pulse-ring,
+      .ki-flash,
+      .ki-skeleton,
+      .ki-insert,
+      .ki-toast,
+      .ki-toast-leave,
+      .ki-reveal
+    ) {
+    animation: none !important;
+  }
+}
+
+.ki-spinner {
+  animation: ki-spin calc(var(--pulse-period) / 2) linear infinite;
+}
+@keyframes ki-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+:root[data-motion='reduced'] .ki-spinner {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .ki-spinner {
+    animation: none;
   }
 }

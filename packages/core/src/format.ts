@@ -23,7 +23,7 @@ export function formatBytes(n: number): string {
     v /= 1000;
     i++;
   }
-  return `${i === 0 ? formatInt(v) : v.toFixed(1)} ${units[i]}`;
+  return `${i === 0 || Math.abs(v) >= 100 ? formatInt(v) : v.toFixed(1).replace(/\.0$/, '')} ${units[i]}`;
 }
 
 /** 1,204/s */

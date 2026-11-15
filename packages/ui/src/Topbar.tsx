@@ -16,6 +16,8 @@ export interface TopbarProps {
   onLiveToggle: () => void;
   /** Right-most slot, e.g. the settings menu. */
   actions?: ReactNode;
+  /** Opens the command palette; the search field becomes its trigger. */
+  onSearchOpen?: (initial?: string) => void;
 }
 
 export function Topbar({
@@ -27,6 +29,7 @@ export function Topbar({
   live,
   onLiveToggle,
   actions,
+  onSearchOpen,
 }: TopbarProps) {
   return (
     <header className="flex h-topbar items-center gap-[14px] border-b border-line bg-surface px-6 text-[13px] text-ink">
@@ -43,7 +46,21 @@ export function Topbar({
         </ol>
       </nav>
       <div className="grow" />
-      <SearchInput />
+      <SearchInput
+        readOnly={!!onSearchOpen}
+        aria-haspopup={onSearchOpen ? 'dialog' : undefined}
+        onClick={() => onSearchOpen?.()}
+        onKeyDown={(e) => {
+          if (!onSearchOpen) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSearchOpen();
+          } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            onSearchOpen(e.key);
+          }
+        }}
+      />
       <SegmentedControl
         label="Time range"
         options={[...TIME_RANGES]}

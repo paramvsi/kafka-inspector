@@ -25,5 +25,8 @@
   },
   "peerDependencies": {
     "react": "^19"
+  },
+  "dependencies": {
+    "recharts": "^3.10.1"
   }
 }

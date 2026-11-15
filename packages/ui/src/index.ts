@@ -5,5 +5,17 @@ export { SegmentedControl, type SegmentedControlProps } from './SegmentedControl
 export { LiveIndicator, type LiveIndicatorProps } from './LiveIndicator';
 export { Sidebar, type SidebarProps, type NavSection, type NavEntry } from './Sidebar';
 export { Topbar, type TopbarProps, type TimeRange, TIME_RANGES } from './Topbar';
+export { Card } from './Card';
+export { StatusBadge, type BadgeStatus } from './StatusBadge';
+export { Sparkline, type SparkTone } from './Sparkline';
+export { KpiCard, useValueFlash, type Tone } from './KpiCard';
+export { DataTable, type Column, type DataTableProps } from './DataTable';
+export { Tabs, type TabItem } from './Tabs';
+export { Dialog, Drawer } from './Dialog';
+export { Tooltip, Banner, Skeleton, EmptyState, Kbd, ToastProvider, useToast } from './Feedback';
+export { TextField, TextArea, Select, Checkbox, Switch } from './Form';
+export { CopyButton, CodeBlock, JsonTree, HexDump, type HexAnnotation } from './Code';
+export { AlertItem } from './AlertItem';
 export { SettingsIcon, SearchIcon, ChevronDownIcon } from './icons';
 export { cx } from './cx';
+export { TimeSeriesChart, type ChartSeries, type SeriesColor } from './TimeSeriesChart';

@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, Ref } from 'react';
 import { cx } from './cx';
 import { SearchIcon } from './icons';
 
@@ -6,12 +6,14 @@ export interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> 
   /** Shortcut chip text; null hides it. */
   shortcut?: string | null;
   label?: string;
+  ref?: Ref<HTMLInputElement>;
 }
 
 export function SearchInput({
   shortcut = '⌘K',
   label = 'Search',
   className,
+  ref,
   ...rest
 }: SearchInputProps) {
   return (
@@ -24,6 +26,7 @@ export function SearchInput({
     >
       <SearchIcon />
       <input
+        ref={ref}
         type="search"
         aria-label={label}
         placeholder="Search topics, groups, offsets"

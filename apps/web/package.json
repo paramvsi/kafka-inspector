@@ -12,6 +12,7 @@
     "test": "vitest run lib"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "1.65.1",
     "@tailwindcss/postcss": "4",
     "@types/node": "22",
@@ -26,6 +27,7 @@
     "@ki/simulator": "workspace:*",
     "@ki/ui": "workspace:*",
     "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-virtual": "^3.14.26",
     "comlink": "4.4.2",
     "next": "16.4.6",
     "react": "19.3.1",

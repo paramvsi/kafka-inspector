@@ -22,6 +22,8 @@ export interface SidebarProps {
   version?: string;
   onSignOut?: () => void;
   linkAs?: LinkLike;
+  /** Cluster switcher menu (F-02), shown in a popover under the cluster button. */
+  clusterMenu?: ReactNode;
 }
 
 const statusDot = { connected: 'bg-ok', degraded: 'bg-warn', disconnected: 'bg-crit' };
@@ -35,6 +37,7 @@ export function Sidebar({
   version,
   onSignOut,
   linkAs,
+  clusterMenu,
 }: SidebarProps) {
   return (
     <nav
@@ -60,9 +63,10 @@ export function Sidebar({
         <div className="text-[14px] font-semibold">Kafka Inspector</div>
       </div>
 
-      {/* ponytail: F-02 placeholder — opens the cluster list once clusters exist (phase 2). */}
       <button
         type="button"
+        popoverTarget={clusterMenu ? 'ki-cluster-menu' : undefined}
+        aria-label={`Cluster ${cluster.name}, ${statusWord[cluster.status]}. Switch cluster`}
         className="mb-[14px] flex h-control-md cursor-pointer items-center gap-2 rounded-md border border-line bg-surface px-[10px] font-mono text-[11px] text-ink"
       >
         <span
@@ -76,6 +80,15 @@ export function Sidebar({
           <ChevronDownIcon />
         </span>
       </button>
+      {clusterMenu && (
+        <div
+          id="ki-cluster-menu"
+          popover="auto"
+          className="ki-popover ki-popover-left w-[260px] rounded-lg border border-line bg-surface p-2 text-[13px] text-ink [box-shadow:var(--shadow-popover)]"
+        >
+          {clusterMenu}
+        </div>
+      )}
 
       {sections.map((s, i) => (
         <div key={s.title} className="flex flex-col gap-[2px]">

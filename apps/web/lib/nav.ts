@@ -66,7 +66,6 @@ const CRUMBS: Record<string, { active?: string; crumb: string; parent?: string }
   '/app/chaos/': { active: 'chaos', crumb: 'Chaos panel' },
   '/app/clusters/': { active: 'clusters', crumb: 'Clusters' },
   '/app/self-host/': { active: 'selfhost', crumb: 'Run on your own Kafka' },
-  '/app/debug/': { crumb: 'Debug' },
 };
 
 /** Location for a pathname; tolerates a missing trailing slash (dev server) and unknown paths. */

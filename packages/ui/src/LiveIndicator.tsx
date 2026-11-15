@@ -14,7 +14,7 @@ export function LiveIndicator({ live, onToggle }: LiveIndicatorProps) {
       title={live ? 'Pause live updates' : 'Resume live updates'}
       className={cx(
         'flex cursor-pointer items-center gap-[6px] rounded-md border-none bg-transparent px-1 text-[12px] font-medium',
-        live ? 'text-ok' : 'text-ink-muted',
+        live ? 'text-ok-text' : 'text-ink-muted',
       )}
     >
       <span

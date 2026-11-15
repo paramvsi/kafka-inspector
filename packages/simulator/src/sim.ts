@@ -56,7 +56,8 @@ import {
 } from '@ki/core';
 import { checkCompatibility } from '@ki/core/schema-compat';
 import { History } from './history';
-import { generateMessage, isMalformed } from './messages';
+import { AvroType, fromDisplay } from '@ki/core/avro';
+import { frame, generateMessage, isMalformed } from './messages';
 import {
   BROKERS,
   CLUSTER,
@@ -864,10 +865,8 @@ export class Simulator {
     for (const [name, ps] of this.parts) {
       const def = ps[0]!.def;
       if (def.internal) continue;
-      const shares = this.shares(def);
-      const max = Math.max(...shares);
-      if (def.partitions > 1 && max > 0.25) {
-        const p = shares.indexOf(max);
+      const { max, p, flagged } = skewOf(this.shares(def));
+      if (flagged) {
         items.push({
           id: `skew-${name}`,
           severity: 'info',
@@ -1761,9 +1760,14 @@ export class Simulator {
     const first = Math.floor(s.end);
     for (let i = 0; i < count; i++) {
       const offset = first + i;
-      const value = enc.encode(
-        count > 1 ? req.value.replaceAll('{{i}}', String(i + 1)) : req.value,
-      );
+      const text = count > 1 ? req.value.replaceAll('{{i}}', String(i + 1)) : req.value;
+      let value: Uint8Array = enc.encode(text);
+      // Avro topics get real Confluent-framed Avro so produced messages decode like the rest.
+      if (req.valueFormat === 'avro' && s.def.subject) {
+        const schema = registry.getSchema(s.def.subject, 'latest')!;
+        const type = AvroType.parse(schema.schema);
+        value = frame(schema.id, type.encode(fromDisplay(type.schema, JSON.parse(text))));
+      }
       const key = req.key ? enc.encode(req.key) : null;
       const headers = (req.headers ?? []).map((h) => ({ key: h.key, value: enc.encode(h.value) }));
       this.produced.set(`${req.topic}:${partition}:${offset}`, {
@@ -2068,6 +2072,12 @@ export class Simulator {
 }
 
 // ───────────────────────────── module helpers ─────────────────────────────
+
+/** Skew: the hottest partition carries more than twice its fair share. */
+function skewOf(shares: number[]): { max: number; p: number; flagged: boolean } {
+  const max = Math.max(...shares);
+  return { max, p: shares.indexOf(max), flagged: shares.length > 2 && max > 2 / shares.length };
+}
 
 const STATUS_CODE: Record<LagStatus, number> = {
   healthy: 0,

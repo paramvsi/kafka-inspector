@@ -73,6 +73,7 @@ export class AvroType {
         case 'null':
           return;
         case 'boolean':
+          if (typeof v !== 'boolean') throw new AvroError(`invalid boolean: ${JSON.stringify(v)}`);
           out.push(v ? 1 : 0);
           return;
         case 'int':
@@ -80,15 +81,17 @@ export class AvroType {
           if (!Number.isInteger(v)) throw new AvroError(`invalid ${s}: ${v}`);
           return writeLong(v, out);
         case 'float':
-          return pushBytes(out, numBytes(4, v));
         case 'double':
-          return pushBytes(out, numBytes(8, v));
+          if (typeof v !== 'number') throw new AvroError(`invalid ${s}: ${JSON.stringify(v)}`);
+          return pushBytes(out, numBytes(s === 'float' ? 4 : 8, v));
         case 'string': {
+          if (typeof v !== 'string') throw new AvroError(`invalid string: ${JSON.stringify(v)}`);
           const b = te.encode(v);
           writeLong(b.length, out);
           return pushBytes(out, b);
         }
         case 'bytes':
+          if (!(v instanceof Uint8Array)) throw new AvroError('invalid bytes');
           writeLong(v.length, out);
           return pushBytes(out, v);
         default:
@@ -306,4 +309,97 @@ function numBytes(n: 4 | 8, v: number): Uint8Array {
 
 function pushBytes(out: number[], b: Uint8Array): void {
   for (let i = 0; i < b.length; i++) out.push(b[i]!);
+}
+
+// ─── helpers for producing from the UI ───
+
+/** Display JSON → encodable value: ISO strings become epoch millis for timestamp-millis fields. */
+export function fromDisplay(schema: AvroSchema, v: Value): Value {
+  if (v === null || v === undefined) return v;
+  if (Array.isArray(schema)) {
+    if (v === null) return null;
+    const branch = schema.find((b: AvroSchema) => b !== 'null');
+    return fromDisplay(branch, v);
+  }
+  if (schema && typeof schema === 'object') {
+    if (schema.logicalType === 'timestamp-millis' && typeof v === 'string') {
+      const t = Date.parse(v);
+      if (Number.isNaN(t)) throw new AvroError(`"${v}" is not a valid timestamp`);
+      return t;
+    }
+    if (schema.type === 'record')
+      return Object.fromEntries(
+        schema.fields.map((f: { name: string; type: AvroSchema }) => [
+          f.name,
+          fromDisplay(f.type, v[f.name]),
+        ]),
+      );
+    if (schema.type === 'array') return (v as Value[]).map((x) => fromDisplay(schema.items, x));
+    if (typeof schema.type === 'object') return fromDisplay(schema.type, v);
+  }
+  return v;
+}
+
+/** Random but valid value for a schema ("Generate from schema"). Uses field names for realistic strings. */
+export function randomValue(schema: AvroSchema, rnd: () => number = Math.random, name = ''): Value {
+  if (Array.isArray(schema))
+    return rnd() < 0.2 && schema.includes('null')
+      ? null
+      : randomValue(
+          schema.find((b: AvroSchema) => b !== 'null'),
+          rnd,
+          name,
+        );
+  if (typeof schema === 'object' && schema !== null) {
+    if (schema.logicalType === 'timestamp-millis')
+      return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    switch (schema.type) {
+      case 'record':
+        return Object.fromEntries(
+          schema.fields.map((f: { name: string; type: AvroSchema }) => [
+            f.name,
+            randomValue(f.type, rnd, f.name),
+          ]),
+        );
+      case 'enum':
+        return schema.symbols[Math.floor(rnd() * schema.symbols.length)];
+      case 'array':
+        return Array.from({ length: 1 + Math.floor(rnd() * 2) }, () =>
+          randomValue(schema.items, rnd, name),
+        );
+      case 'map':
+        return { a: randomValue(schema.values, rnd, name) };
+      default:
+        return randomValue(schema.type, rnd, name);
+    }
+  }
+  const id = () =>
+    Math.floor(rnd() * 0xfffff)
+      .toString(16)
+      .padStart(5, '0');
+  switch (schema) {
+    case 'string': {
+      const n = name.toLowerCase();
+      if (n.endsWith('id')) return `${n.replace(/id$/, '').slice(0, 3) || 'id'}_${id()}`;
+      if (n.includes('email')) return `test.user${Math.floor(rnd() * 900 + 100)}@example.com`;
+      if (n.includes('currency')) return ['EUR', 'AED', 'GBP', 'USD'][Math.floor(rnd() * 4)];
+      if (n.includes('status')) return ['PAID', 'PENDING', 'SHIPPED'][Math.floor(rnd() * 3)];
+      if (n.includes('sku')) return `SKU-${String(Math.floor(rnd() * 9999)).padStart(4, '0')}`;
+      if (n.includes('at') || n.includes('time')) return new Date().toISOString();
+      return `${n || 'value'}-${id()}`;
+    }
+    case 'int':
+      return 1 + Math.floor(rnd() * 5);
+    case 'long':
+      return Math.floor(rnd() * 1e6);
+    case 'float':
+    case 'double':
+      return Math.round(rnd() * 200000) / 100;
+    case 'boolean':
+      return rnd() < 0.5;
+    case 'null':
+      return null;
+    default:
+      return null;
+  }
 }
