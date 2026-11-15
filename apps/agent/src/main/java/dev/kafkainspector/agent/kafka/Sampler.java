@@ -1,0 +1,351 @@
+package dev.kafkainspector.agent.kafka;
+
+import dev.kafkainspector.agent.alerts.AlertService;
+import dev.kafkainspector.agent.api.Dto;
+import dev.kafkainspector.agent.config.Clusters;
+import dev.kafkainspector.agent.config.KiProperties;
+import dev.kafkainspector.agent.history.HistoryRepository;
+import dev.kafkainspector.agent.lag.Lag;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.admin.*;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.GroupType;
+import org.apache.kafka.common.Node;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionInfo;
+import org.apache.kafka.common.config.ConfigResource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+/**
+ * Samples every cluster on KI_SAMPLE_INTERVAL: metadata, watermarks, group offsets. Keeps the lag windows,
+ * evaluates the shared lag rules, records history and runs the alert evaluator.
+ * Kafka's Admin API has no commit timestamps: a frozen offset in a group with members counts as "still committing"
+ * (→ Stalled); in an Empty group it counts as no commits (→ Stopped). Documented in AGENT_API.md.
+ */
+@Component
+public class Sampler {
+    private static final Logger log = LoggerFactory.getLogger(Sampler.class);
+    private final Clusters clusters;
+    private final KafkaService kafka;
+    private final HistoryRepository history;
+    private final AlertService alerts;
+    private final KiProperties props;
+    private final Map<String, ClusterState> states = new ConcurrentHashMap<>();
+    private final List<java.util.function.BiConsumer<String, ClusterState>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private int tick;
+
+    public Sampler(Clusters clusters, KafkaService kafka, HistoryRepository history, AlertService alerts, KiProperties props) {
+        this.clusters = clusters;
+        this.kafka = kafka;
+        this.history = history;
+        this.alerts = alerts;
+        this.props = props;
+        clusters.all().keySet().forEach(id -> states.put(id, new ClusterState()));
+    }
+
+    public ClusterState state(String cid) {
+        clusters.get(cid);
+        return states.get(cid);
+    }
+
+    public Map<String, ClusterState> states() {
+        return states;
+    }
+
+    public void onSample(java.util.function.BiConsumer<String, ClusterState> l) {
+        listeners.add(l);
+    }
+
+    @Scheduled(fixedDelayString = "${ki.sample-interval:10s}", initialDelay = 0)
+    public void sampleAll() {
+        tick++;
+        for (String cid : clusters.all().keySet()) {
+            ClusterState s = states.get(cid);
+            try {
+                sample(cid, s);
+                s.connected = true;
+                s.error = null;
+            } catch (Exception e) {
+                if (s.connected || s.error == null) log.warn("Cluster {} unreachable: {}", cid, rootMessage(e));
+                s.connected = false;
+                s.error = rootMessage(e);
+                kafka.reset(cid);
+            }
+            listeners.forEach(l -> l.accept(cid, s));
+        }
+    }
+
+    static String rootMessage(Throwable e) {
+        Throwable t = e;
+        while (t.getCause() != null) t = t.getCause();
+        return t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+    }
+
+    private void sample(String cid, ClusterState s) throws Exception {
+        Admin admin = kafka.admin(cid);
+        long now = System.currentTimeMillis();
+        long dtMs = s.ts == 0 ? 0 : now - s.ts;
+
+        DescribeClusterResult dc = admin.describeCluster();
+        Collection<Node> nodes = dc.nodes().get(20, TimeUnit.SECONDS);
+        Node controller = dc.controller().get(20, TimeUnit.SECONDS);
+        Set<Integer> online = new HashSet<>();
+        nodes.forEach(n -> online.add(n.id()));
+
+        Set<String> names = admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get(20, TimeUnit.SECONDS);
+        Map<String, TopicDescription> desc = names.isEmpty() ? Map.of() : admin.describeTopics(names).allTopicNames().get(30, TimeUnit.SECONDS);
+        Map<TopicPartition, OffsetSpec> latest = new HashMap<>(), earliest = new HashMap<>();
+        desc.values().forEach(d -> d.partitions().forEach(p -> {
+            TopicPartition tp = new TopicPartition(d.name(), p.partition());
+            latest.put(tp, OffsetSpec.latest());
+            earliest.put(tp, OffsetSpec.earliest());
+        }));
+        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> hi = latest.isEmpty() ? Map.of() : admin.listOffsets(latest).all().get(30, TimeUnit.SECONDS);
+        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> lo = earliest.isEmpty() ? Map.of() : admin.listOffsets(earliest).all().get(30, TimeUnit.SECONDS);
+
+        // broker disks + partition sizes every 6th sample (describeLogDirs is heavy)
+        Map<Integer, long[]> disks = new HashMap<>();
+        Map<TopicPartition, Long> sizes = new HashMap<>();
+        if (tick % 6 == 1 || s.ts == 0) {
+            try {
+                Map<Integer, Map<String, LogDirDescription>> dirs = admin.describeLogDirs(online).allDescriptions().get(30, TimeUnit.SECONDS);
+                dirs.forEach((b, m) -> {
+                    long used = 0, total = 0;
+                    for (LogDirDescription ld : m.values()) {
+                        for (var e : ld.replicaInfos().entrySet()) {
+                            used += e.getValue().size();
+                            sizes.merge(e.getKey(), e.getValue().size(), Math::max);
+                        }
+                        total += ld.totalBytes().orElse(0);
+                    }
+                    disks.put(b, new long[] {used, total});
+                });
+            } catch (Exception e) {
+                log.debug("describeLogDirs failed: {}", e.getMessage());
+            }
+        }
+        // topic configs every 30th sample
+        Map<String, Map<String, String>> configs = new HashMap<>();
+        if ((tick % 30 == 1 || s.ts == 0) && !names.isEmpty()) {
+            List<ConfigResource> rs = names.stream().map(n -> new ConfigResource(ConfigResource.Type.TOPIC, n)).toList();
+            admin.describeConfigs(rs).all().get(30, TimeUnit.SECONDS).forEach((r, cfg) -> {
+                Map<String, String> m = new HashMap<>();
+                cfg.entries().forEach(e -> { if (!e.isDefault() || Set.of("retention.ms", "min.insync.replicas", "cleanup.policy").contains(e.name())) m.put(e.name(), e.value()); });
+                configs.put(r.name(), m);
+            });
+        }
+
+        // ── topics ──
+        Map<String, ClusterState.TopicSnap> topics = new TreeMap<>();
+        double msgsIn = 0;
+        for (TopicDescription d : desc.values()) {
+            ClusterState.TopicSnap prev = s.topics.get(d.name());
+            ClusterState.TopicSnap t = new ClusterState.TopicSnap();
+            t.name = d.name();
+            t.internal = d.isInternal() || d.name().startsWith("_");
+            t.configs = configs.getOrDefault(d.name(), prev == null ? Map.of() : prev.configs);
+            for (TopicPartitionInfo p : d.partitions()) {
+                TopicPartition tp = new TopicPartition(d.name(), p.partition());
+                ClusterState.PartSnap ps = new ClusterState.PartSnap();
+                ps.partition = p.partition();
+                ps.leader = p.leader() == null || p.leader().isEmpty() ? null : p.leader().id();
+                p.replicas().forEach(r -> ps.replicas.add(r.id()));
+                p.isr().forEach(r -> ps.isr.add(r.id()));
+                ps.high = hi.containsKey(tp) ? hi.get(tp).offset() : 0;
+                ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : 0;
+                ClusterState.PartSnap pp = prev == null ? null : prev.partitions.stream().filter(x -> x.partition == p.partition()).findFirst().orElse(null);
+                ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
+                ps.lastMessageAt = pp == null ? (hi.containsKey(tp) ? hi.get(tp).timestamp() : 0) : ps.high > pp.high ? now : pp.lastMessageAt;
+                ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? 0 : pp.sizeBytes);
+                if (pp != null && pp.isr.size() != ps.isr.size()) {
+                    boolean shrink = ps.isr.size() < pp.isr.size();
+                    event(s, now, shrink ? "isr-shrink" : "isr-expand", shrink ? "warn" : "info", (shrink ? "ISR shrank on " : "ISR expanded on ") + d.name() + "-" + p.partition(), "ISR " + ps.isr);
+                }
+                t.partitions.add(ps);
+            }
+            t.partitions.sort(Comparator.comparingInt(x -> x.partition));
+            if (!t.internal) msgsIn += t.rate();
+            topics.put(t.name, t);
+        }
+
+        // ── brokers ──
+        List<ClusterState.BrokerSnap> brokers = new ArrayList<>();
+        Set<Integer> known = new TreeSet<>(online);
+        s.brokers.forEach(b -> known.add(b.id()));
+        topics.values().forEach(t -> t.partitions.forEach(p -> known.addAll(p.replicas)));
+        for (int id : known) {
+            Node n = nodes.stream().filter(x -> x.id() == id).findFirst().orElse(null);
+            ClusterState.BrokerSnap prev = s.brokers.stream().filter(b -> b.id() == id).findFirst().orElse(null);
+            long[] disk = disks.get(id);
+            brokers.add(new ClusterState.BrokerSnap(id, n != null ? n.host() : prev != null ? prev.host() : "broker-" + id, n != null ? n.port() : prev != null ? prev.port() : 9092, n != null ? n.rack() : prev != null ? prev.rack() : null, online.contains(id),
+                    disk != null ? disk[0] : prev != null ? prev.diskUsed() : null, disk != null && disk[1] > 0 ? disk[1] : prev != null ? prev.diskTotal() : null));
+            if (prev != null && prev.online() != online.contains(id)) event(s, now, online.contains(id) ? "broker-up" : "broker-down", online.contains(id) ? "info" : "crit", "Broker " + id + (online.contains(id) ? " is back" : " is down"), null);
+        }
+
+        // ── groups ──
+        Map<String, ClusterState.GroupSnap> groups = new TreeMap<>();
+        Collection<GroupListing> listings = admin.listGroups(new ListGroupsOptions()).all().get(20, TimeUnit.SECONDS);
+        List<String> consumerIds = new ArrayList<>(), shareIds = new ArrayList<>();
+        for (GroupListing g : listings) {
+            String type = g.type().map(x -> x.toString().toLowerCase()).orElse("unknown");
+            if (g.groupId().startsWith("kafka-inspector")) continue;
+            // classic groups also carry Schema Registry ("sr") and Connect ("connect") coordination: not consumer groups
+            if (g.type().orElse(null) == GroupType.CLASSIC && !g.protocol().isEmpty() && !"consumer".equals(g.protocol())) continue;
+            ClusterState.GroupSnap gs = new ClusterState.GroupSnap();
+            gs.groupId = g.groupId();
+            gs.type = type;
+            gs.state = g.groupState().map(Sampler::stateName).orElse("Unknown");
+            groups.put(gs.groupId, gs);
+            if (g.type().isEmpty() || g.type().get() == GroupType.CLASSIC || g.type().get() == GroupType.CONSUMER) consumerIds.add(gs.groupId);
+            else if (g.type().get() == GroupType.SHARE) shareIds.add(gs.groupId);
+        }
+        if (!consumerIds.isEmpty()) {
+            Map<String, ConsumerGroupDescription> described = new HashMap<>();
+            admin.describeConsumerGroups(consumerIds).describedGroups().forEach((id, f) -> {
+                try {
+                    described.put(id, f.get(20, TimeUnit.SECONDS));
+                } catch (Exception e) {
+                    groups.remove(id); // one odd group must not fail the whole sample
+                    log.debug("describe {} failed: {}", id, e.getMessage());
+                }
+            });
+            consumerIds.retainAll(described.keySet());
+            described.forEach((id, d) -> {
+                ClusterState.GroupSnap gs = groups.get(id);
+                gs.state = stateName(d.groupState());
+                if (d.type() != null) gs.type = d.type().toString().toLowerCase();
+                d.members().forEach(m -> {
+                    ClusterState.MemberSnap ms = new ClusterState.MemberSnap();
+                    ms.memberId = m.consumerId();
+                    ms.clientId = m.clientId();
+                    ms.host = m.host().replaceFirst("^/", "");
+                    m.assignment().topicPartitions().forEach(tp -> ms.assignments.add(new String[] {tp.topic(), String.valueOf(tp.partition())}));
+                    gs.members.add(ms);
+                });
+            });
+            Map<String, ListConsumerGroupOffsetsSpec> spec = new HashMap<>();
+            consumerIds.forEach(id -> spec.put(id, new ListConsumerGroupOffsetsSpec()));
+            ListConsumerGroupOffsetsResult offs = admin.listConsumerGroupOffsets(spec);
+            for (String id : consumerIds) {
+                Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(20, TimeUnit.SECONDS);
+                ClusterState.GroupSnap gs = groups.get(id);
+                m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
+            }
+        }
+        if (!shareIds.isEmpty()) {
+            admin.describeShareGroups(shareIds).all().get(20, TimeUnit.SECONDS).forEach((id, d) -> {
+                ClusterState.GroupSnap gs = groups.get(id);
+                gs.state = stateName(d.groupState());
+                d.members().forEach(m -> {
+                    ClusterState.MemberSnap ms = new ClusterState.MemberSnap();
+                    ms.memberId = m.consumerId();
+                    ms.clientId = m.clientId();
+                    ms.host = m.host().replaceFirst("^/", "");
+                    m.assignment().topicPartitions().forEach(tp -> ms.assignments.add(new String[] {tp.topic(), String.valueOf(tp.partition())}));
+                    gs.members.add(ms);
+                });
+            });
+        }
+
+        // ── lag windows and rules ──
+        double msgsOut = 0;
+        long windowMs = props.sampleInterval().toMillis() * props.lagWindow();
+        for (ClusterState.GroupSnap gs : groups.values()) {
+            ClusterState.GroupSnap prev = s.groups.get(gs.groupId);
+            if (prev != null && !Objects.equals(prev.state, gs.state) && gs.state.contains("Rebalance")) event(s, now, "rebalance", "info", gs.groupId + " rebalancing", gs.members.size() + " members");
+            List<Lag.Status> statuses = new ArrayList<>();
+            List<Lag.Part> parts = new ArrayList<>();
+            long lastCommit = 0;
+            for (var te : gs.committed.entrySet()) {
+                ClusterState.TopicSnap t = topics.get(te.getKey());
+                if (t == null) continue;
+                for (var pe : te.getValue().entrySet()) {
+                    ClusterState.PartSnap ps = t.partitions.stream().filter(x -> x.partition == pe.getKey()).findFirst().orElse(null);
+                    if (ps == null) continue;
+                    String key = gs.groupId + "|" + te.getKey() + "|" + pe.getKey();
+                    Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new ArrayDeque<>());
+                    Lag.Sample last = w.peekLast();
+                    if (last == null || !Objects.equals(last.committed(), pe.getValue())) s.lastChange.put(key, now);
+                    if (last != null && dtMs > 0 && last.committed() != null) msgsOut += Math.max(0, pe.getValue() - last.committed()) * 1000.0 / dtMs;
+                    w.addLast(new Lag.Sample(now, pe.getValue(), ps.high));
+                    while (w.size() > props.lagWindow()) w.removeFirst();
+                    long changed = s.lastChange.getOrDefault(key, now);
+                    long lastCommitAt = gs.members.isEmpty() ? changed : now;
+                    lastCommit = Math.max(lastCommit, lastCommitAt);
+                    Lag.Status st = Lag.evaluate(List.copyOf(w), lastCommitAt, now, windowMs);
+                    gs.partStatus.put(te.getKey() + "|" + pe.getKey(), st);
+                    statuses.add(st);
+                    parts.add(new Lag.Part(Math.max(0, ps.high - pe.getValue()), Lag.forecast(List.copyOf(w))));
+                }
+            }
+            gs.lastCommitAt = lastCommit;
+            gs.status = Lag.rollup(statuses);
+            gs.forecast = gs.type.equals("share") ? Lag.Forecast.of("unknown") : Lag.combine(parts);
+            if (prev != null && prev.status != gs.status && (gs.status == Lag.Status.stalled || gs.status == Lag.Status.stopped)) event(s, now, "chaos", "crit", gs.groupId + " " + gs.status, null);
+        }
+
+        s.ts = now;
+        s.controller = controller == null ? null : controller.id();
+        s.brokers = brokers;
+        s.topics = topics;
+        s.groups = groups;
+        s.messagesIn = msgsIn;
+        s.messagesOut = msgsOut;
+        s.bytesIn = topics.values().stream().filter(t -> !t.internal).flatMap(t -> t.partitions.stream()).mapToDouble(p -> p.rate * (p.high > p.low && p.sizeBytes > 0 ? (double) p.sizeBytes / (p.high - p.low) : 0)).sum();
+        record(cid, s, now);
+    }
+
+    private void record(String cid, ClusterState s, long now) {
+        List<HistoryRepository.Row> rows = new ArrayList<>();
+        rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesIn", now, s.messagesIn));
+        rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesOut", now, s.messagesOut));
+        rows.add(new HistoryRepository.Row(cid, "cluster", "", "bytesIn", now, s.bytesIn));
+        long total = 0;
+        int urp = 0;
+        for (ClusterState.TopicSnap t : s.topics.values()) {
+            rows.add(new HistoryRepository.Row(cid, "topic", t.name, "messagesIn", now, t.rate()));
+            for (ClusterState.PartSnap p : t.partitions) {
+                rows.add(new HistoryRepository.Row(cid, "partition", t.name + "-" + p.partition, "endOffset", now, p.high));
+                if (p.isr.size() < p.replicas.size()) urp++;
+            }
+        }
+        for (ClusterState.GroupSnap g : s.groups.values()) {
+            long lag = Views.groupLag(s, g);
+            rows.add(new HistoryRepository.Row(cid, "group", g.groupId, "lag", now, lag));
+            if (!g.type.equals("share") && !g.members.isEmpty()) total += lag;
+        }
+        rows.add(new HistoryRepository.Row(cid, "cluster", "", "lag", now, total));
+        rows.add(new HistoryRepository.Row(cid, "cluster", "", "underReplicated", now, urp));
+        s.totalLagPrev = total;
+        history.insert(rows);
+        alerts.evaluate(cid, s, now);
+    }
+
+    private static String stateName(Object st) {
+        if (st == null) return "Unknown";
+        String n = st.toString().toLowerCase();
+        return switch (n) {
+            case "stable" -> "Stable";
+            case "empty" -> "Empty";
+            case "dead" -> "Dead";
+            case "preparing_rebalance", "preparingrebalance" -> "PreparingRebalance";
+            case "completing_rebalance", "completingrebalance" -> "CompletingRebalance";
+            case "assigning" -> "Assigning";
+            case "reconciling" -> "Reconciling";
+            default -> "Unknown";
+        };
+    }
+
+    static void event(ClusterState s, long now, String kind, String severity, String title, String detail) {
+        synchronized (s.events) {
+            s.events.addFirst(new Dto.ClusterEvent("ev_" + Long.toString(now, 36) + "_" + Integer.toString(Math.abs(title.hashCode()), 36), Instant.ofEpochMilli(now).toString(), kind, severity, title, detail));
+            while (s.events.size() > 200) s.events.removeLast();
+        }
+    }
+}

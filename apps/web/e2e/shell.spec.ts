@@ -11,7 +11,7 @@ const NAV = [
   ['Alerts', '/app/alerts/', 'Alerts'],
   ['Chaos panel', '/app/chaos/', 'Chaos panel'],
   ['Clusters', '/app/clusters/', 'Clusters'],
-  ['Run on your Kafka', '/app/self-host/', 'Run on your own Kafka'],
+  ['Run on your Kafka', '/app/self-host/', 'Run on your own Kafka', 'Run Kafka Inspector on your own Kafka'],
 ] as const;
 
 test('static export contains the shell and the query-param detail routes', () => {
@@ -27,10 +27,10 @@ test('static export contains the shell and the query-param detail routes', () =>
 test('every sidebar item navigates to its stub and marks itself current', async ({ page }) => {
   await page.goto('/app/brokers/');
   const nav = page.getByRole('navigation', { name: 'Main' });
-  for (const [label, path, title] of NAV) {
+  for (const [label, path, title, heading = title] of NAV as ReadonlyArray<readonly [string, string, string, string?]>) {
     await nav.getByRole('link', { name: new RegExp(`^${label}( \\d+)?$`) }).click();
     await expect(page).toHaveURL(path);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading);
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(
       'aria-current',
       'page',

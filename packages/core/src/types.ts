@@ -244,6 +244,15 @@ export interface Series {
 }
 
 export type StreamChannel = 'metrics' | 'lag' | 'events' | 'alerts';
+export interface ConnectionState {
+  state: 'connected' | 'reconnecting';
+  /** epoch ms when the connection was lost */
+  since?: number;
+  attempt?: number;
+  maxAttempts?: number;
+  /** epoch ms of the next attempt */
+  nextAt?: number;
+}
 export type Unsubscribe = () => void;
 
 export interface ClusterEvent {
@@ -525,6 +534,11 @@ export interface KafkaClient {
     ): Promise<ResetPreview>;
     deleteGroup(clusterId: string, groupId: string): Promise<void>;
   };
+
+  /** Connection state for live data (agent mode: WebSocket with reconnect back-off). */
+  onConnection?(cb: (c: ConnectionState) => void): Unsubscribe;
+  /** Ends the session (agent mode). */
+  signOut?(): Promise<void>;
 
   /** Demo only. */
   chaos?: {

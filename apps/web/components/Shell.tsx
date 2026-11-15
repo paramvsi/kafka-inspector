@@ -1,9 +1,17 @@
 'use client';
-import type { Overview } from '@ki/core';
+import type { ConnectionState, Overview } from '@ki/core';
 import { Sidebar, Skeleton, ToastProvider, Topbar } from '@ki/ui';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AlertWatcher, Bell } from './AlertWatcher';
 import { GuidedTour } from './Tour';
 import { CommandPalette } from './CommandPalette';
@@ -98,9 +106,48 @@ export function PageSkeleton() {
   );
 }
 
-function Chrome({ children }: { children: ReactNode }) {
-  const { info } = useKafka();
+const ConnectionCtx = createContext<ConnectionState>({ state: 'connected' });
+/** Live-data connection (agent WebSocket). `?preview=disconnected` simulates a lost connection on the demo. */
+export function useConnection(): ConnectionState {
+  const real = useContext(ConnectionCtx);
   const { preview } = useApp();
+  return preview === 'disconnected'
+    ? {
+        state: 'reconnecting',
+        since: Date.now() - 23_000,
+        attempt: 3,
+        maxAttempts: 10,
+        nextAt: Date.now() + 5000,
+      }
+    : real;
+}
+
+function Chrome({ children }: { children: ReactNode }) {
+  const { info, client } = useKafka();
+  const { preview } = useApp();
+  const [real, setReal] = useState<ConnectionState>({ state: 'connected' });
+  useEffect(() => client.onConnection?.(setReal), [client]);
+  return (
+    <ConnectionCtx.Provider value={real}>
+      <ChromeInner info={info} preview={preview}>
+        {children}
+      </ChromeInner>
+    </ConnectionCtx.Provider>
+  );
+}
+
+function ChromeInner({
+  children,
+  info,
+  preview,
+}: {
+  children: ReactNode;
+  info: ReturnType<typeof useKafka>['info'];
+  preview: ReturnType<typeof useApp>['preview'];
+}) {
+  const { client } = useKafka();
+  const connection = useConnection();
+  const lost = connection.state === 'reconnecting';
   const overview = useStream<Overview>('metrics');
   const [palette, setPalette] = useState<{ open: boolean; initial?: string }>({ open: false });
   const openPalette = useCallback((initial?: string) => setPalette({ open: true, initial }), []);
@@ -120,7 +167,12 @@ function Chrome({ children }: { children: ReactNode }) {
   return (
     <Frame
       mode={mode}
-      cluster={preview === 'disconnected' ? { ...cluster, status: 'disconnected' } : cluster}
+      cluster={lost ? { ...cluster, status: 'disconnected' } : cluster}
+      onSignOut={
+        client.signOut
+          ? () => client.signOut!().finally(() => location.assign('/app/sign-in/'))
+          : undefined
+      }
       counts={counts}
       version={info.version}
       onSearchOpen={openPalette}
@@ -129,7 +181,7 @@ function Chrome({ children }: { children: ReactNode }) {
         <ClusterMenu clusters={info.clusters} saved={info.mode === 'demo' ? saved : []} />
       }
     >
-      {preview === 'disconnected' && <DisconnectedBanner cluster={cluster.name} />}
+      {lost && <DisconnectedBanner cluster={cluster.name} connection={connection} />}
       {children}
       <AlertWatcher />
       {info.mode === 'demo' && <GuidedTour />}
@@ -152,8 +204,10 @@ function Frame({
   onSearchOpen,
   clusterMenu,
   bell,
+  onSignOut,
 }: {
   bell?: ReactNode;
+  onSignOut?: () => void;
   mode: Mode;
   cluster: { name: string; status: 'connected' | 'degraded' | 'disconnected' };
   counts?: { brokers: number; topics: number; groups: number; alerts: number };
@@ -184,11 +238,7 @@ function Frame({
         version={version}
         linkAs={Link}
         clusterMenu={clusterMenu}
-        onSignOut={() =>
-          fetch('/api/auth/logout', { method: 'POST' }).finally(() =>
-            location.assign('/app/sign-in/'),
-          )
-        }
+        onSignOut={onSignOut}
       />
       <div className="flex min-w-0 grow flex-col">
         <Topbar
@@ -197,7 +247,7 @@ function Frame({
           crumb={crumb}
           range={range}
           onRange={setRange}
-          live={live && preview !== 'disconnected'}
+          live={live && preview !== 'disconnected' && cluster.status !== 'disconnected'}
           onLiveToggle={() => setLive(!live)}
           actions={
             <>

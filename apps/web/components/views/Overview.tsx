@@ -25,7 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
-import { BootStatus, PageSkeleton } from '../Shell';
+import { BootStatus, PageSkeleton, useConnection } from '../Shell';
 
 export function OverviewView() {
   const { preview, range } = useApp();
@@ -66,7 +66,7 @@ export function OverviewView() {
     );
   }
 
-  const stale = preview === 'disconnected';
+  const stale = useConnection().state === 'reconnecting';
   const k = data.kpis;
   const pct = (now: number, then?: number) => (then ? ((now - then) / then) * 100 : undefined);
   const dm = pct(k.messagesInPerSec, hourAgo.data?.m);

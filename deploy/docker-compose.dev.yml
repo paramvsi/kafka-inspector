@@ -1,0 +1,81 @@
+# Local development: Kafka 4.1 (KRaft) + Schema Registry + a small traffic generator + the agent.
+#   docker compose -f deploy/docker-compose.dev.yml up --build
+# Then open http://localhost:8080 and sign in as admin / dev-password (override with KI_ADMIN_PASSWORD).
+services:
+  kafka:
+    image: apache/kafka:4.1.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # EXTERNAL for tools on the host; DOCKERHOST for other compose projects (e.g. a generated docker-compose.yml)
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092,DOCKERHOST://:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092,DOCKERHOST://host.docker.internal:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKERHOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - '29092:29092'
+      - '29093:29093'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1',
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.0.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - '8081:8081'
+
+  loadgen:
+    image: apache/kafka:4.1.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./loadgen:/loadgen:ro
+    entrypoint: ['/bin/bash', '/loadgen/run.sh']
+
+  agent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: ghcr.io/paramvsi/kafka-inspector:dev
+    depends_on:
+      kafka:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      KI_ADMIN_PASSWORD: ${KI_ADMIN_PASSWORD:-dev-password}
+      KI_CLUSTERS_0_NAME: local
+      KI_CLUSTERS_0_BOOTSTRAP: kafka:9092
+      KI_CLUSTERS_0_SCHEMA_REGISTRY: http://schema-registry:8081
+      KI_SAMPLE_INTERVAL: 5s
+    ports:
+      - '8080:8080'
+    volumes:
+      - ki-data:/data
+
+volumes:
+  ki-data:

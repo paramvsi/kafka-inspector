@@ -1,0 +1,160 @@
+package dev.kafkainspector.agent.alerts;
+
+import dev.kafkainspector.agent.kafka.ClusterState;
+import dev.kafkainspector.agent.kafka.Views;
+import dev.kafkainspector.agent.lag.Lag;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+/** Alert rules and evaluator (F-80…F-83): the simulator's rule model and conditions. App data — allowed read-only. */
+@Service
+public class AlertService {
+    private static final Set<String> METRICS = Set.of("lag", "group-status", "topic-silent", "under-replicated", "broker-offline", "dlq-receiving");
+    private final JdbcTemplate jdbc;
+    private final Map<String, Long> pending = new ConcurrentHashMap<>();
+
+    public AlertService(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public record Scope(String kind, String target) {}
+
+    public record Rule(String id, String name, String metric, Scope scope, Double threshold, int durationSec, String severity, List<String> channels, boolean enabled, Boolean muted, String state) {}
+
+    public record Event(String id, String ruleId, String severity, String title, String evidence, String target, String href, String state, String firedAt, String resolvedAt, String mutedUntil, Boolean acknowledged) {}
+
+    public List<Rule> rules() {
+        return jdbc.query("SELECT * FROM alert_rule WHERE deleted = FALSE ORDER BY id", (rs, i) -> new Rule(rs.getString("id"), rs.getString("name"), rs.getString("metric"), new Scope(rs.getString("scope_kind"), rs.getString("scope_target")),
+                rs.getObject("threshold") == null ? null : rs.getDouble("threshold"), rs.getInt("duration_sec"), rs.getString("severity"), List.of(rs.getString("channels").split(",")), rs.getBoolean("enabled"), rs.getBoolean("muted"), stateOf(rs.getString("id"))));
+    }
+
+    private String stateOf(String ruleId) {
+        Integer firing = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE rule_id = ? AND state = 'firing'", Integer.class, ruleId);
+        if (firing != null && firing > 0) return "firing";
+        return pending.keySet().stream().anyMatch(k -> k.contains("|" + ruleId + "|")) ? "pending" : "ok";
+    }
+
+    public Rule save(Rule r) {
+        if (r.name() == null || r.name().isBlank()) throw new IllegalArgumentException("Give the rule a name.");
+        if (!METRICS.contains(r.metric())) throw new IllegalArgumentException("Unknown metric " + r.metric() + ". Use one of " + METRICS + ".");
+        if (r.durationSec() < 0) throw new IllegalArgumentException("Duration can't be negative.");
+        String id = r.id() == null || r.id().isBlank() ? "r_" + Long.toString(System.currentTimeMillis(), 36) : r.id();
+        String scopeKind = r.scope() == null ? "any" : r.scope().kind();
+        String scopeTarget = r.scope() == null ? null : r.scope().target();
+        String channels = String.join(",", r.channels() == null || r.channels().isEmpty() ? List.of("in-app") : r.channels());
+        int updated = jdbc.update("UPDATE alert_rule SET name = ?, metric = ?, scope_kind = ?, scope_target = ?, threshold = ?, duration_sec = ?, severity = ?, channels = ?, enabled = ?, muted = ?, deleted = FALSE WHERE id = ?",
+                r.name(), r.metric(), scopeKind, scopeTarget, r.threshold(), r.durationSec(), r.severity(), channels, r.enabled(), Boolean.TRUE.equals(r.muted()), id);
+        if (updated == 0) {
+            jdbc.update("INSERT INTO alert_rule VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", id, r.name(), r.metric(), scopeKind, scopeTarget, r.threshold(), r.durationSec(), r.severity(), channels, r.enabled(), Boolean.TRUE.equals(r.muted()), false);
+        }
+        return rules().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    /** Soft delete (see DECISION-PENDING): the rule disappears and its firing alerts resolve. */
+    public void remove(String id) {
+        jdbc.update("UPDATE alert_rule SET deleted = TRUE, enabled = FALSE WHERE id = ?", id);
+        jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE rule_id = ? AND state = 'firing'", System.currentTimeMillis(), id);
+    }
+
+    public List<Event> events(String state, int limit) {
+        String where = state == null || "all".equals(state) ? "" : "firing".equals(state) ? " WHERE state = 'firing'" : " WHERE state = 'resolved'";
+        int n = Math.max(1, Math.min(limit, 500));
+        return jdbc.query("SELECT * FROM alert_event" + where + " ORDER BY fired_at DESC LIMIT " + n, (rs, i) -> new Event(rs.getString("id"), rs.getString("rule_id"), rs.getString("severity"), rs.getString("title"), rs.getString("evidence"), rs.getString("target"), rs.getString("href"), rs.getString("state"),
+                iso(rs.getLong("fired_at")), rs.getObject("resolved_at") == null ? null : iso(rs.getLong("resolved_at")), rs.getObject("muted_until") == null ? null : iso(rs.getLong("muted_until")), rs.getBoolean("acknowledged")));
+    }
+
+    public void mute(String id, String until) {
+        jdbc.update("UPDATE alert_event SET muted_until = ? WHERE id = ?", Instant.parse(until).toEpochMilli(), id);
+    }
+
+    public void acknowledge(String id) {
+        jdbc.update("UPDATE alert_event SET acknowledged = TRUE WHERE id = ?", id);
+    }
+
+    public int firingCount() {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE state = 'firing' AND acknowledged = FALSE AND (muted_until IS NULL OR muted_until < ?)", Integer.class, System.currentTimeMillis());
+        return n == null ? 0 : n;
+    }
+
+    private static String iso(long t) {
+        return Instant.ofEpochMilli(t).toString();
+    }
+
+    private record Hit(String target, String title, String evidence, String href) {}
+
+    private List<Hit> conditions(Rule r, ClusterState s, long now) {
+        List<Hit> out = new ArrayList<>();
+        Predicate<String> inScope = t -> r.scope() == null || !"specific".equals(r.scope().kind()) || t.equals(r.scope().target());
+        double threshold = r.threshold() == null ? 0 : r.threshold();
+        switch (r.metric()) {
+            case "lag" -> s.groups.values().forEach(g -> {
+                long lag = Views.groupLag(s, g);
+                if (!g.type.equals("share") && !g.members.isEmpty() && inScope.test(g.groupId) && lag > threshold) {
+                    out.add(new Hit(g.groupId, g.groupId + " lag above " + String.format("%,d", (long) threshold), String.format("%,d behind", lag), "/app/groups/view/?id=" + g.groupId));
+                }
+            });
+            case "group-status" -> s.groups.values().forEach(g -> {
+                if (inScope.test(g.groupId) && (g.status == Lag.Status.stalled || g.status == Lag.Status.stopped)) {
+                    out.add(new Hit(g.groupId, g.groupId + " " + g.status, String.format("%,d behind", Views.groupLag(s, g)), "/app/groups/view/?id=" + g.groupId));
+                }
+            });
+            case "under-replicated" -> {
+                long urp = s.topics.values().stream().flatMap(t -> t.partitions.stream()).filter(p -> p.isr.size() < p.replicas.size()).count();
+                if (urp > threshold) out.add(new Hit("cluster", urp + " partitions under-replicated", "ISR smaller than the replica set", "/app/topics/?view=attention"));
+            }
+            case "broker-offline" -> s.brokers.forEach(b -> {
+                if (!b.online() && inScope.test("broker-" + b.id())) out.add(new Hit("broker-" + b.id(), "Broker " + b.id() + " offline", "Not reachable by the controller", "/app/brokers/"));
+            });
+            case "topic-silent" -> s.topics.values().forEach(t -> {
+                long last = t.partitions.stream().mapToLong(p -> p.lastMessageAt).max().orElse(0);
+                boolean consumed = s.groups.values().stream().anyMatch(g -> g.committed.containsKey(t.name));
+                if (!t.internal && consumed && inScope.test(t.name) && last > 0 && now - last > r.durationSec() * 1000L) {
+                    out.add(new Hit(t.name, t.name + " is silent", "No messages for " + ((now - last) / 60000) + " min", "/app/topics/view/?name=" + t.name));
+                }
+            });
+            case "dlq-receiving" -> s.topics.values().forEach(t -> {
+                if ((t.name.endsWith(".dlq") || t.name.endsWith("-dlq")) && inScope.test(t.name) && t.rate() > threshold) {
+                    out.add(new Hit(t.name, t.name + " is receiving messages", String.format("%.1f/s", t.rate()), "/app/topics/view/?name=" + t.name + "&tab=messages"));
+                }
+            });
+            default -> {
+                // unknown metric: nothing to evaluate
+            }
+        }
+        return out;
+    }
+
+    /** Runs after each sampler pass. */
+    public synchronized void evaluate(String cid, ClusterState s, long now) {
+        for (Rule r : rules()) {
+            if (!r.enabled()) continue;
+            Set<String> active = new HashSet<>();
+            for (Hit h : conditions(r, s, now)) {
+                String k = cid + "|" + r.id() + "|" + h.target();
+                active.add(k);
+                pending.putIfAbsent(k, now);
+                List<String> firing = jdbc.queryForList("SELECT id FROM alert_event WHERE cluster = ? AND rule_id = ? AND target = ? AND state = 'firing'", String.class, cid, r.id(), h.target());
+                if (!firing.isEmpty()) {
+                    jdbc.update("UPDATE alert_event SET title = ?, evidence = ? WHERE id = ?", h.title(), h.evidence(), firing.get(0));
+                } else if (!Boolean.TRUE.equals(r.muted()) && ("topic-silent".equals(r.metric()) || now - pending.get(k) >= r.durationSec() * 1000L)) {
+                    String id = "al_" + Long.toString(now, 36) + Integer.toString(Math.abs(k.hashCode()), 36);
+                    jdbc.update("INSERT INTO alert_event VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", id, cid, r.id(), r.severity(), h.title(), h.evidence(), h.target(), h.href(), "firing", now, null, null, false);
+                }
+            }
+            for (String target : jdbc.queryForList("SELECT target FROM alert_event WHERE cluster = ? AND rule_id = ? AND state = 'firing'", String.class, cid, r.id())) {
+                if (!active.contains(cid + "|" + r.id() + "|" + target)) {
+                    jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE cluster = ? AND rule_id = ? AND target = ? AND state = 'firing'", now, cid, r.id(), target);
+                }
+            }
+            pending.keySet().removeIf(k -> k.startsWith(cid + "|" + r.id() + "|") && !active.contains(k));
+        }
+    }
+}

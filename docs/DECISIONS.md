@@ -65,3 +65,12 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Topology is custom SVG + HTML in the reference's three-column layout, not React Flow | Matches `Topology.dc.html` exactly; saves the React Flow bundle; pan/zoom/fit are transforms |
 | 2026-11-15 | Demo lag window is 10 samples at 1 s (ARCHITECTURE updated); seeded "group stalled or stopped" rule fires after 30 s | Phase 3 gate needs Stalled within 10 s; simulated consumers track the produced rate per tick so forecasts stay stable on a short window |
 | 2026-11-15 | Guided tour renders inside an open modal dialog (portal) | A modal `<dialog>` makes the rest of the page inert; the tour's step 4 sits on the Reset offsets dialog |
+| 2026-11-15 | Agent contract details settled during the build are in AGENT_API.md "Notes from the build" (anonymous info shape, CSRF on login, failed-attempt rate limit, client-chosen stream ids, commit-time inference, no producers in topology) | One durable home for the API contract |
+| 2026-11-15 | Image runs on `eclipse-temurin:21-jre-alpine`, user 10001, read-only root FS (`read_only: true` + tmpfs `/tmp` in compose); measured 126 MB compressed / ~221 MB unpacked, starts in ~2.3 s | Prompt 06 targets: < 300 MB, < 10 s, non-root |
+| 2026-11-15 | Release workflow (GHCR, multi-arch) is in place but not triggered; no tag pushed | Q-01 (product name) must be settled before the first image is published |
+
+## DECISION-PENDING (needs the owner's go-ahead)
+
+| Date | Item | Exact statements parked | Effect until decided |
+| --- | --- | --- | --- |
+| 2026-11-15 | Agent metric-history retention and downsampling (`KI_HISTORY_RETENTION`, AGENT_API "History"), and pruning resolved alert events after 7 days | `DELETE FROM metric_sample WHERE ts < ?` (now − retention); `DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 60000) >= 10000` (older than 1 h → 1 per minute); `DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 600000) >= 10000` (older than 24 h → 1 per 10 min); `DELETE FROM alert_event WHERE fired_at < ? AND state = 'resolved'` (older than 7 d) | A local safety hook blocks SQL deletes without an explicit request. History and resolved alert events grow without bound (queries still bucket-average, so the UI is unaffected). Deleting an alert rule is a soft delete (`deleted = TRUE`). |

@@ -9,27 +9,32 @@ export async function pickClient(): Promise<Picked> {
     return { kind: 'client', client: (await import('./simulated')).createSimulatedClient() };
   if (forced === 'agent')
     return { kind: 'client', client: (await import('./agent')).createAgentClient() };
-  const status = await probe();
-  if (status === 200)
+  const probe = await probeAgent();
+  if (probe === 'agent')
     return { kind: 'client', client: (await import('./agent')).createAgentClient() };
-  if (status === 401) return { kind: 'sign-in' };
+  if (probe === 'sign-in') return { kind: 'sign-in' };
   return { kind: 'client', client: (await import('./simulated')).createSimulatedClient() };
 }
 
-async function probe(): Promise<number> {
+/** 200 JSON from /api/info → agent (or sign-in when signedIn is false, AGENT_API "Meta"); 401 → sign-in; else demo. */
+export async function probeAgent(): Promise<'agent' | 'sign-in' | 'none'> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 2000);
   try {
     const res = await fetch('/api/info', {
       signal: ctl.signal,
       headers: { accept: 'application/json' },
+      credentials: 'same-origin',
     });
-    // A static host answers unknown paths with an HTML 404/200 page — only JSON counts as the agent.
-    if (res.status === 200 && !res.headers.get('content-type')?.includes('application/json'))
-      return 404;
-    return res.status;
+    if (res.status === 401) return 'sign-in';
+    // a static host answers unknown paths with HTML: only JSON counts as the agent
+    if (res.status !== 200 || !res.headers.get('content-type')?.includes('application/json'))
+      return 'none';
+    const body = (await res.json()) as { mode?: string; signedIn?: boolean };
+    if (body.mode !== 'agent') return 'none';
+    return body.signedIn === false ? 'sign-in' : 'agent';
   } catch {
-    return 0;
+    return 'none';
   } finally {
     clearTimeout(timer);
   }

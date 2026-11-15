@@ -13,9 +13,9 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4 # version from package.json "packageManager"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -32,3 +32,36 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report
+
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      # Testcontainers (Kafka 4.1) runs on the runner's Docker
+      - run: ./gradlew check --no-daemon
+        working-directory: apps/agent
+
+  image:
+    runs-on: ubuntu-latest
+    needs: [web, agent]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: false
+          tags: ghcr.io/paramvsi/kafka-inspector:ci
+          load: true
+      - name: Image size and start time
+        run: |
+          docker image inspect ghcr.io/paramvsi/kafka-inspector:ci --format '{{.Size}}' | awk '{ s=$1/1e6; print "image " s " MB"; if (s > 300) exit 1 }'
+          docker run -d --name ki -e KI_ADMIN_PASSWORD=ci -e KAFKA_BOOTSTRAP=localhost:1 -p 8080:8080 ghcr.io/paramvsi/kafka-inspector:ci
+          for i in $(seq 1 20); do curl -fs localhost:8080/api/health && break; sleep 1; done
+          docker inspect ki --format '{{.Config.User}}' | grep -qx 10001

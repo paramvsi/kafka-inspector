@@ -17,6 +17,8 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/next-env.d.ts',
       '**/*.local.mjs',
+      '**/build/**',
+      '**/.gradle/**',
     ],
   },
   js.configs.recommended,

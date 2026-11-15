@@ -1,31 +1,23 @@
 'use client';
+import type { ConnectionState } from '@ki/core';
 import { Button } from '@ki/ui';
 import { useEffect, useState } from 'react';
 
 /** Disconnected banner (01c): what failed, reconnect countdown, attempt count, Retry and Edit connection. */
 export function DisconnectedBanner({
   cluster,
-  since = Date.now() - 23_000,
-  onRetry,
+  connection,
 }: {
   cluster: string;
-  since?: number;
-  onRetry?: () => void;
+  connection: ConnectionState;
 }) {
-  const [left, setLeft] = useState(5);
-  const [attempt, setAttempt] = useState(3);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => {
-      setLeft((s) => {
-        if (s > 1) return s - 1;
-        setAttempt((a) => Math.min(10, a + 1));
-        return 5;
-      });
-    }, 1000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const at = new Date(since);
-  const hhmmss = at.toTimeString().slice(0, 8);
+  const left = connection.nextAt ? Math.max(0, Math.ceil((connection.nextAt - now) / 1000)) : 0;
+  const since = connection.since ? new Date(connection.since).toTimeString().slice(0, 8) : '—';
   return (
     <div role="alert" className="ki-reveal">
       <div className="min-h-0 overflow-hidden">
@@ -47,8 +39,9 @@ export function DisconnectedBanner({
               Lost connection to {cluster}
             </div>
             <div className="text-[12px] text-ink-muted">
-              No response from any broker since {hhmmss}. Reconnecting in {left} s · attempt{' '}
-              {attempt} of 10.
+              No response since {since}.{' '}
+              {left > 0 ? `Reconnecting in ${left} s` : 'Reconnecting now'} · attempt{' '}
+              {connection.attempt ?? 1} of {connection.maxAttempts ?? 10}.
             </div>
           </div>
           <a
@@ -57,7 +50,7 @@ export function DisconnectedBanner({
           >
             Edit connection
           </a>
-          <Button onClick={onRetry ?? (() => setLeft(5))}>Retry now</Button>
+          <Button onClick={() => location.reload()}>Retry now</Button>
         </div>
       </div>
     </div>

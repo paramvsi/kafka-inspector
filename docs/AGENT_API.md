@@ -101,3 +101,19 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 - Never log config values containing `PASSWORD`, `SECRET`, `TOKEN`, `KEY`; mask in `/api/.../config` responses.
 - Session timeout 12 h; login rate limiting; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`).
 - Startup log line lists clusters and security protocol only.
+
+## Notes from the build (phase 4)
+
+These refine the contract above; the agent and `AgentClient` implement them.
+
+- **Info.** Anonymous callers get `200 { mode: "agent", version, auth: true, signedIn: false }`. The web app treats `signedIn: false` (and any 401) as "go to sign-in".
+- **CSRF.** Every response sets the `KI_CSRF` cookie (readable by the page); every non-GET request, including `POST /api/auth/login`, must echo it in `X-KI-CSRF`. Missing or wrong → `403 FORBIDDEN`.
+- **Sign-in errors.** `401 BAD_CREDENTIALS`; `429 RATE_LIMITED` after 5 *failed* attempts per IP per minute (a successful sign-in clears the count).
+- **Live stream ids.** The client chooses the subscription `id` in `sub` / `tail` and the server echoes it on every message; tail batches arrive on channel `"tail"`. The agent pushes `metrics`, `lag`, `events` and `alerts` after every sampler pass (`KI_SAMPLE_INTERVAL`, default 10 s). Slow clients: the send buffer is bounded and the oldest data is dropped.
+- **Commit times.** Kafka's Admin API exposes committed offsets, not commit timestamps. The agent treats an unchanged offset in a group *with members* as "still committing" (→ Stalled when behind) and in an *empty* group as "no commits since it last moved" (→ Stopped when behind). The lag window is 30 samples (`ki.lag-window`).
+- **Groups.** Classic groups whose protocol type isn't `consumer` (Schema Registry `sr`, Kafka Connect `connect`) are not listed. Share groups (KIP-932) are listed with members; their lag and forecast are `unknown`.
+- **Topology.** Producers are not visible to the Admin API: the agent returns topics → consumer groups only.
+- **Schemas.** Without a configured registry every schema route answers `404 NO_SCHEMA_REGISTRY` with the variable to set.
+- **Alert rules.** `DELETE /api/alerts/rules/{id}` is a soft delete (the rule disappears; its firing alerts resolve).
+- **History retention** (`KI_HISTORY_RETENTION`) is **pending** — see DECISIONS "DECISION-PENDING". Until approved, samples are kept; queries bucket-average so responses stay small.
+- **Errors.** `404 *_NOT_FOUND`, `400 BAD_REQUEST`, `502 KAFKA_UNAVAILABLE` (brokers unreachable), `503 UNAVAILABLE` (still connecting on first start).

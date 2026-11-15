@@ -1,0 +1,55 @@
+import { expect, test } from '@playwright/test';
+
+// Self-hosted mode against a running agent (docker compose -f deploy/docker-compose.dev.yml up).
+// Run with: AGENT_URL=http://localhost:8080 AGENT_PASSWORD=dev-password pnpm exec playwright test e2e/agent.spec.ts
+const AGENT = process.env.AGENT_URL;
+test.skip(!AGENT, 'AGENT_URL not set: agent e2e runs against docker-compose.dev.yml');
+test.use({ baseURL: AGENT });
+
+test('self-hosted: sign in, read-only chrome, real topics, groups and decoded messages', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await expect(page).toHaveURL(/\/app\/sign-in\/\?next=/);
+  await page.getByLabel('Password').fill('wrong');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText(/Wrong username or password/)).toBeVisible();
+  await page.getByLabel('Password').fill(process.env.AGENT_PASSWORD ?? 'dev-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/app\/topics\/$/);
+
+  // self-hosted chrome: no chaos, no demo note, read-only badge, writes disabled
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByText('Read-only')).toBeVisible();
+  await expect(nav.getByRole('link', { name: /^Chaos panel/ })).toHaveCount(0);
+  await expect(page.getByText('Simulated cluster', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Create topic' })).toBeDisabled();
+  await expect(page.getByRole('link', { name: 'orders' })).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('link', { name: 'orders' }).click();
+  await page.getByRole('link', { name: 'Messages', exact: true }).click();
+  await page.getByRole('row').nth(1).click();
+  const drawer = page.getByRole('dialog', { name: 'Message' });
+  await expect(drawer.getByText('"orderId"')).toBeVisible({ timeout: 15_000 });
+  await expect(drawer.getByRole('button', { name: 'Reprocess to topic' })).toBeDisabled();
+  await drawer.getByRole('button', { name: 'Close' }).click();
+
+  await nav.getByRole('link', { name: /^Consumer groups/ }).click();
+  await expect(page.getByRole('row', { name: /order-service/ })).toBeVisible({ timeout: 30_000 });
+  await page
+    .getByRole('row', { name: /order-service/ })
+    .getByRole('link', { name: 'order-service', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'order-service' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset offsets' })).toBeDisabled();
+
+  // live data over the WebSocket: the overview KPIs arrive
+  await nav.getByRole('link', { name: /^Overview/ }).click();
+  await expect(page.getByText('Messages in / s')).toBeVisible({ timeout: 30_000 });
+
+  // sign out ends the session
+  await nav.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/app\/sign-in\//);
+  const res = await page.request.get('/api/clusters');
+  expect(res.status()).toBe(401);
+});

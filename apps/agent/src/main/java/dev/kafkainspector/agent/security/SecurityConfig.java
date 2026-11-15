@@ -1,0 +1,101 @@
+package dev.kafkainspector.agent.security;
+
+import dev.kafkainspector.agent.config.KiProperties;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+/**
+ * Sign-in (F-91, D-11): one admin, session cookie KI_SESSION (HttpOnly, SameSite=Strict, Secure behind TLS),
+ * CSRF double-submit (KI_CSRF cookie + X-KI-CSRF header) on non-GET, 401 JSON for unauthenticated API calls.
+ */
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    AdminCredentials adminCredentials(KiProperties props, PasswordEncoder encoder) {
+        // only a hash is kept in memory; the plain password is never logged
+        return new AdminCredentials("admin", encoder.encode(props.adminPassword()));
+    }
+
+    /** No username/password users: sign-in is handled by AuthController (also stops Boot's generated-password log line). */
+    @Bean
+    org.springframework.security.core.userdetails.UserDetailsService noUsers() {
+        return username -> {
+            throw new org.springframework.security.core.userdetails.UsernameNotFoundException("No users");
+        };
+    }
+
+    @Bean
+    SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    SecurityFilterChain chain(HttpSecurity http, SecurityContextRepository repo) throws Exception {
+        CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepo.setCookieName("KI_CSRF");
+        csrfRepo.setHeaderName("X-KI-CSRF");
+        csrfRepo.setCookieCustomizer(c -> c.sameSite("Strict").path("/"));
+        CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
+        handler.setCsrfRequestAttributeName(null); // plain token: the SPA echoes the cookie value
+        http.securityContext(s -> s.securityContextRepository(repo))
+                .csrf(c -> c.csrfTokenRepository(csrfRepo).csrfTokenRequestHandler(handler))
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers("/api/health", "/api/info", "/api/auth/login", "/api/auth/logout").permitAll()
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll())
+                .exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> {
+                    res.setStatus(401);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"error\":{\"code\":\"UNAUTHENTICATED\",\"message\":\"Sign in to use the API.\",\"details\":{}}}");
+                }).accessDeniedHandler((req, res, ex) -> {
+                    res.setStatus(403);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Missing or invalid X-KI-CSRF header. Reload the page and try again.\",\"details\":{}}}");
+                }))
+                .headers(h -> h
+                        .frameOptions(f -> f.deny())
+                        .addHeaderWriter(new XFrameOptionsHeaderWriter(XFrameOptionsHeaderWriter.XFrameOptionsMode.DENY))
+                        .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                        .contentSecurityPolicy(c -> c.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'")))
+                .formLogin(f -> f.disable())
+                .httpBasic(b -> b.disable())
+                .logout(l -> l.disable())
+                .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class);
+        return http.build();
+    }
+
+    public record AdminCredentials(String username, String hash) {}
+
+    /** Materialises the deferred CSRF token so the KI_CSRF cookie is always set. */
+    static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
+            CsrfToken token = (CsrfToken) req.getAttribute(CsrfToken.class.getName());
+            if (token != null) token.getToken();
+            chain.doFilter(req, res);
+        }
+    }
+}

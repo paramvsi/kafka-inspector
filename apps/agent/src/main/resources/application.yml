@@ -1,0 +1,43 @@
+# Kafka Inspector agent. Every setting is an env variable (KI_*) or a key in /config/kafka-inspector.yml.
+spring:
+  application:
+    name: kafka-inspector-agent
+  config:
+    import: optional:file:/config/kafka-inspector.yml
+  datasource:
+    url: ${KI_DB_URL:jdbc:h2:file:/data/ki;AUTO_SERVER=FALSE}
+    username: ${KI_DB_USER:sa}
+    password: ${KI_DB_PASSWORD:}
+  jackson:
+    default-property-inclusion: non_null
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+server:
+  port: ${KI_PORT:8080}
+  forward-headers-strategy: framework
+  shutdown: graceful
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        name: KI_SESSION
+        http-only: true
+        same-site: strict
+  error:
+    include-message: never
+    include-stacktrace: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: []
+logging:
+  level:
+    root: info
+    org.apache.kafka: warn
+ki:
+  sample-interval: ${KI_SAMPLE_INTERVAL:10s}
+  history-retention: ${KI_HISTORY_RETENTION:7d}

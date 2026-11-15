@@ -1,0 +1,93 @@
+package dev.kafkainspector.agent.config;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.config.SslConfigs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
+/** Resolves configured clusters (incl. the KAFKA_BOOTSTRAP shortcut) and builds client properties. Fails fast. */
+@Component
+public class Clusters {
+    private static final Logger log = LoggerFactory.getLogger(Clusters.class);
+    private final Map<String, KiProperties.Cluster> byId = new LinkedHashMap<>();
+
+    public Clusters(KiProperties props, Environment env) {
+        if (props.adminPassword() == null || props.adminPassword().isBlank()) {
+            throw new IllegalStateException("KI_ADMIN_PASSWORD is required. Set it to the password you will use to sign in as admin.");
+        }
+        if (!props.readOnly()) {
+            throw new IllegalStateException("KI_READ_ONLY=false is not supported in this version: the agent is read-only. Remove the variable to start.");
+        }
+        List<KiProperties.Cluster> list = new ArrayList<>(props.clusters() == null ? List.of() : props.clusters());
+        String shortcut = env.getProperty("KAFKA_BOOTSTRAP");
+        if (list.isEmpty() && shortcut != null && !shortcut.isBlank()) {
+            list.add(new KiProperties.Cluster("default", shortcut, "PLAINTEXT", null, null, null, null, null, env.getProperty("SCHEMA_REGISTRY_URL"), null, null));
+        }
+        if (list.isEmpty()) {
+            throw new IllegalStateException("No Kafka cluster configured. Set KAFKA_BOOTSTRAP=host:9092, or KI_CLUSTERS_0_NAME and KI_CLUSTERS_0_BOOTSTRAP.");
+        }
+        for (KiProperties.Cluster c : list) {
+            if (c.bootstrap() == null || c.bootstrap().isBlank()) throw new IllegalStateException("Cluster " + c.name() + " has no bootstrap servers (KI_CLUSTERS_n_BOOTSTRAP).");
+            String id = c.name() == null ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
+            byId.put(id, c);
+        }
+        // startup log lists clusters and security protocol only (AGENT_API security checklist)
+        log.info("Kafka Inspector agent · read-only · clusters: {}", byId.values());
+    }
+
+    public Map<String, KiProperties.Cluster> all() {
+        return byId;
+    }
+
+    public KiProperties.Cluster get(String id) {
+        KiProperties.Cluster c = byId.get(id);
+        if (c == null) throw new NotFound("CLUSTER_NOT_FOUND", "No cluster with id " + id + ". GET /api/clusters lists them.");
+        return c;
+    }
+
+    public Properties clientProps(KiProperties.Cluster c) {
+        Properties p = new Properties();
+        p.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, c.bootstrap());
+        p.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, c.security());
+        p.put(CommonClientConfigs.CLIENT_ID_CONFIG, "kafka-inspector");
+        p.put(CommonClientConfigs.REQUEST_TIMEOUT_MS_CONFIG, 15000);
+        p.put(CommonClientConfigs.DEFAULT_API_TIMEOUT_MS_CONFIG, 20000);
+        if (c.saslMechanism() != null && !c.saslMechanism().isBlank()) {
+            p.put(SaslConfigs.SASL_MECHANISM, c.saslMechanism());
+            String module = switch (c.saslMechanism()) {
+                case "PLAIN" -> "org.apache.kafka.common.security.plain.PlainLoginModule";
+                case "OAUTHBEARER" -> "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule";
+                default -> "org.apache.kafka.common.security.scram.ScramLoginModule";
+            };
+            if (c.saslUsername() != null) {
+                p.put(SaslConfigs.SASL_JAAS_CONFIG, module + " required username=\"" + esc(c.saslUsername()) + "\" password=\"" + esc(c.saslPassword()) + "\";");
+            }
+        }
+        if (c.sslTruststoreLocation() != null && !c.sslTruststoreLocation().isBlank()) {
+            p.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, c.sslTruststoreLocation());
+            if (c.sslTruststorePassword() != null) p.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, c.sslTruststorePassword());
+        }
+        return p;
+    }
+
+    private static String esc(String s) {
+        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    public static class NotFound extends RuntimeException {
+        public final String code;
+
+        public NotFound(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+    }
+}
