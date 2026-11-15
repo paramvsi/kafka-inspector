@@ -179,7 +179,9 @@ export function TopicsView() {
                 ? `No topics match “${q}”`
                 : view === 'starred'
                   ? 'No starred topics yet'
-                  : 'Nothing needs attention'
+                  : view === 'attention'
+                    ? 'Nothing needs attention'
+                    : 'No topics yet'
             }
             actions={
               q ? (
@@ -198,6 +200,10 @@ export function TopicsView() {
                 </>
               ) : view === 'starred' ? (
                 <Button onClick={() => url.set({ view: undefined })}>Show all topics</Button>
+              ) : view !== 'attention' && !readOnly ? (
+                <Button variant="primary" onClick={() => url.set({ create: 1 })}>
+                  Create topic
+                </Button>
               ) : null
             }
           >
@@ -210,8 +216,12 @@ export function TopicsView() {
               </>
             ) : view === 'starred' ? (
               'Star a topic with the ☆ next to its name to keep it here.'
-            ) : (
+            ) : view === 'attention' ? (
               'Every topic is replicated, consumed and evenly spread.'
+            ) : internal ? (
+              'This cluster has no topics.'
+            ) : (
+              'This cluster has no topics apart from internal ones.'
             )}
           </EmptyState>
         </div>

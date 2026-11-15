@@ -11,7 +11,7 @@ import {
 import { Button, Card, Checkbox, Select, StatusBadge, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { startTour } from '../Tour';
 import { PageHeader } from '../Page';
@@ -98,14 +98,21 @@ export function ChaosView() {
     false,
   );
   const [targets, setTargets] = useState<Record<string, string>>({});
+  // the simulator's real settings (persisted, or defaults after Reset demo), not assumed ones
   const settings = useKafkaQuery(
     ['sim-settings'],
-    async () => ({ baseTraffic: 1, dailyWave: true, seed: 'kafka-42' }),
+    async (c) => c.chaos?.getSettings() ?? { baseTraffic: 1, dailyWave: true, seed: 'kafka-42' },
     false,
   );
   const [traffic, setTraffic] = useState<number>(1);
   const [wave, setWave] = useState(true);
-  const [seed, setSeed] = useState(settings.data?.seed ?? 'kafka-42');
+  const [seed, setSeed] = useState('kafka-42');
+  useEffect(() => {
+    if (!settings.data) return;
+    setTraffic(settings.data.baseTraffic);
+    setWave(settings.data.dailyWave);
+    setSeed(settings.data.seed);
+  }, [settings.data]);
 
   if (!client.chaos || info.mode !== 'demo') {
     return <PageHeader title="Chaos panel" subtitle="Only available on simulated clusters." />;

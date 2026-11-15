@@ -62,6 +62,14 @@ export function formatClock(t: number | string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** Value for <input type="datetime-local">: local wall-clock time, minutes precision ("" for invalid input). */
+export function toLocalInput(t: number | string): string {
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 /** 12.4% */
 export const formatPct = (n: number, digits = 0) => `${n.toFixed(digits)}%`;
 

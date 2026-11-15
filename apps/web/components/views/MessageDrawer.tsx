@@ -1,5 +1,5 @@
 'use client';
-import { hexDump, type DecodeAs, type RawMessage } from '@ki/core';
+import { hexDump, toLocalInput, type DecodeAs, type RawMessage } from '@ki/core';
 import { Button, CopyButton, Drawer, HexDump, JsonTree, Tooltip } from '@ki/ui';
 import { useEffect, useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
@@ -124,7 +124,13 @@ export function MessageDrawer({
               </span>
             </Row>
             <Row k="Timestamp">
-              <span className="font-mono">{m.timestamp.replace('T', ' ').replace('Z', '')}</span>
+              {/* local time like the table; the exact UTC value alongside */}
+              <span className="font-mono">
+                {toLocalInput(m.timestamp).replace('T', ' ')}:
+                {String(new Date(m.timestamp).getSeconds()).padStart(2, '0')}.
+                {String(new Date(m.timestamp).getMilliseconds()).padStart(3, '0')}
+                <span className="ml-2 text-ink-muted">{m.timestamp}</span>
+              </span>
             </Row>
             <Row k="Key">
               <span className="font-mono break-all">

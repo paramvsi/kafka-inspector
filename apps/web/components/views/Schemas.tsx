@@ -228,6 +228,7 @@ export function SchemasView() {
         <CheckDialog
           open={url.get('check') === '1'}
           onClose={() => url.set({ check: undefined })}
+          key={s.subject} // a fresh dialog per subject: no text or result carried over
           subject={s.subject}
           onCheck={(schema) => client.checkCompatibility(clusterId, s.subject, schema)}
           seed={b?.schema ?? ''}
@@ -336,7 +337,11 @@ function CheckDialog({
   mode: string;
 }) {
   const [text, setText] = useState('');
-  const [result, setResult] = useState<CompatibilityResult | null>(null);
+  // a result belongs to the exact text it was checked for: edits made during the request hide it
+  const [checked, setChecked] = useState<{ r: CompatibilityResult; text: string } | null>(null);
+  const result = checked && checked.text === text ? checked.r : null;
+  const setResult = (r: CompatibilityResult | null, forText = text) =>
+    setChecked(r ? { r, text: forText } : null);
   const [busy, setBusy] = useState(false);
   return (
     <Dialog
@@ -358,10 +363,11 @@ function CheckDialog({
             disabled={busy || !text.trim()}
             onClick={async () => {
               setBusy(true);
+              const sent = text;
               try {
-                setResult(await onCheck(text));
+                setResult(await onCheck(sent), sent);
               } catch (e) {
-                setResult({ compatible: false, messages: [(e as Error).message] });
+                setResult({ compatible: false, messages: [(e as Error).message] }, sent);
               } finally {
                 setBusy(false);
               }

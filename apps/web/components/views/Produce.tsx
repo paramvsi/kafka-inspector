@@ -102,6 +102,13 @@ export function ProduceDrawer({
     false,
   ).data;
   const [partition, setPartition] = useState('auto');
+  // Cancel, Esc and backdrop all clear the URL state, so the next plain "Produce message" isn't a reprocess
+  const close = () => {
+    onClose();
+    url.set({ produce: undefined, reprocess: undefined });
+  };
+  // a partition picked for one topic may not exist on the next
+  useEffect(() => setPartition('auto'), [target]);
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
   const [generated, setGenerated] = useState(false);
@@ -207,10 +214,7 @@ export function ProduceDrawer({
   return (
     <Drawer
       open={open}
-      onClose={() => {
-        onClose();
-        url.set({ produce: undefined, reprocess: undefined });
-      }}
+      onClose={close}
       title={reprocess ? 'Reprocess message' : 'Produce message'}
       description={
         <>
@@ -220,7 +224,7 @@ export function ProduceDrawer({
       footer={
         <>
           <div className="grow" />
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
           <Button

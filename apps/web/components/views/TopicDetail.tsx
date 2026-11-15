@@ -152,8 +152,23 @@ export function TopicDetailView() {
   );
 }
 
+/** "7-day retention" · "36-hour retention" · "infinite retention", from retention.ms */
+function retentionLabel(ms: string | null | undefined): string | undefined {
+  if (ms == null) return undefined;
+  const n = Number(ms);
+  if (n < 0) return 'infinite retention';
+  if (n % 86_400_000 === 0) return `${n / 86_400_000}-day retention`;
+  if (n % 3_600_000 === 0) return `${n / 3_600_000}-hour retention`;
+  return `${Math.round(n / 60_000)}-minute retention`;
+}
+
 function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
   const s = d.summary;
+  // real values from the topic's config, never assumed defaults
+  const cfg = useKafkaQuery(['topic-config', s.name], (c, id) => c.getTopicConfig(id, s.name));
+  const cfgValue = (n: string) => cfg.data?.find((c) => c.name === n)?.value;
+  const retention = retentionLabel(cfgValue('retention.ms'));
+  const minIsr = cfgValue('min.insync.replicas');
   const urp = s.underReplicated;
   const last = s.lastMessageAt ? (Date.now() - Date.parse(s.lastMessageAt)) / 1000 : undefined;
   const delta = hourAgo ? ((s.messagesInPerSec - hourAgo) / hourAgo) * 100 : undefined;
@@ -171,11 +186,7 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
           delta={delta !== undefined ? formatDelta(delta) : undefined}
           deltaTone={delta !== undefined && delta >= 0 ? 'ok' : 'neutral'}
         />
-        <KpiCard
-          label="Size on disk"
-          value={formatBytes(s.sizeBytes ?? 0)}
-          delta="7-day retention"
-        />
+        <KpiCard label="Size on disk" value={formatBytes(s.sizeBytes ?? 0)} delta={retention} />
         <KpiCard
           label="Partitions · RF"
           value={`${s.partitions} · ${s.replicationFactor}`}
@@ -208,16 +219,16 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
               {s.health.map((h) => (
                 <Check key={h.id} ok={false} severity={h.severity} detail={h.fix}>
                   {h.id === 'disk-fill'
-                    ? `Retention 7 days, ${formatBytes(s.sizeBytes ?? 0)}`
+                    ? `${retention ? `${retention[0]!.toUpperCase()}${retention.slice(1)}` : 'Retention'}, ${formatBytes(s.sizeBytes ?? 0)}`
                     : h.message}
                   {h.id === 'disk-fill' && (
                     <div className="text-[12px] text-ink-muted">{h.message} at current rate</div>
                   )}
                 </Check>
               ))}
-              {!s.health.some((h) => h.id === 'low-min-isr') && s.replicationFactor > 1 && (
-                <Check ok>min.insync.replicas = 2</Check>
-              )}
+              {!s.health.some((h) => h.id === 'low-min-isr') &&
+                s.replicationFactor > 1 &&
+                minIsr !== undefined && <Check ok>min.insync.replicas = {minIsr}</Check>}
               {!s.health.some((h) => h.id === 'skew') && d.partitions.length > 1 && (
                 <Check ok>Partition skew {formatPct(maxDev, 1)}</Check>
               )}

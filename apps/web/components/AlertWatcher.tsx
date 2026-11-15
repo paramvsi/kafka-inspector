@@ -4,21 +4,17 @@ import type { AlertEvent, AlertRule } from '@ki/core';
 import { useToast } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { useKafka, useStream } from '../lib/kafka';
+import { useKafkaQuery, useStream } from '../lib/kafka';
 
 export function AlertWatcher() {
   const firing = useStream<AlertEvent[]>('alerts');
-  const { client } = useKafka();
   const toast = useToast();
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
+  // same cache as the Alerts page: saving a rule there refreshes the channels used here
+  const rulesQuery = useKafkaQuery(['alert-rules'], (c) => c.listAlertRules(), 30_000);
   const rules = useRef<AlertRule[]>([]);
-  useEffect(() => {
-    client
-      .listAlertRules()
-      .then((r) => (rules.current = r))
-      .catch(() => undefined);
-  }, [client]);
+  rules.current = rulesQuery.data ?? rules.current;
   useEffect(() => {
     if (!firing) return;
     // the first batch is what was already firing when the page opened: don't toast it

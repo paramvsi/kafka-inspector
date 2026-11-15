@@ -563,6 +563,7 @@ export interface KafkaClient {
     stop(id: string): Promise<void>;
     reset(): Promise<void>;
     settings(s: SimSettings): Promise<void>;
+    getSettings(): Promise<Required<SimSettings>>;
     incidents(): Promise<Incident[]>;
   };
 }

@@ -132,7 +132,8 @@ function ChromeInner({ children, boot }: { children: ReactNode; boot: Boot }) {
   const [saved] = useSavedClusters();
   if (!k || boot.state !== 'ready') {
     return (
-      <Frame mode="demo" cluster={{ name: 'prod-eu-1', status: 'connected' }}>
+      // the cluster isn't known yet (demo or agent): no name, no "connected" claim
+      <Frame mode="demo" cluster={{ name: 'Connecting…', status: 'degraded' }}>
         <BootStatus
           text={
             boot.state === 'failed'

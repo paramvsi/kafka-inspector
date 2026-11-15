@@ -51,7 +51,19 @@ export function BrokersView() {
             header: 'Broker',
             cell: (b) => (
               <span className="flex items-center gap-2">
-                <span className="font-mono text-[12px]">{b.id}</span>
+                {/* keyboard path to the broker's settings; the row click is the mouse shortcut */}
+                <button
+                  type="button"
+                  aria-pressed={b.id === selected}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    url.set({ broker: b.id });
+                  }}
+                  className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] tabular-nums text-ink hover:underline"
+                >
+                  {b.id}
+                  <span className="sr-only">, show settings</span>
+                </button>
                 {b.isController && (
                   <StatusBadge status="neutral" dot={false}>
                     controller

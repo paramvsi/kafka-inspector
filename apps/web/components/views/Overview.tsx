@@ -23,6 +23,7 @@ export function OverviewView() {
   const { preview, range } = useApp();
   const { info } = useKafka();
   const data = useStream<OverviewData>('metrics');
+  const connection = useConnection(); // before any early return (rules of hooks)
   const history = useKafkaQuery(
     ['history', 'cluster', range],
     async (c, id) => {
@@ -51,14 +52,14 @@ export function OverviewView() {
       <>
         <h1 className="sr-only">Overview</h1>
         <BootStatus
-          text={`Connecting to ${info.clusters[0]?.name ?? 'cluster'} · fetching metadata from 2 of 3 brokers`}
+          text={`Connecting to ${info.clusters[0]?.name ?? 'cluster'} · fetching cluster metadata`}
         />
         <PageSkeleton />
       </>
     );
   }
 
-  const stale = useConnection().state === 'reconnecting';
+  const stale = connection.state === 'reconnecting';
   const k = data.kpis;
   const pct = (now: number, then?: number) => (then ? ((now - then) / then) * 100 : undefined);
   const dm = pct(k.messagesInPerSec, hourAgo.data?.m);
@@ -68,8 +69,8 @@ export function OverviewView() {
       <h1 className="sr-only">Overview</h1>
       {stale && (
         <p className="m-0 text-[13px] text-ink-muted">
-          Showing last known values from {formatClock(Date.now() - 23_000)}. Live updates and
-          actions are paused until the connection returns.
+          Showing last known values from {formatClock(connection.since ?? Date.now())}. Live updates
+          and actions are paused until the connection returns.
         </p>
       )}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -106,8 +107,58 @@ export function OverviewView() {
           className={stale ? 'opacity-60' : undefined}
         />
       </div>
+      {/* F-10: the rest of the cluster health tiles */}
+      <div
+        className={`grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5 ${stale ? 'opacity-60' : ''}`}
+        aria-label="Cluster health"
+        role="group"
+      >
+        <KpiCard
+          label="Brokers online"
+          value={`${formatInt(k.brokersOnline)} of ${formatInt(k.brokersTotal)}`}
+          numeric={k.brokersOnline}
+          delta={
+            k.brokersOnline < k.brokersTotal
+              ? `${k.brokersTotal - k.brokersOnline} offline`
+              : 'all online'
+          }
+          deltaTone={k.brokersOnline < k.brokersTotal ? 'crit' : 'ok'}
+          stale={stale}
+        />
+        <KpiCard
+          label="Offline partitions"
+          value={formatInt(k.offlinePartitions)}
+          numeric={k.offlinePartitions}
+          delta={k.offlinePartitions > 0 ? 'no leader' : 'all have a leader'}
+          deltaTone={k.offlinePartitions > 0 ? 'crit' : 'ok'}
+          stale={stale}
+        />
+        <KpiCard
+          label="Under min ISR"
+          value={formatInt(k.underMinIsr)}
+          numeric={k.underMinIsr}
+          delta={k.underMinIsr > 0 ? 'writes with acks=all fail' : 'all above min ISR'}
+          deltaTone={k.underMinIsr > 0 ? 'crit' : 'ok'}
+          stale={stale}
+        />
+        <KpiCard
+          label="Active controller"
+          value={k.activeController === null ? 'none' : `broker ${k.activeController}`}
+          delta={k.activeController === null ? 'no controller elected' : undefined}
+          deltaTone={k.activeController === null ? 'crit' : 'neutral'}
+          stale={stale}
+        />
+        <KpiCard
+          label="Active alerts"
+          value={formatInt(k.activeAlerts)}
+          numeric={k.activeAlerts}
+          delta={k.activeAlerts > 0 ? 'firing' : 'none firing'}
+          deltaTone={k.activeAlerts > 0 ? 'warn' : 'ok'}
+          stale={stale}
+        />
+      </div>
       {stale ? (
-        <ConnectionChecks />
+        <ConnectionChecks brokers={k.brokersTotal} mode={info.mode} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
@@ -325,7 +376,9 @@ function RecentEvents({ data }: { data: OverviewData }) {
   );
 }
 
-function ConnectionChecks() {
+/** Only what the browser actually knows: it can't see brokers while the agent is unreachable. */
+function ConnectionChecks({ brokers, mode }: { brokers: number; mode: string }) {
+  const online = typeof navigator === 'undefined' || navigator.onLine;
   const row = (state: 'Done' | 'Failed' | 'Waiting', text: React.ReactNode) => (
     <li className="flex items-center gap-3">
       <StatusBadge
@@ -342,24 +395,22 @@ function ConnectionChecks() {
       <div className="max-w-[420px]">
         <h2 className="section-title m-0 mb-4">What we&apos;ve checked</h2>
         <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[13px]">
-          {row('Done', 'Browser is online')}
+          {row(online ? 'Done' : 'Failed', online ? 'Browser is online' : 'Browser is offline')}
           {row(
             'Failed',
             <>
-              Local agent at <code className="font-mono text-[12px]">localhost:8481</code> did not
-              answer
+              {mode === 'agent' ? 'Agent at ' : 'Agent connection (preview) at '}
+              <code className="font-mono text-[12px]">
+                {typeof location === 'undefined' ? '' : location.host}
+              </code>{' '}
+              did not answer
             </>,
           )}
-          {row(
-            'Waiting',
-            <>
-              Brokers <code className="font-mono text-[12px]">b1, b2, b3</code>
-            </>,
-          )}
+          {row('Waiting', <>{formatInt(brokers)} brokers, checked once the agent answers</>)}
         </ul>
         <p className="mt-4 text-[12px] text-ink-muted">
-          Is the agent still running? Start it with{' '}
-          <code className="font-mono">docker start kafka-inspector-agent</code>, or switch to the
+          Is the agent still running? Check its container with{' '}
+          <code className="font-mono">docker ps</code> and start it again, or switch to the
           simulated cluster to keep exploring.
         </p>
         <div className="mt-4 flex gap-2">

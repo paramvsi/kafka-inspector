@@ -9,7 +9,7 @@ import {
   TextField,
   useToast,
 } from '@ki/ui';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { pingAgent } from '../../lib/client/agent';
 import { useKafka } from '../../lib/kafka';
 import { useSavedClusters, type SavedCluster } from '../../lib/clusters';
@@ -185,8 +185,18 @@ function AddClusterDialog({
   const [agent, setAgent] = useState('http://localhost:8080');
   const [seed, setSeed] = useState('kafka-43');
   const [steps, setSteps] = useState<Step[]>([]);
+  // each open starts clean; a ping that answers after the mode/agent changed or the dialog closed is dropped
+  const runId = useRef(0);
+  useEffect(() => {
+    if (open) setName('');
+  }, [open]);
+  useEffect(() => {
+    runId.current++;
+    setSteps([]);
+  }, [open, mode, agent]);
 
   const test = async (): Promise<boolean> => {
+    const mine = ++runId.current;
     if (mode === 'simulated') {
       setSteps([
         { label: 'Simulator available', state: 'Pass', detail: 'Runs in a Web Worker in this tab' },
@@ -200,6 +210,7 @@ function AddClusterDialog({
     setSteps([{ label: 'Agent reachable', state: 'Running' }]);
     try {
       const ms = await pingAgent(agent);
+      if (mine !== runId.current) return false;
       setSteps([
         { label: 'Agent reachable', state: 'Pass', detail: `${agent} · ${ms} ms` },
         ...[
@@ -215,6 +226,7 @@ function AddClusterDialog({
       ]);
       return true;
     } catch {
+      if (mine !== runId.current) return false;
       setSteps([
         {
           label: 'Agent reachable',

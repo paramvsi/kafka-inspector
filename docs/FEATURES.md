@@ -11,7 +11,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 | --- | --- | --- |
 | App shell | F-01, F-02, F-03, F-05, F-06, F-07, F-08 | ✅ (motion via native dialog/popover + CSS, not the `motion` library) |
 | Deep links, saved filters | F-04 | ✅ saved filters in the agent DB (Self) and localStorage (Demo) |
-| Overview | F-10 … F-15 | ✅ |
+| Overview | F-10 … F-15 | ✅ (F-10 health tiles in a second row) |
 | Brokers | F-20, F-21, F-22 | ✅ (config edit is v2) |
 | Topics | F-30, F-31, F-32, F-33, F-34, F-35, F-37, F-38, F-39 | ✅ F-30 paginates (25/page) instead of virtualising |
 | Topic config | F-36 | ✅ edit and reset-to-default in the demo (logged in Recent events, persisted); read-only on real clusters |

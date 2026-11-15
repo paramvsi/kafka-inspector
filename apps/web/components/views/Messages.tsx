@@ -4,6 +4,7 @@ import {
   formatInt,
   formatRate,
   toHex,
+  toLocalInput,
   type DecodeAs,
   type RawMessage,
   type RawMessagePage,
@@ -79,7 +80,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const msgParam = url.get('msg');
   const [draftExpr, setDraftExpr] = useState(expr);
   const [offset, setOffset] = useState(url.get('offset') ?? '');
-  const [ts, setTs] = useState(url.get('ts') ?? '');
+  const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));
   const [extra, setExtra] = useState<RawMessage[]>([]);
   const [cursor, setCursor] = useState<string | undefined>();
 
@@ -113,7 +114,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           }),
     false,
   );
+  const pageRef = useRef(page.data);
   useEffect(() => {
+    pageRef.current = page.data;
     setExtra([]);
     setCursor(page.data?.nextCursor);
   }, [page.data]);
@@ -167,7 +170,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   }, [raws, valueAs, keyAs, lookup, rules]);
 
   // ── JS filter ──
-  const [filter, setFilter] = useState<FilterResult | null>(null);
+  // the result is tied to the exact list it indexes: after a live/partition/start change it is stale
+  const [filterState, setFilter] = useState<{ r: FilterResult; of: RawMessage[] } | null>(null);
+  const filter = filterState && filterState.of === raws ? filterState.r : null;
   const decodedList = raws.map((m) => cache.current.get(msgId(m)));
   const ready = decodedList.every(Boolean);
   useEffect(() => {
@@ -185,17 +190,44 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       timestamp: d!.raw.timestamp,
     }));
     let alive = true;
-    runFilter(expr, inputs).then((r) => alive && setFilter(r));
+    const of = raws;
+    runFilter(expr, inputs).then((r) => alive && setFilter({ r, of }));
     return () => {
       alive = false;
     };
   }, [expr, raws, ready]);
-  const rows =
-    filter && !filter.error
-      ? filter.matches.map((i) => raws[i]!)
-      : expr && filter?.error
-        ? []
-        : raws;
+  const jsRows = !expr
+    ? raws
+    : filter && !filter.error
+      ? filter.matches.map((i) => raws[i]!).filter(Boolean)
+      : []; // error, or still filtering this list
+
+  // ── quick filters (F-42): key contains, header name[=value], text anywhere; combine with the JS filter ──
+  const qKey = url.get('fk') ?? '';
+  const qHeader = url.get('fh') ?? '';
+  const qText = (url.get('ft') ?? '').toLowerCase();
+  const quickOn = !!(qKey || qHeader || qText);
+  const rows = quickOn
+    ? jsRows.filter((m) => {
+        const d = cache.current.get(msgId(m));
+        if (!d) return false; // not decoded yet: shown once it is
+        const key = d.key.ok && d.key.value !== null ? String(d.key.value) : '';
+        if (qKey && !key.includes(qKey)) return false;
+        if (qHeader) {
+          const [name, ...rest] = qHeader.split('=');
+          const want = rest.join('=');
+          const has = Object.entries(d.headers).some(
+            ([k, v]) => k === name!.trim() && (!rest.length || v === want.trim()),
+          );
+          if (!has) return false;
+        }
+        if (qText) {
+          const shown = typeof d.shown === 'string' ? d.shown : JSON.stringify(d.shown ?? '');
+          if (!`${key} ${shown}`.toLowerCase().includes(qText)) return false;
+        }
+        return true;
+      })
+    : jsRows;
 
   // ── virtual table ──
   const scroller = useRef<HTMLDivElement>(null);
@@ -224,17 +256,30 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [maskOpen, setMaskOpen] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
 
+  // one request at a time, and a page that comes back after the list changed is dropped
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
   const loadMore = async () => {
-    if (!cursor) return;
-    const next = await client.browse(clusterId, {
-      topic,
-      partition: p === 'all' ? 'all' : Number(p),
-      from,
-      cursor,
-      limit: 100,
-    });
-    setExtra((x) => [...x, ...next.messages]);
-    setCursor(next.nextCursor);
+    if (!cursor || loading) return;
+    const base = page.data;
+    setLoading(true);
+    setLoadError(undefined);
+    try {
+      const next = await client.browse(clusterId, {
+        topic,
+        partition: p === 'all' ? 'all' : Number(p),
+        from,
+        cursor,
+        limit: 100,
+      });
+      if (pageRef.current !== base) return;
+      setExtra((x) => [...x, ...next.messages]);
+      setCursor(next.nextCursor);
+    } catch (e) {
+      setLoadError(`Couldn't load more messages: ${(e as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportAs = (kind: 'json' | 'csv') => {
@@ -509,6 +554,49 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         )}
       </form>
 
+      <div className="flex flex-wrap items-end gap-2" role="group" aria-label="Quick filters">
+        <div className="w-[180px]">
+          <TextField
+            label="Key contains"
+            mono
+            value={qKey}
+            onChange={(e) => url.set({ fk: e.target.value || undefined })}
+            placeholder="ord_"
+          />
+        </div>
+        <div className="w-[200px]">
+          <TextField
+            label="Header"
+            mono
+            value={qHeader}
+            onChange={(e) => url.set({ fh: e.target.value || undefined })}
+            placeholder="region=eu"
+          />
+        </div>
+        <div className="w-[220px]">
+          <TextField
+            label="Text contains"
+            value={url.get('ft') ?? ''}
+            onChange={(e) => url.set({ ft: e.target.value || undefined })}
+            placeholder="key or value text"
+          />
+        </div>
+        {quickOn && (
+          <>
+            <span className="pb-2 text-[12px] text-ink-muted" role="status">
+              {formatInt(rows.length)} of {formatInt(jsRows.length)} shown
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => url.set({ fk: undefined, fh: undefined, ft: undefined })}
+            >
+              Clear quick filters
+            </Button>
+          </>
+        )}
+      </div>
+
       {regex !== undefined && (
         <div className="flex items-end gap-2">
           <div className="w-[280px]">
@@ -656,7 +744,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           {rows.length === 0 && (
             <EmptyState
               title={
-                expr
+                expr || quickOn
                   ? 'No messages match the filter'
                   : live
                     ? 'Waiting for messages…'
@@ -665,8 +753,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                       : 'No messages here'
               }
             >
-              {expr
-                ? `None of the ${formatInt(raws.length)} messages scanned match. Loosen the expression or load more.`
+              {expr || quickOn
+                ? `None of the ${formatInt(raws.length)} messages scanned match. Loosen the filters or load more.`
                 : live
                   ? `${topic} gets ${formatRate(rate)}. New messages appear at the top.`
                   : 'This partition has no messages in its retention window.'}
@@ -682,8 +770,13 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             <Button size="sm" variant="ghost" onClick={() => url.set({ search: '' })}>
               Search other topics
             </Button>
-            <Button size="sm" disabled={!cursor} onClick={loadMore}>
-              Load more
+            {loadError && (
+              <span role="alert" className="text-[12px] text-crit-text">
+                {loadError}
+              </span>
+            )}
+            <Button size="sm" disabled={!cursor || loading} onClick={loadMore}>
+              {loading ? 'Loading…' : 'Load more'}
             </Button>
           </div>
         )}

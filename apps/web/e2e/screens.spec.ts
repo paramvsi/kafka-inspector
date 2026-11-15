@@ -118,6 +118,9 @@ test('disconnected preview: banner, stale values, checks', async ({ page }) => {
   await expect(
     page.getByText('What we’ve checked').or(page.getByText("What we've checked")),
   ).toBeVisible();
+  // only what the browser knows: no invented hosts or broker names
+  await expect(page.getByText('3 brokers, checked once the agent answers')).toBeVisible();
+  await expect(page.getByText('localhost:8481')).toHaveCount(0);
 });
 
 test('create topic → appears and opens its page', async ({ page }) => {
@@ -142,6 +145,27 @@ test('messages open from the keyboard (WCAG 2.1.1)', async ({ page }) => {
   await open.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog', { name: 'Message' })).toBeVisible();
+});
+
+test('a filtered list survives live tail and partition changes (no crash)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/app/topics/view/?name=orders&tab=messages&filter=value.total%20%3E%20100');
+  await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel('Live tail').click();
+  await page.waitForTimeout(1500);
+  expect(errors).toEqual([]);
+  await page.getByLabel('Live tail').click();
+  await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
+  await expect(page.getByRole('table', { name: 'Messages in orders' })).toBeVisible();
+});
+
+test("a group's partition link browses from that group's offsets", async ({ page }) => {
+  await page.goto('/app/groups/view/?id=payments-sink');
+  const link = page.getByRole('link', { name: /^orders · \d+$/ }).first();
+  await expect(link).toBeVisible({ timeout: 15_000 });
+  await expect(link).toHaveAttribute('href', /from=group&group=payments-sink/);
 });
 
 test('a JS filter runs once per change, not in a loop', async ({ page }) => {

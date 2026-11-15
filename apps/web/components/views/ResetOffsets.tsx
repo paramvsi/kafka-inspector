@@ -1,5 +1,11 @@
 'use client';
-import { formatInt, type GroupDetail, type ResetPreview, type ResetStrategy } from '@ki/core';
+import {
+  formatInt,
+  toLocalInput,
+  type GroupDetail,
+  type ResetPreview,
+  type ResetStrategy,
+} from '@ki/core';
 import { Button, DataTable, Dialog, Select, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -37,7 +43,7 @@ export function ResetOffsetsDialog({
   const [kind, setKind] = useState<Kind>(stalled ? 'shift' : 'latest');
   const [by, setBy] = useState('+1');
   const [offset, setOffset] = useState('');
-  const [time, setTime] = useState(() => new Date(Date.now() - 3600e3).toISOString().slice(0, 16));
+  const [time, setTime] = useState(() => toLocalInput(Date.now() - 3600e3));
   const [preview, setPreview] = useState<ResetPreview>();
   // the request the shown preview was computed for: Apply only acts on a fresh dry run
   const [previewOf, setPreviewOf] = useState<unknown>();
@@ -49,6 +55,7 @@ export function ResetOffsetsDialog({
     setTopic(stalled?.topic ?? topics[0]!);
     setScope(stalled ? String(stalled.partition) : 'all');
     setKind(stalled ? 'shift' : 'latest');
+    setTime(toLocalInput(Date.now() - 3600e3)); // "1 hour ago" as of opening, in local time
   }, [open]);
 
   const strategy = useMemo<ResetStrategy | null>(() => {

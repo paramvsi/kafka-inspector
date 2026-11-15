@@ -119,7 +119,7 @@ export function GroupDetailView() {
           },
         ]}
       />
-      {tab === 'partitions' ? <Partitions rows={d.partitions} /> : <Members d={d} />}
+      {tab === 'partitions' ? <Partitions rows={d.partitions} groupId={d.summary.groupId} /> : <Members d={d} />}
       <ResetOffsetsDialog
         open={url.get('reset') === '1'}
         onClose={() => url.set({ reset: undefined })}
@@ -333,7 +333,7 @@ function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> })
   );
 }
 
-function Partitions({ rows }: { rows: GroupPartitionLag[] }) {
+function Partitions({ rows, groupId }: { rows: GroupPartitionLag[]; groupId: string }) {
   const [all, setAll] = useState(false);
   const big = rows.filter((r) => r.lag >= 200 || r.status !== 'healthy');
   const shown = all || big.length === 0 ? rows : big;
@@ -361,7 +361,7 @@ function Partitions({ rows }: { rows: GroupPartitionLag[] }) {
           kind: 'id',
           cell: (r) => (
             <Link
-              href={`/app/topics/view/?name=${encodeURIComponent(r.topic)}&tab=messages&p=${r.partition}&from=group`}
+              href={`/app/topics/view/?name=${encodeURIComponent(r.topic)}&tab=messages&p=${r.partition}&from=group&group=${encodeURIComponent(groupId)}`}
               className="text-ink no-underline hover:text-copper"
             >
               {r.topic} · {r.partition}

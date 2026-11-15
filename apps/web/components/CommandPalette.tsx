@@ -49,6 +49,10 @@ export function CommandPalette({
   const { client, clusterId, info } = useKafka();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
+  // keep the active option visible while arrowing through a scrolled list
+  useEffect(() => {
+    document.getElementById(`pal-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
   const [data, setData] = useState<{
     topics: TopicSummary[];
     groups: GroupSummary[];
@@ -323,12 +327,13 @@ export function CommandPalette({
         className="m-0 max-h-[380px] list-none overflow-y-auto p-2"
       >
         {items.length === 0 && (
-          <li className="px-3 py-6 text-center text-[13px] text-ink-muted">
+          <li role="presentation" className="px-3 py-6 text-center text-[13px] text-ink-muted">
             Nothing matches “{term}”.
           </li>
         )}
         {items.map((it, i) => (
-          <li key={it.id}>
+          // listbox → option directly (the <li> is only layout); group headers are presentation
+          <li key={it.id} role="presentation">
             {(i === 0 || items[i - 1]!.section !== it.section) && (
               <div
                 className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-muted"

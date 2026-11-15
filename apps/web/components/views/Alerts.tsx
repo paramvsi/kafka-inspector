@@ -290,6 +290,7 @@ function RuleDialog({
   const qc = useQueryClient();
   const toast = useToast();
   const groups = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
+  const brokers = useKafkaQuery(['brokers'], (c, id) => c.listBrokers(id), false);
   const topics = useKafkaQuery(
     ['topics', 'names'],
     (c, id) => c.listTopics(id, { size: 500 }),
@@ -354,10 +355,10 @@ function RuleDialog({
     if (meta.scope === 'broker')
       return [
         { value: '', label: 'any broker' },
-        ...[1, 2, 3].map((b) => ({ value: `broker-${b}`, label: `broker ${b}` })),
+        ...(brokers.data ?? []).map((b) => ({ value: `broker-${b.id}`, label: `broker ${b.id}` })),
       ];
     return [{ value: '', label: 'the cluster' }];
-  }, [meta.scope, groups.data, topics.data]);
+  }, [meta.scope, groups.data, topics.data, brokers.data]);
 
   const save = async () => {
     try {
@@ -552,12 +553,13 @@ function RuleDialog({
                 Notification.permission === 'default'
               )
                 await Notification.requestPermission().catch(() => 'denied');
-              setR({
-                ...r,
+              // functional update: edits made while the permission prompt was open are kept
+              setR((cur) => ({
+                ...cur,
                 channels: on
-                  ? [...r.channels, 'browser']
-                  : r.channels.filter((c) => c !== 'browser'),
-              });
+                  ? [...cur.channels.filter((c) => c !== 'browser'), 'browser']
+                  : cur.channels.filter((c) => c !== 'browser'),
+              }));
             }}
           />
           {browser &&

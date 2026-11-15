@@ -87,6 +87,7 @@ export function createSimulatedClient(): KafkaClient {
         if (s.seed) await call('__reboot', s.seed);
       },
       incidents: () => call('listIncidents'),
+      getSettings: () => call('getSettings'),
     },
   };
 }
