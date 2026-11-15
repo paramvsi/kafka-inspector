@@ -1,0 +1,29 @@
+{
+  "name": "kafka-inspector",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm -r --if-present test",
+    "e2e": "pnpm --filter web e2e",
+    "lint": "eslint . && node scripts/check-literals.mjs",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "tokens": "pnpm --filter @ki/ui tokens",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.72.2"
+  }
+}

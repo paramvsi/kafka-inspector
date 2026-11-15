@@ -1,0 +1,13 @@
+context/
+design-system/
+designs/
+docs/
+prompts/
+assets/
+pnpm-lock.yaml
+**/out/
+**/.next/
+packages/ui/tokens/
+.claude/
+CLAUDE.md
+LICENSE
