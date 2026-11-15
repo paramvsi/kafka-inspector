@@ -11,6 +11,7 @@ export function LiveIndicator({ live, onToggle }: LiveIndicatorProps) {
     <button
       type="button"
       onClick={onToggle}
+      aria-pressed={live}
       title={live ? 'Pause live updates' : 'Resume live updates'}
       className={cx(
         'flex h-control-sm cursor-pointer items-center gap-[6px] rounded-md border-none bg-transparent px-2 text-[12px] font-medium hover:bg-surface-hover',

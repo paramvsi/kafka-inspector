@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cx } from './cx';
 
 interface OverlayProps {
@@ -48,6 +48,27 @@ function useNativeDialog(open: boolean, onClose: () => void) {
   return ref;
 }
 
+/**
+ * Content stays mounted while the exit transition runs (otherwise the panel fades out empty), then unmounts so
+ * the next open starts fresh. transitionend ends it; the timer covers reduced motion, where no transition runs.
+ */
+function useMountedWhileClosing(open: boolean, ref: React.RefObject<HTMLDialogElement | null>) {
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) return setMounted(true);
+    const d = ref.current;
+    const done = () => setMounted(false);
+    const onEnd = (e: TransitionEvent) => e.target === d && done(); // not a child's transition
+    const t = setTimeout(done, 400);
+    d?.addEventListener('transitionend', onEnd);
+    return () => {
+      clearTimeout(t);
+      d?.removeEventListener('transitionend', onEnd);
+    };
+  }, [open, ref]);
+  return open || mounted;
+}
+
 const CloseButton = ({ onClose }: { onClose: () => void }) => (
   <button
     type="button"
@@ -69,6 +90,7 @@ export function Dialog({
   className,
 }: OverlayProps) {
   const ref = useNativeDialog(open, onClose);
+  const show = useMountedWhileClosing(open, ref);
   const id = useId();
   return (
     <dialog
@@ -79,7 +101,7 @@ export function Dialog({
         className,
       )}
     >
-      {open && (
+      {show && (
         <div className="flex max-h-[calc(100vh-64px)] flex-col">
           <header className="flex items-start gap-3 border-b border-line-subtle px-5 py-4">
             <div className="grow">
@@ -112,6 +134,7 @@ export function Drawer({
   className,
 }: OverlayProps) {
   const ref = useNativeDialog(open, onClose);
+  const show = useMountedWhileClosing(open, ref);
   const id = useId();
   return (
     <dialog
@@ -122,7 +145,7 @@ export function Drawer({
         className,
       )}
     >
-      {open && (
+      {show && (
         <div className="flex h-full flex-col">
           <header className="flex items-start gap-3 border-b border-line-subtle px-5 py-4">
             <div className="min-w-0 grow">

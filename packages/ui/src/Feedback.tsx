@@ -1,6 +1,8 @@
 'use client';
 import {
+  cloneElement,
   createContext,
+  isValidElement,
   useCallback,
   useContext,
   useEffect,
@@ -21,14 +23,31 @@ export function Tooltip({
   side?: 'top' | 'bottom';
 }) {
   const id = useId();
+  // WCAG 1.4.13: Esc hides it without moving the pointer or focus; it can show again on the next hover/focus
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (dismissed) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDismissed(true);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [dismissed]);
+  // the description belongs on the control itself, so it is read when the control is reached
+  const trigger = isValidElement<{ 'aria-describedby'?: string }>(children)
+    ? cloneElement(children, { 'aria-describedby': id })
+    : children;
   return (
-    <span className="ki-tip relative inline-flex" aria-describedby={id}>
-      {children}
+    <span
+      className="ki-tip relative inline-flex"
+      data-dismissed={dismissed || undefined}
+      onMouseLeave={() => setDismissed(false)}
+      onBlur={() => setDismissed(false)}
+    >
+      {trigger}
       <span
         role="tooltip"
         id={id}
         className={cx(
-          'ki-tip-body pointer-events-none absolute left-1/2 z-20 w-max max-w-[260px] -translate-x-1/2 rounded-md border border-line bg-surface px-2 py-1 text-[12px] font-normal leading-4 text-ink [box-shadow:var(--shadow-popover)]',
+          'ki-tip-body pointer-events-none absolute left-1/2 z-20 w-max max-w-[260px] rounded-md border border-line bg-surface px-2 py-1 text-[12px] font-normal leading-4 text-ink [box-shadow:var(--shadow-popover)]',
           side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
         )}
       >
@@ -142,7 +161,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-2"
       >
         {items.map((t) => (
-          <Toast key={t.id} item={t} onDismiss={() => dismiss(t.id)} />
+          <Toast key={t.id} item={t} dismiss={dismiss} />
         ))}
       </div>
     </ToastCtx.Provider>
@@ -152,18 +171,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 const TOAST_DOT = { info: 'bg-copper', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit' };
 function Toast({
   item,
-  onDismiss,
+  dismiss,
 }: {
   item: ToastItem & { leaving?: boolean };
-  onDismiss: () => void;
+  dismiss: (id: number) => void;
 }) {
+  // `dismiss` is stable: other toasts arriving don't restart this one's timer.
+  // Hover or keyboard focus holds it open (WCAG 2.2.1), and the 6 s restart when the pointer/focus leaves.
+  const [held, setHeld] = useState(false);
+  const onDismiss = () => dismiss(item.id);
   useEffect(() => {
-    const t = setTimeout(onDismiss, 6000);
+    if (held || item.leaving) return;
+    const t = setTimeout(() => dismiss(item.id), 6000);
     return () => clearTimeout(t);
-  }, [onDismiss]);
+  }, [held, item.leaving, item.id, dismiss]);
   return (
     <div
-      role="status"
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeld(false);
+      }}
       className={cx(
         'ki-toast pointer-events-auto flex gap-3 rounded-lg border border-line bg-surface p-3 text-[13px] [box-shadow:var(--shadow-popover)]',
         item.leaving && 'ki-toast-leave',

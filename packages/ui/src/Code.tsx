@@ -88,11 +88,15 @@ export function JsonTree({
   masked?: Set<string>;
 }) {
   return (
-    <div className="font-mono text-[12px] leading-[20px]" role="tree">
+    // not role="tree": that promises arrow-key navigation; this is nested content with real toggle buttons
+    <div className="font-mono text-[12px] leading-[20px]">
       <Node k={null} v={value as Json} path="$" depth={0} onCopyPath={onCopyPath} masked={masked} />
     </div>
   );
 }
+
+// a 100k-item array must not mount 100k rows at once
+const MAX_CHILDREN = 200;
 
 function Node({
   k,
@@ -110,30 +114,34 @@ function Node({
   masked?: Set<string>;
 }) {
   const [open, setOpen] = useState(depth < 2);
-  const key = k !== null && (
-    <button
-      type="button"
-      onClick={() => onCopyPath?.(path)}
-      title={onCopyPath ? `Copy path ${path}` : undefined}
-      className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] text-ink-muted hover:text-ink"
-    >
-      {/^\d+$/.test(k) ? k : `"${k}"`}:
-    </button>
-  );
+  const [all, setAll] = useState(false);
+  const label = k === null ? '' : /^\d+$/.test(k) ? k : `"${k}"`;
+  // a control only when it does something
+  const key =
+    k !== null &&
+    (onCopyPath ? (
+      <button
+        type="button"
+        onClick={() => onCopyPath(path)}
+        title={`Copy path ${path}`}
+        aria-label={`Copy path ${path}`}
+        className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] text-ink-muted hover:text-ink"
+      >
+        {label}:
+      </button>
+    ) : (
+      <span className="text-ink-muted">{label}:</span>
+    ));
   if (v !== null && typeof v === 'object') {
     const entries = Array.isArray(v) ? v.map((x, i) => [String(i), x] as const) : Object.entries(v);
     const [o, c] = Array.isArray(v) ? ['[', ']'] : ['{', '}'];
     return (
-      <div
-        role="treeitem"
-        aria-expanded={open}
-        aria-selected={false}
-        style={{ paddingLeft: depth ? 16 : 0 }}
-      >
+      <div style={{ paddingLeft: depth ? 16 : 0 }}>
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          aria-label={open ? 'Collapse' : 'Expand'}
+          aria-expanded={open}
+          aria-label={`${open ? 'Collapse' : 'Expand'} ${k === null ? 'value' : label}`}
           className="mr-1 inline-flex size-4 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-ink-muted"
         >
           <span
@@ -155,8 +163,8 @@ function Node({
         )}
         {open && (
           <>
-            <div role="group">
-              {entries.map(([ck, cv]) => (
+            <div>
+              {(all ? entries : entries.slice(0, MAX_CHILDREN)).map(([ck, cv]) => (
                 <Node
                   key={ck}
                   k={ck}
@@ -167,6 +175,17 @@ function Node({
                   masked={masked}
                 />
               ))}
+              {!all && entries.length > MAX_CHILDREN && (
+                <button
+                  type="button"
+                  onClick={() => setAll(true)}
+                  style={{ paddingLeft: 36 }}
+                  className="cursor-pointer border-none bg-transparent p-0 font-sans text-[12px] text-copper underline"
+                >
+                  Show all {entries.length.toLocaleString('en-US')}{' '}
+                  {Array.isArray(v) ? 'items' : 'keys'}
+                </button>
+              )}
             </div>
             <span className="text-ink-muted" style={{ paddingLeft: 20 }}>
               {c}
@@ -178,7 +197,7 @@ function Node({
   }
   const isMasked = masked?.has(path);
   return (
-    <div role="treeitem" aria-selected={false} style={{ paddingLeft: depth ? 36 : 20 }}>
+    <div style={{ paddingLeft: depth ? 36 : 20 }}>
       {key} <Scalar v={v} />
       {isMasked && <span className="ml-2 font-sans text-[11px] text-ink-muted">masked</span>}
     </div>
@@ -186,9 +205,10 @@ function Node({
 }
 
 function Scalar({ v }: { v: Json }) {
-  if (typeof v === 'string') return <span className="break-all text-ok-text">&quot;{v}&quot;</span>;
+  // rule 4: status colours mean status only, so syntax uses ink / copper / muted
+  if (typeof v === 'string') return <span className="break-all text-ink">&quot;{v}&quot;</span>;
   if (typeof v === 'number') return <span className="text-copper">{v}</span>;
-  return <span className="text-warn-text">{String(v)}</span>;
+  return <span className="italic text-ink-muted">{String(v)}</span>;
 }
 
 export interface HexAnnotation {
@@ -209,7 +229,7 @@ export function HexDump({
 }) {
   const tone = [
     'bg-copper-soft text-copper',
-    'bg-warn-soft text-warn-text',
+    'bg-surface-hover text-ink underline decoration-copper underline-offset-2',
     'bg-surface-hover text-ink',
   ];
   const toneOf = (i: number) => annotations.findIndex((a) => i >= a.start && i < a.end);

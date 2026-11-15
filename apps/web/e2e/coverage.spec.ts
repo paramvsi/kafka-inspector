@@ -211,3 +211,176 @@ test('F-32: create topic validates the name and partitions', async ({ page }) =>
   await expect(dialog.getByText('Between 1 and 1,000.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Create topic' })).toBeDisabled();
 });
+
+test('F-100: created topics and produced messages persist across a reload (IndexedDB)', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await page.getByRole('button', { name: 'Create topic' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create topic' });
+  await dialog.getByLabel('Name').fill('persist-check');
+  await dialog.getByLabel('Replication factor').fill('3');
+  await dialog.getByRole('button', { name: 'Create topic' }).click();
+  await expect(page.getByRole('heading', { name: 'persist-check' })).toBeVisible();
+  // F-50: produce 3 at once
+  await page.getByRole('button', { name: 'Produce message' }).click();
+  const drawer = page.getByRole('dialog', { name: 'Produce message' });
+  await drawer.getByLabel('Send').fill('3');
+  await drawer.getByRole('button', { name: 'Produce 3 messages' }).click();
+  await expect(drawer).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'persist-check' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole('link', { name: 'Messages', exact: true }).click();
+  await expect(
+    page.getByRole('table', { name: 'Messages in persist-check' }).getByRole('row'),
+  ).toHaveCount(4, {
+    timeout: 15_000,
+  });
+});
+
+test('F-51: reprocess a message to the DLQ shortcut', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages');
+  const table = page.getByRole('table', { name: 'Messages in payments' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  await page
+    .getByRole('dialog', { name: 'Message' })
+    .getByRole('button', { name: 'Reprocess to topic' })
+    .click();
+  const drawer = page.getByRole('dialog', { name: 'Reprocess message' });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Send to payments.dlq' }).click();
+  await expect(drawer.getByLabel('Target topic')).toHaveValue('payments.dlq');
+});
+
+test('F-21/F-22: leader balance note and the all-settings filter', async ({ page }) => {
+  await page.goto('/app/brokers/');
+  await expect(page.getByText(/leads more than 40% of partitions|Balanced\./)).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole('button', { name: /^All \d+ settings$/ }).click();
+  const drawer = page.getByRole('dialog', { name: /all settings/ });
+  await drawer.getByLabel('Filter settings').fill('log.retention');
+  await expect(drawer.getByText('log.retention.hours')).toBeVisible();
+  await expect(drawer.getByText('num.network.threads')).toHaveCount(0);
+});
+
+test('F-30: regex filter, starred view and sort by name', async ({ page }) => {
+  await page.goto('/app/topics/?q=%5Epay&regex=1');
+  const table = page.getByRole('table', { name: 'Topics' });
+  await expect(table.getByRole('link', { name: 'payments', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(table.getByRole('link', { name: 'orders', exact: true })).toHaveCount(0);
+  await table.getByRole('button', { name: 'Star payments', exact: true }).click();
+  await page.goto('/app/topics/?view=starred');
+  await expect(
+    page
+      .getByRole('table', { name: 'Topics' })
+      .getByRole('link', { name: 'payments', exact: true }),
+  ).toBeVisible();
+  await page.goto('/app/topics/?sort=name');
+  const first = page.getByRole('table', { name: 'Topics' }).getByRole('row').nth(1);
+  await expect(first).toContainText(/audit-log|^a/);
+});
+
+test('F-43: multi-topic regex search returns messages from several topics', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&search=%5E(orders%7Cpayments)%24');
+  const table = page.getByRole('table').first();
+  await expect(table.getByText('payments', { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(table.getByText('orders', { exact: true }).first()).toBeVisible();
+});
+
+test('F-101: slow consumer, traffic spike, broker down, rebalance and hot partition all run', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  for (const title of [
+    'Slow consumer',
+    'Traffic spike',
+    'Broker down',
+    'Rebalance',
+    'Hot partition',
+  ]) {
+    const card = page.getByRole('article').filter({ hasText: title });
+    await card.getByRole('button', { name: 'Trigger' }).click();
+    await expect(card.getByText('Running').or(card.getByText('Done'))).toBeVisible({
+      timeout: 10_000,
+    });
+  }
+  await expect(page.getByRole('listitem').filter({ hasText: 'Broker 2 is down' })).toBeVisible();
+});
+
+test('F-110: landing CTAs, comparison and trademark note', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'Open live demo' }).first()).toHaveAttribute(
+    'href',
+    /\/app\/?/,
+  );
+  await expect(
+    page.getByText('Kafka Inspector compared with typical free Kafka UIs'),
+  ).toBeVisible();
+  await expect(page.getByText(/trademarks of the Apache Software Foundation/)).toBeVisible();
+});
+
+test.describe('reduced motion', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+  test('a value flash or pulse ring leaves no permanent tint when motion is reduced', async ({
+    page,
+  }) => {
+    await page.goto('/app/');
+    await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+    // the same elements KpiCard / StatusBadge mount after a change (animation is off under reduced motion)
+    const opacities = await page.evaluate(() =>
+      ['ki-flash', 'ki-pulse-ring'].map((c) => {
+        const el = document.createElement('span');
+        el.className = c;
+        document.querySelector('main')!.appendChild(el);
+        const o = getComputedStyle(el).opacity;
+        el.remove();
+        return o;
+      }),
+    );
+    expect(opacities).toEqual(['0', '0']);
+  });
+});
+
+test('read-only tooltip: centred on its button, describes it, and Esc hides it (WCAG 1.4.13)', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&preview=readonly');
+  const button = page.getByRole('button', { name: 'Produce message' });
+  await expect(button).toBeDisabled({ timeout: 15_000 });
+  const tipId = await button.getAttribute('aria-describedby');
+  expect(tipId).toBeTruthy();
+  const tip = page.locator(`[id="${tipId}"]`);
+  await expect(tip).toHaveText(/Read-only in this version/);
+  await button.hover({ force: true });
+  await expect.poll(() => tip.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+  const b = (await button.boundingBox())!;
+  const t = (await tip.boundingBox())!;
+  expect(Math.abs(t.x + t.width / 2 - (b.x + b.width / 2))).toBeLessThan(2);
+  await page.keyboard.press('Escape');
+  await expect.poll(() => tip.evaluate((e) => getComputedStyle(e).opacity)).toBe('0');
+});
+
+test.describe('touch layout', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 820, height: 1180 } });
+  test('controls are at least 44 × 44 px on a touch screen (rule 8)', async ({ page }) => {
+    await page.goto('/app/topics/');
+    await expect(page.getByRole('link', { name: 'orders' })).toBeVisible({ timeout: 15_000 });
+    const small = await page
+      .locator('main button:visible, header button:visible')
+      .evaluateAll((els) =>
+        els
+          .map((e) => e.getBoundingClientRect())
+          .filter((r) => r.width > 0 && (r.height < 44 || r.width < 44))
+          .map((r) => `${Math.round(r.width)}×${Math.round(r.height)}`),
+      );
+    expect(small).toEqual([]);
+  });
+});

@@ -248,15 +248,16 @@ html.theme-switching * {
 /* Tooltip: fade + 4 px rise, opens after a short delay, closes instantly */
 .ki-tip-body {
   opacity: 0;
-  translate: 0 var(--move-xs);
+  /* -50% centres it (a Tailwind translate class would be overridden by this unlayered rule) */
+  translate: -50% var(--move-xs);
   transition:
     opacity 0s,
     translate 0s;
 }
-.ki-tip:hover .ki-tip-body,
-.ki-tip:focus-within .ki-tip-body {
+.ki-tip:not([data-dismissed]):hover .ki-tip-body,
+.ki-tip:not([data-dismissed]):focus-within .ki-tip-body {
   opacity: 1;
-  translate: 0 0;
+  translate: -50% 0;
   transition:
     opacity var(--dur-fast) var(--ease-enter) var(--dur-slow),
     translate var(--dur-fast) var(--ease-enter) var(--dur-slow);
@@ -334,6 +335,31 @@ html.theme-switching * {
       .ki-reveal
     ) {
     animation: none !important;
+  }
+}
+/* the flash tint and pulse ring only make sense while they fade; without the animation they would stay */
+:root[data-motion='reduced'] :is(.ki-pulse-ring, .ki-flash) {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) :is(.ki-pulse-ring, .ki-flash) {
+    opacity: 0;
+  }
+}
+
+/* Rule 8: 44px touch targets on touch layouts (coarse pointer); desktop sizes are unchanged */
+@media (pointer: coarse) {
+  :root {
+    --control-sm: 44px;
+    --control-md: 44px;
+  }
+  button,
+  select,
+  input[type='checkbox'],
+  input[type='radio'],
+  [role='option'] {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

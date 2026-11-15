@@ -54,7 +54,7 @@ test('incident end to end: poison → stalled everywhere → alert → reset +1 
 
   // 3. The alert fires: toast and bell
   await expect(
-    page.getByRole('status').filter({ hasText: 'Alert: fraud-scorer stalled' }),
+    page.locator('[aria-live=polite] .ki-toast').filter({ hasText: 'Alert: fraud-scorer stalled' }),
   ).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole('link', { name: /Alerts, \d+ firing/ })).toBeVisible();
 

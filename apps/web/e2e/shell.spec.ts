@@ -135,7 +135,12 @@ test('Live dot pulses unless motion is reduced; pausing makes it static', async 
   const expected = info.project.name === 'reduced-motion' ? 'none' : 'ki-pulse';
   expect(await dot.evaluate((el) => getComputedStyle(el).animationName)).toBe(expected);
 
+  await expect(page.getByRole('button', { name: 'Live' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Live' }).click();
+  await expect(page.getByRole('button', { name: 'Paused' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   const paused = page.getByRole('button', { name: 'Paused' }).locator('span');
   expect(await paused.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
 });

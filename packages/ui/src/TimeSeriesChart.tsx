@@ -68,10 +68,14 @@ export function TimeSeriesChart({
     if (!drawn.current && series.some((s) => s.points.length > 1)) {
       drawn.current = true;
       setAnimate(!reducedMotion());
-      const t = setTimeout(() => setAnimate(false), tokenMs('--dur-slow') + 50);
-      return () => clearTimeout(t);
     }
   }, [series]);
+  // its own effect: a live tick during the first draw must not cancel the switch-off
+  useEffect(() => {
+    if (!animate) return;
+    const t = setTimeout(() => setAnimate(false), tokenMs('--dur-slow') + 50);
+    return () => clearTimeout(t);
+  }, [animate]);
 
   const rows = useMemo(() => {
     const byT = new Map<number, Record<string, number>>();
