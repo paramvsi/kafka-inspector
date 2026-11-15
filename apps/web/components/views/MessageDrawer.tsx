@@ -38,6 +38,7 @@ export function MessageDrawer({
     ['message', topic, msgParam],
     (c, id) => c.browse(id, { topic, partition: p!, from: 'offset', offset: o!, limit: 1 }),
     false,
+    !!msgParam && !raw, // nothing selected (or already in hand): no request with NaN offsets
   );
   const m = raw ?? fetched.data?.messages.find((x) => x.offset === o && x.partition === p);
   const [d, setD] = useState<DecodedMessage>();

@@ -743,3 +743,18 @@ test('a ?produce=1 deep link does not open Produce on a read-only cluster', asyn
   await page.waitForTimeout(500);
   await expect(page.getByRole('dialog', { name: 'Produce message' })).toHaveCount(0);
 });
+
+test('F-43: ticking Sample refetches the search across partitions', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&search=%5Eorders%24');
+  const table = page.getByRole('table').first();
+  await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 15_000 });
+  const partitions = () =>
+    table
+      .getByRole('row')
+      .evaluateAll(
+        (rows) => new Set(rows.slice(1, 40).map((r) => r.children[2]?.textContent)).size,
+      );
+  expect(await partitions()).toBe(1); // without sampling: the busiest partition only
+  await page.getByLabel('Sample across partitions').click();
+  await expect.poll(partitions, { timeout: 10_000 }).toBeGreaterThan(1);
+});

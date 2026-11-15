@@ -86,9 +86,11 @@ export function useKafkaQuery<T>(
   key: QueryKey,
   fn: (c: KafkaClient, clusterId: string) => Promise<T>,
   refreshMs: number | false = false,
+  enabled = true,
 ) {
   const { client, clusterId } = useKafka();
   return useQuery({
+    enabled,
     queryKey: [clusterId, ...key],
     queryFn: () => fn(client, clusterId),
     refetchInterval: refreshMs,

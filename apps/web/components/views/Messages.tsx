@@ -92,7 +92,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
 
   // ── browse (not live) ──
   const page = useKafkaQuery<RawMessagePage>(
-    ['browse', topic, from, p, url.get('offset'), url.get('ts'), group, regex],
+    ['browse', topic, from, p, url.get('offset'), url.get('ts'), group, regex, url.get('sample')],
     (c, id) =>
       regex !== undefined
         ? c.search(id, {
