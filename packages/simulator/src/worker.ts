@@ -28,8 +28,15 @@ async function boot(seed?: string): Promise<void> {
   if (timer) clearInterval(timer);
   subs.forEach((s) => s.off?.());
   sim = next;
-  subs.forEach(attach);
+  // tick first: a subscription that can't be re-attached must not stop the cluster
   timer = setInterval(() => sim!.tick(Date.now()), 1000);
+  for (const [id, s] of subs) {
+    try {
+      attach(s);
+    } catch {
+      subs.delete(id); // e.g. a tail on a topic the reset removed
+    }
+  }
 }
 
 const ready = (async () => {

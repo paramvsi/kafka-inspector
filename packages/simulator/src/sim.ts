@@ -274,15 +274,8 @@ export class Simulator {
 
     const pending = [...actions].sort((a, b) => a.t - b.t);
     // the user already moved fraud-scorer past the poison message: don't stall it again on reload
-    this.poisonFixed = actions.some((a) => {
-      if (a.kind !== 'reset-offsets') return false;
-      const r = a.payload as ResetOffsetsRequest;
-      return (
-        r.groupId === POISON.group &&
-        r.topic === POISON.topic &&
-        (r.partitions === 'all' || r.partitions.includes(POISON.partition))
-      );
-    });
+    // recorded only when a live reset actually moved fraud-scorer past the poison message
+    this.poisonFixed = actions.some((a) => a.kind === 'poison-fixed');
     const applyDue = (t: number) => {
       while (pending.length && pending[0]!.t <= t) this.replay(pending.shift()!);
     };
@@ -1988,6 +1981,9 @@ export class Simulator {
           row.next > this.poison.offset
         ) {
           if (this.poison.incident) this.incidents.delete(this.poison.incident);
+          // the opening scenario must not re-stall it on reload (a chaos-made poison isn't replayed)
+          if (!this.replaying && !this.poison.incident)
+            void this.store.append({ t, kind: 'poison-fixed', payload: null });
           this.poison = null;
         }
       }
@@ -2048,6 +2044,7 @@ export class Simulator {
           'broker-down': '2',
           rebalance: 'analytics-etl',
           'hot-partition': 'orders',
+          'poison-message': `${POISON.topic}-${POISON.partition}`,
         } as Partial<Record<ChaosAction['kind'], string>>
       )[action.kind];
     for (const inc of this.incidents.values())
@@ -2171,7 +2168,8 @@ export class Simulator {
 
   private startPoison(t: number, incident?: string): void {
     const g = this.group(POISON.group);
-    const gp = g.parts.find((p) => p.topic === POISON.topic && p.p === POISON.partition)!;
+    const gp = g.parts.find((p) => p.topic === POISON.topic && p.p === POISON.partition);
+    if (!gp) return; // payments was deleted: no partition to poison
     const offset = Math.floor(gp.committed);
     this.poison = {
       topic: POISON.topic,

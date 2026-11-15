@@ -758,3 +758,4 @@ test('F-43: ticking Sample refetches the search across partitions', async ({ pag
   await page.getByLabel('Sample across partitions').click();
   await expect.poll(partitions, { timeout: 10_000 }).toBeGreaterThan(1);
 });
+

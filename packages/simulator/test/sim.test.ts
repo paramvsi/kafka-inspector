@@ -474,3 +474,27 @@ test('controller follows the lowest online broker; produce to a leaderless parti
     a.sim.produce({ topic: 'one', partition: dead.partition, value: '{}' }),
   ).rejects.toThrow('has no leader');
 });
+
+test('poison scenario: deleting payments does not brick reloads; only a reset that skips it counts as the fix', async () => {
+  const s1 = new MemoryStore();
+  const a = make(s1);
+  await a.init();
+  await a.sim.deleteTopic('payments');
+  await expect(make(s1).init()).resolves.toBeUndefined();
+
+  const s2 = new MemoryStore();
+  let now = LOAD;
+  const b = new Simulator({ store: s2, now: () => now });
+  await b.init();
+  await b.resetOffsets(
+    { groupId: 'fraud-scorer', topic: 'payments', partitions: [7], strategy: { kind: 'earliest' } },
+    false,
+  ); // moves before the poison: not a fix
+  now = LOAD + 20 * 60_000;
+  const c = new Simulator({ store: s2, now: () => now });
+  await c.init();
+  expect(c.getGroup('fraud-scorer').summary.status).toBe('stalled');
+
+  expect(() => a.sim.runChaos({ kind: 'poison-message' })).not.toThrow();
+  expect(() => a.sim.runChaos({ kind: 'poison-message' })).toThrow('already running');
+});

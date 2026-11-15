@@ -10,7 +10,8 @@ export interface Action {
     | 'update-config'
     | 'produce'
     | 'reset-offsets'
-    | 'delete-group';
+    | 'delete-group'
+    | 'poison-fixed';
   payload: unknown;
 }
 
