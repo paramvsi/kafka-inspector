@@ -126,6 +126,11 @@ export class History {
     return t0 + ((value - v0) * (t1 - t0)) / (v1 - v0 || 1);
   }
 
+  /** Forget series (e.g. a deleted topic's). */
+  drop(match: (key: string) => boolean): void {
+    for (const k of [...this.data.keys()]) if (match(k)) this.data.delete(k);
+  }
+
   get first(): number | undefined {
     return this.times[0];
   }

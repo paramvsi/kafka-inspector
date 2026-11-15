@@ -497,3 +497,128 @@ test('F-01/F-14: sidebar sections, firing-alert chip and the recent events feed'
     timeout: 45_000,
   });
 });
+
+test('F-11/F-12/F-13: peak annotation, attention items link to the fix screen, group sparklines', async ({
+  page,
+}) => {
+  await page.goto('/app/');
+  await expect(page.getByText(/^peak [\d,]+\/s at \d\d:\d\d$/)).toBeVisible({ timeout: 15_000 });
+  const item = page.getByRole('link', { name: /fraud-scorer/ }).first();
+  await expect(item).toBeVisible();
+  await item.click();
+  await expect(page).toHaveURL(/groups\/view\/\?id=fraud-scorer|tab=messages/);
+  await page.goto('/app/');
+  await expect(page.locator('svg[aria-hidden="true"] polyline, svg polyline').first()).toBeAttached(
+    {
+      timeout: 15_000,
+    },
+  );
+});
+
+test('F-02: the cluster switcher lists clusters with status and links to Manage clusters', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('link', { name: 'orders' })).toBeVisible({ timeout: 15_000 }); // booted
+  await page.getByRole('button', { name: /^Cluster .*Switch cluster$/ }).click();
+  const menu = page.locator('#ki-cluster-menu');
+  await expect(menu.getByText('prod-eu-1')).toBeVisible();
+  await expect(menu.getByText(/Connected|Degraded|Disconnected/).first()).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Manage clusters' })).toHaveAttribute(
+    'href',
+    '/app/clusters/',
+  );
+});
+
+test('F-15: the disconnected banner offers Retry now and Edit connection', async ({ page }) => {
+  await page.goto('/app/?preview=disconnected');
+  await expect(page.getByRole('button', { name: 'Retry now' }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('link', { name: 'Edit connection' })).toHaveAttribute(
+    'href',
+    '/app/clusters/',
+  );
+  await expect(page.getByText(/attempt \d+ of \d+/)).toBeVisible();
+});
+
+test('F-31: the no-results state offers to create the searched topic', async ({ page }) => {
+  await page.goto('/app/topics/?q=shipments-eu');
+  await page.getByRole('button', { name: 'Create “shipments-eu”' }).click();
+  await expect(page.getByRole('dialog', { name: 'Create topic' }).getByLabel('Name')).toHaveValue(
+    'shipments-eu',
+  );
+});
+
+test('F-33/34/35/37/39: topic tabs show partitions with skew, consumers with status, the schema link, freshness', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=clickstream&tab=partitions');
+  await expect(page.getByRole('columnheader', { name: /Share|Skew/ }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.goto('/app/topics/view/?name=payments&tab=consumers');
+  await expect(page.getByRole('row', { name: /fraud-scorer.*Stalled/ })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.goto('/app/topics/view/?name=orders&tab=schema');
+  await expect(page.getByRole('link', { name: 'Compare versions' })).toHaveAttribute(
+    'href',
+    /subject=orders-value/,
+  );
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('row', { name: /orders/ }).first()).toContainText(/now|\ds ago/);
+});
+
+test('F-40: start from a time positions the browse at that time', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await page.getByLabel('Start from').selectOption('timestamp');
+  await page.getByLabel('From time').fill('2026-11-15T10:00');
+  await page.getByRole('button', { name: 'Go' }).click();
+  await expect(page).toHaveURL(/ts=2026-11-15T/);
+});
+
+test('F-81/F-83: seeded rules are listed; a topic-silent rule can be created', async ({ page }) => {
+  await page.goto('/app/alerts/?tab=rules');
+  for (const r of [
+    'Consumer group stalled or stopped',
+    'Lag above 5,000 for 5 min',
+    'Under-replicated partitions',
+    'Broker offline',
+    'Topic silent for 10 min',
+    'DLQ receiving messages',
+  ])
+    await expect(page.getByText(r).first()).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog', { name: 'New alert rule' });
+  await d.getByLabel('Name').fill('inventory silent');
+  await d.getByLabel('Metric').selectOption('topic-silent');
+  await d.getByRole('button', { name: 'Create rule' }).click();
+  await expect(page.getByText('inventory silent').first()).toBeVisible();
+});
+
+test('F-87: the subject list shows version, type and compatibility', async ({ page }) => {
+  await page.goto('/app/schemas/');
+  const item = page.getByRole('link', { name: /orders-value/ });
+  await expect(item).toBeVisible({ timeout: 15_000 });
+  await item.click();
+  await expect(page.getByText(/Avro\s*BACKWARD/).first()).toBeVisible();
+  await expect(page.getByText(/BACKWARD|FULL|NONE|FORWARD/).first()).toBeVisible();
+});
+
+test('after Reset demo, live data keeps flowing (no reload needed)', async ({ page }) => {
+  await page.goto('/app/chaos/');
+  await page.getByRole('button', { name: 'Reset demo to start' }).click();
+  await expect(page.getByText('Demo reset')).toBeVisible({ timeout: 15_000 });
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: /^Consumer groups/ })
+    .click();
+  const lag = page
+    .getByRole('row', { name: /fraud-scorer/ })
+    .getByRole('cell')
+    .nth(5);
+  await expect(lag).toBeVisible({ timeout: 15_000 });
+  const first = await lag.innerText();
+  await expect.poll(() => lag.innerText(), { timeout: 8000 }).not.toBe(first);
+});

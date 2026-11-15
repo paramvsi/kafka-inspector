@@ -390,3 +390,88 @@ test('reset offsets rejects NaN strategies instead of storing NaN commits', asyn
   await expect(req({ kind: 'offset', offset: -1 })).rejects.toThrow('0 or more');
   await expect(req({ kind: 'timestamp', timestamp: 'soon' })).rejects.toThrow('valid date');
 });
+
+test('F-38: all six health checks exist, and config edits change them', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  const ids = () =>
+    new Set(
+      a.sim
+        .listTopics({ internal: true, size: 500 })
+        .items.flatMap((t) => t.health.map((h) => `${h.id}:${t.name}`)),
+    );
+  for (const id of [
+    'rf1:audit-log',
+    'no-consumers:legacy-events',
+    'skew:clickstream',
+    'disk-fill:orders',
+  ])
+    expect(ids().has(id)).toBe(true);
+  await a.sim.updateTopicConfig('payments', { 'retention.ms': '-1', 'min.insync.replicas': '1' });
+  expect(ids().has('infinite-retention:payments')).toBe(true);
+  expect(ids().has('low-min-isr:payments')).toBe(true);
+  await a.sim.updateTopicConfig('payments', { 'retention.ms': null, 'min.insync.replicas': null });
+  expect(ids().has('infinite-retention:payments')).toBe(false);
+  expect(ids().has('low-min-isr:payments')).toBe(false);
+});
+
+test('chaos: the same action on the same target cannot overlap; unknown brokers are refused', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'traffic-spike' });
+  expect(() => a.sim.runChaos({ kind: 'traffic-spike' })).toThrow('already running');
+  a.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' });
+  expect(() => a.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' })).toThrow(
+    'already running',
+  );
+  expect(() => a.sim.runChaos({ kind: 'broker-down', target: '9' })).toThrow('does not exist');
+});
+
+test('a created topic has exactly RF replicas, and a broker that is down is not in its ISR', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  await a.sim.createTopic({ name: 'rf2', partitions: 3, replicationFactor: 2 });
+  const parts = a.sim.getTopic('rf2').partitions;
+  expect(parts.every((p) => p.replicas.length === 2)).toBe(true);
+  expect(parts.every((p) => !p.isr.includes(2) && p.leader !== 2)).toBe(true);
+  await expect(
+    a.sim.createTopic({ name: 'frac', partitions: 1, replicationFactor: 1.5 }),
+  ).rejects.toThrow();
+});
+
+test('a saved fix for the poison message survives a reload long after it', async () => {
+  const store = new MemoryStore();
+  let now = LOAD;
+  const first = new Simulator({ store, now: () => now });
+  await first.init();
+  await first.resetOffsets(
+    {
+      groupId: 'fraud-scorer',
+      topic: 'payments',
+      partitions: [7],
+      strategy: { kind: 'shift', by: 1 },
+    },
+    false,
+  );
+  now = LOAD + 20 * 60_000; // reload 20 minutes later
+  const second = new Simulator({ store, now: () => now });
+  await second.init();
+  expect(second.getGroup('fraud-scorer').summary.status).not.toBe('stalled');
+});
+
+test('controller follows the lowest online broker; produce to a leaderless partition is refused', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'broker-down', target: '1' });
+  a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  a.advance(1);
+  expect(a.sim.getOverview().kpis.activeController).toBe(3);
+  await a.sim.createTopic({ name: 'one', partitions: 3, replicationFactor: 1 });
+  const parts = a.sim.getTopic('one').partitions;
+  const dead = parts.find((p) => p.leader === null)!;
+  await expect(
+    a.sim.produce({ topic: 'one', partition: dead.partition, value: '{}' }),
+  ).rejects.toThrow('has no leader');
+});
+

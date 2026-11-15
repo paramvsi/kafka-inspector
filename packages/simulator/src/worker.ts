@@ -5,13 +5,30 @@ import { Simulator } from './sim';
 
 let sim: Simulator | null = null;
 let timer: ReturnType<typeof setInterval> | undefined;
-const handles = new Map<number, () => void>();
 let seq = 0;
 
+// Live subscriptions outlive a reboot (Reset demo, new seed): each is re-attached to the new simulator.
+type Sub =
+  | { kind: 'events'; cb: Parameters<Simulator['onEvent']>[0]; off?: () => void }
+  | {
+      kind: 'tail';
+      req: Parameters<Simulator['tail']>[0];
+      cb: Parameters<Simulator['tail']>[1];
+      off?: () => void;
+    };
+const subs = new Map<number, Sub>();
+const attach = (s: Sub) => {
+  s.off = s.kind === 'events' ? sim!.onEvent(s.cb) : sim!.tail(s.req, s.cb);
+};
+
 async function boot(seed?: string): Promise<void> {
+  // build and back-fill first; in-flight calls keep using the old simulator until the swap
+  const next = new Simulator({ seed, store: new DexieStore() });
+  await next.init();
   if (timer) clearInterval(timer);
-  sim = new Simulator({ seed, store: new DexieStore() });
-  await sim.init();
+  subs.forEach((s) => s.off?.());
+  sim = next;
+  subs.forEach(attach);
   timer = setInterval(() => sim!.tick(Date.now()), 1000);
 }
 
@@ -37,23 +54,25 @@ const api = new Proxy(
         // Functions can't cross the worker boundary: keep unsubscribe handles here, return ids.
         if (prop === 'subscribeAll') {
           const id = ++seq;
-          handles.set(id, sim!.onEvent(args[0] as Parameters<Simulator['onEvent']>[0]));
+          const s: Sub = { kind: 'events', cb: args[0] as Parameters<Simulator['onEvent']>[0] };
+          attach(s);
+          subs.set(id, s);
           return id;
         }
         if (prop === 'tailStart') {
           const id = ++seq;
-          handles.set(
-            id,
-            sim!.tail(
-              args[0] as Parameters<Simulator['tail']>[0],
-              args[1] as Parameters<Simulator['tail']>[1],
-            ),
-          );
+          const s: Sub = {
+            kind: 'tail',
+            req: args[0] as Parameters<Simulator['tail']>[0],
+            cb: args[1] as Parameters<Simulator['tail']>[1],
+          };
+          attach(s);
+          subs.set(id, s);
           return id;
         }
         if (prop === 'release') {
-          handles.get(args[0] as number)?.();
-          handles.delete(args[0] as number);
+          subs.get(args[0] as number)?.off?.();
+          subs.delete(args[0] as number);
           return;
         }
         const fn = (sim as unknown as Record<string, (...a: unknown[]) => unknown>)[prop];

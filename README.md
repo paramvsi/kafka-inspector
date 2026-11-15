@@ -56,7 +56,8 @@ flowchart LR
   multipliers, spread over partitions (with skew, e.g. `clickstream` partition 3 takes 41%). Consumer groups
   advance their committed offsets at their own capacity, capped at the end offset.
 - **24 h of history** is back-filled on load (60 s resolution, 1 s for the last 15 minutes) in ~250 ms.
-- **Messages are a pure function** of `(seed, topic, partition, offset)` — nothing is stored. Avro topics carry
+- **Message contents are a pure function** of `(seed, topic, partition, offset)` — nothing is stored. Timestamps
+  come from the simulated production history, so they can shift by a few seconds as old history is thinned. Avro topics carry
   the Confluent wire format (magic byte, schema id, Avro payload) from the simulator’s own Schema Registry.
 - **The opening state tells a story:** `fraud-scorer` is stalled on a poison message on `payments` partition 7,
   `payments-sink` builds lag and drains it on a 16-minute cycle, `search-indexer` stopped two hours ago.

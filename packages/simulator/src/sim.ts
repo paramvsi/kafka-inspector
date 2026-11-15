@@ -223,6 +223,7 @@ export class Simulator {
   private history = new History();
   private events: ClusterEvent[] = [];
   private incidents = new Map<string, IncidentState>();
+  private poisonFixed = false;
   private poison: Poison | null = null;
   private poisoned = new Set<string>();
   private produced = new Map<string, RawMessage>();
@@ -272,6 +273,16 @@ export class Simulator {
     this.seedHistoricEvents(now);
 
     const pending = [...actions].sort((a, b) => a.t - b.t);
+    // the user already moved fraud-scorer past the poison message: don't stall it again on reload
+    this.poisonFixed = actions.some((a) => {
+      if (a.kind !== 'reset-offsets') return false;
+      const r = a.payload as ResetOffsetsRequest;
+      return (
+        r.groupId === POISON.group &&
+        r.topic === POISON.topic &&
+        (r.partitions === 'all' || r.partitions.includes(POISON.partition))
+      );
+    });
     const applyDue = (t: number) => {
       while (pending.length && pending[0]!.t <= t) this.replay(pending.shift()!);
     };
@@ -296,10 +307,13 @@ export class Simulator {
     const r = rng(hash(this.seed, 'topic', def.name));
     const ps: PState[] = [];
     for (let p = 0; p < def.partitions; p++) {
-      const replicas =
-        def.rf === 1
-          ? [BROKERS[(ti + p) % 3]!.id]
-          : [0, 1, 2].map((k) => BROKERS[(ti + p + k) % 3]!.id);
+      // exactly RF replicas, spread round-robin
+      const replicas = Array.from(
+        { length: Math.min(def.rf, BROKERS.length) },
+        (_, k) => BROKERS[(ti + p + k) % BROKERS.length]!.id,
+      );
+      // a broker that is down (chaos) is not in sync and can't lead
+      const isr = replicas.filter((b) => this.brokersOnline.get(b) !== false);
       const end = Math.floor(def.endAtLoad * (1 + (r() - 0.5) * 0.002));
       const retained = def.sizeBytes
         ? Math.min(end, Math.floor(def.sizeBytes / def.avgBytes / def.partitions))
@@ -309,9 +323,9 @@ export class Simulator {
         p,
         end,
         retained,
-        leader: replicas[0]!,
+        leader: isr[0] ?? null,
         replicas,
-        isr: [...replicas],
+        isr,
         rate: 0,
         lastMsgAt: def.silentForMs ? this.loadedAt - def.silentForMs : start,
       });
@@ -770,11 +784,16 @@ export class Simulator {
       total = 0,
       underMinIsr = 0;
     for (const ps of this.parts.values()) {
+      // effective min.insync.replicas (config edits included), read once per topic
+      const minIsr = Number(
+        this.getTopicConfig(ps[0]!.def.name).find((c) => c.name === 'min.insync.replicas')?.value ??
+          2,
+      );
       for (const s of ps) {
         total++;
         if (s.isr.length < s.replicas.length) urp++;
         if (s.leader === null) offline++;
-        if (s.replicas.length > 1 && s.isr.length < (s.def.minIsr ?? 2)) underMinIsr++;
+        if (s.replicas.length > 1 && s.isr.length < minIsr) underMinIsr++;
       }
     }
     const lagNow = this.history.at('cluster:lag', t) ?? 0;
@@ -799,7 +818,7 @@ export class Simulator {
         brokersTotal: BROKERS.length,
         offlinePartitions: offline,
         underMinIsr,
-        activeController: this.brokersOnline.get(1) ? 1 : 2,
+        activeController: this.controllerId(),
         activeAlerts: this.alertEvents.filter(
           (a) => a.state === 'firing' && !(a.mutedUntil && Date.parse(a.mutedUntil) > t),
         ).length,
@@ -910,7 +929,7 @@ export class Simulator {
         host: b.host,
         port: b.port,
         rack: b.rack,
-        isController: online && (b.id === 1 || (!this.brokersOnline.get(1) && b.id === 2)),
+        isController: b.id === this.controllerId(),
         online,
         partitions,
         leaders,
@@ -969,6 +988,11 @@ export class Simulator {
     return Math.round(def.sizeBytes * (1 + (growth * (this.lastTick - this.loadedAt)) / DAY));
   }
 
+  /** KRaft: the lowest online broker leads; none when all are down. */
+  private controllerId(): number | null {
+    return BROKERS.map((b) => b.id).find((id) => this.brokersOnline.get(id) !== false) ?? null;
+  }
+
   private consumersOf(topic: string): GState[] {
     return [...this.groups.values()].filter((g) => !g.deleted && g.def.topics.includes(topic));
   }
@@ -976,6 +1000,10 @@ export class Simulator {
   private health(def: TopicDef, ps: PState[]): HealthFinding[] {
     const out: HealthFinding[] = [];
     if (def.internal) return out;
+    // the effective config, so F-36 edits (retention.ms, min.insync.replicas) change the checks
+    const cfg = Object.fromEntries(this.getTopicConfig(def.name).map((c) => [c.name, c.value]));
+    const retentionMs = Number(cfg['retention.ms']);
+    const minIsr = Number(cfg['min.insync.replicas']);
     if (def.rf === 1)
       out.push({
         id: 'rf1',
@@ -983,11 +1011,11 @@ export class Simulator {
         message: 'RF 1',
         fix: 'Increase the replication factor to 3 so a single broker failure does not lose data.',
       });
-    if (def.rf >= 3 && (def.minIsr ?? 2) < 2)
+    if (def.rf >= 3 && minIsr < 2)
       out.push({
         id: 'low-min-isr',
         severity: 'warn',
-        message: 'min.insync.replicas 1',
+        message: `min.insync.replicas ${minIsr}`,
         fix: 'Set min.insync.replicas to 2 with acks=all.',
       });
     if (this.consumersOf(def.name).length === 0 && !def.name.endsWith('.dlq'))
@@ -997,7 +1025,7 @@ export class Simulator {
         message: 'No consumers',
         fix: 'Nothing reads this topic. Delete it or lower its retention to save disk.',
       });
-    if (def.retentionMs === -1)
+    if (retentionMs === -1)
       out.push({
         id: 'infinite-retention',
         severity: 'info',
@@ -1020,7 +1048,7 @@ export class Simulator {
         id: 'disk-fill',
         severity: 'info',
         message: `Disk fills in ~${Math.round(free / growthPerDay)} days`,
-        fix: 'Retention 7 days. Lower retention.ms or add disk before then.',
+        fix: `Retention ${retentionMs > 0 ? `${Math.round(retentionMs / 86_400_000)} days` : 'unlimited'}. Lower retention.ms or add disk before then.`,
       });
     }
     void ps;
@@ -1631,6 +1659,7 @@ export class Simulator {
 
   async deleteAlertRule(id: string): Promise<void> {
     this.rules = this.rules.filter((r) => r.id !== id);
+    for (const k of [...this.pending.keys()]) if (k.startsWith(`${id}|`)) this.pending.delete(k);
     for (const [k, e] of [...this.firing]) {
       if (!k.startsWith(`${id}|`)) continue;
       e.state = 'resolved';
@@ -1752,6 +1781,8 @@ export class Simulator {
         for (const g of this.groups.values()) g.parts = g.parts.filter((gp) => gp.topic !== name);
         for (const k of this.produced.keys()) if (k.startsWith(`${name}:`)) this.produced.delete(k);
         for (const k of this.poisoned) if (k.startsWith(`${name}:`)) this.poisoned.delete(k);
+        // a re-created topic of the same name starts a fresh history (timeOf assumes a rising series)
+        this.history.drop((k) => k.startsWith(`end:${name}:`) || k.startsWith(`topic:${name}:`));
         this.pushEvent({
           ts: new Date(a.t).toISOString(),
           kind: 'topic-deleted',
@@ -1808,7 +1839,11 @@ export class Simulator {
     if (!Number.isInteger(spec.partitions) || spec.partitions < 1 || spec.partitions > 1000)
       throw new Error('Partitions must be between 1 and 1,000.');
     const online = [...this.brokersOnline.values()].filter(Boolean).length;
-    if (spec.replicationFactor < 1 || spec.replicationFactor > online)
+    if (
+      !Number.isInteger(spec.replicationFactor) ||
+      spec.replicationFactor < 1 ||
+      spec.replicationFactor > online
+    )
       throw new Error(`Replication factor must be between 1 and ${online} (brokers online).`);
     await this.log('create-topic', spec);
   }
@@ -1846,6 +1881,10 @@ export class Simulator {
       (req.key ? hash(req.key) % ps.length : Math.floor(rng(hash(t))() * ps.length));
     const s = ps[partition];
     if (!s) throw new Error(`Partition ${partition} does not exist on ${req.topic}.`);
+    if (s.leader === null)
+      throw new Error(
+        `Partition ${partition} of ${req.topic} has no leader (its brokers are down). Pick another partition or bring the broker back.`,
+      );
     const first = Math.floor(s.end);
     for (let i = 0; i < count; i++) {
       const offset = first + i;
@@ -1988,6 +2027,22 @@ export class Simulator {
     const id = `inc_${hash(action.kind, action.target ?? '', t).toString(36)}`;
     const iso = new Date(t).toISOString();
     let target = action.target ?? '';
+    // one run per action and target: overlapping runs share a single flag, so the first to end would cancel both
+    const effective =
+      target ||
+      (
+        {
+          'crash-consumer': 'order-service',
+          'slow-consumer': 'payments-sink',
+          'traffic-spike': '*',
+          'broker-down': '2',
+          rebalance: 'analytics-etl',
+          'hot-partition': 'orders',
+        } as Partial<Record<ChaosAction['kind'], string>>
+      )[action.kind];
+    for (const inc of this.incidents.values())
+      if (inc.kind === action.kind && inc.target === effective)
+        throw new Error(`${action.kind} is already running on ${effective}. Stop it first.`);
     let until: number | undefined;
     let undo: () => void = () => {};
     const ev = (title: string, detail?: string) =>
@@ -2003,6 +2058,7 @@ export class Simulator {
         ev(`Chaos: ${target} crashed`, 'All members left the group; commits stopped');
         undo = () => {
           g.crashed = false;
+          if (g.deleted) return; // deleted while crashed: nothing to rejoin
           g.members = g.def.members;
           this.rebalance(g, this.lastTick, 'members rejoined');
         };
@@ -2028,7 +2084,9 @@ export class Simulator {
         break;
       }
       case 'broker-down': {
-        const id2 = Number(action.target ?? 2);
+        const id2 = Number(action.target || 2);
+        if (!this.brokersOnline.has(id2))
+          throw new Error(`Broker ${action.target} does not exist.`);
         target = String(id2);
         this.brokersOnline.set(id2, false);
         for (const ps of this.parts.values()) {
@@ -2141,6 +2199,7 @@ export class Simulator {
     // the opening poison scenario starts 6m 12s before load
     if (
       !this.poison &&
+      !this.poisonFixed &&
       this.replaying &&
       t >= this.loadedAt - POISON.activeForMsAtLoad &&
       t < this.loadedAt - POISON.activeForMsAtLoad + 1000

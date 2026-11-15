@@ -38,7 +38,8 @@ test('every sidebar item navigates to its stub and marks itself current', async 
     await nav.getByRole('link', { name: new RegExp(`^${label}( \\d+)?$`) }).click();
     await expect(page).toHaveURL(path);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading);
-    await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(
+    // the name gains a count once data arrives ("Alerts 3"): match both
+    await expect(nav.getByRole('link', { name: new RegExp(`^${label}( \\d+)?$`) })).toHaveAttribute(
       'aria-current',
       'page',
     );
