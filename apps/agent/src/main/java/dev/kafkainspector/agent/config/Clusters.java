@@ -41,8 +41,7 @@ public class Clusters {
         }
         // startup log lists clusters and security protocol only (AGENT_API security checklist)
         log.info("Kafka Inspector agent · read-only · clusters: {}", byId.values());
-        // retention pruning is DECISION-PENDING (docs/DECISIONS.md): say so instead of ignoring the setting silently
-        log.warn("History retention ({}) is not enforced in this version: metric samples are kept until /data is cleared.", props.historyRetention());
+        log.info("History retention: {} (1 sample/min after 1 h, 1/10 min after 24 h)", props.historyRetention());
     }
 
     public Map<String, KiProperties.Cluster> all() {

@@ -61,7 +61,7 @@ public class AlertService {
         return rules().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
     }
 
-    /** Soft delete (see DECISION-PENDING): the rule disappears and its firing alerts resolve. */
+    /** Soft delete: the rule disappears and its firing alerts resolve (rules are few; history pruning covers events). */
     public void remove(String id) {
         jdbc.update("UPDATE alert_rule SET deleted = TRUE, enabled = FALSE WHERE id = ?", id);
         jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE rule_id = ? AND state = 'firing'", System.currentTimeMillis(), id);

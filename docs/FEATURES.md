@@ -19,7 +19,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 | Produce | F-50, F-51 | ✅ (demo) |
 | Consumer groups | F-60 … F-64 | ✅ (reset/delete in demo) |
 | Lag health | F-70, F-71 | ✅ shared vectors pass in TS and Java |
-| History | F-72 | ⚠️ demo keeps 24 h (7d shows what exists); agent retention is DECISION-PENDING |
+| History | F-72 | ✅ agent: retention + downsampling job; demo keeps 24 h (7d shows what exists) |
 | Alerts | F-80 … F-83 | ✅ (rule preview is demo-only; Slack/webhook v2) |
 | Topology | F-85 | ✅ agent shows topics → groups only (producers aren't visible to the Admin API) |
 | Schemas | F-87, F-88, F-89 | ✅ |

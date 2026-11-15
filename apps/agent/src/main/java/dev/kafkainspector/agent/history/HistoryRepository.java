@@ -1,20 +1,54 @@
 package dev.kafkainspector.agent.history;
 
+import dev.kafkainspector.agent.config.KiProperties;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 
 /**
- * Metric history (F-72). Queries average into time buckets so long ranges stay small.
- * Retention/downsampling is DECISION-PENDING (docs/DECISIONS.md): until approved, samples are kept.
+ * Metric history (F-72). Queries average into time buckets so long ranges stay small. A job keeps the table bounded
+ * (AGENT_API "History"): 1 sample per minute after 1 h, 1 per 10 min after 24 h, nothing older than KI_HISTORY_RETENTION;
+ * resolved alert events go after 7 days. Approved by the owner on 2026-11-15 (docs/DECISIONS.md).
  */
 @Repository
 public class HistoryRepository {
+    private static final Logger log = LoggerFactory.getLogger(HistoryRepository.class);
+    private static final long HOUR = 3_600_000, DAY = 24 * HOUR;
     private final JdbcTemplate jdbc;
+    private final KiProperties props;
 
-    public HistoryRepository(JdbcTemplate jdbc) {
+    public HistoryRepository(JdbcTemplate jdbc, KiProperties props) {
         this.jdbc = jdbc;
+        this.props = props;
+    }
+
+    @Scheduled(initialDelay = 60_000, fixedDelay = 600_000)
+    public void pruneOnSchedule() {
+        try {
+            prune(System.currentTimeMillis());
+        } catch (RuntimeException e) {
+            log.warn("History pruning failed, will retry: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Returns rows removed: [expired, downsampled to 1/min, downsampled to 1/10 min, resolved alert events].
+     * Downsampling keeps the sample landing in the first sample interval of each minute / 10 minutes.
+     * ponytail: modulo on ts, not a per-bucket MIN(ts) — the sampler's fixed delay drifts, so the odd minute can end up
+     * with no sample; queries bucket-average anyway. Use a MIN(ts) subquery if exact 1-per-bucket ever matters.
+     */
+    public int[] prune(long now) {
+        long step = Math.max(1, props.sampleInterval().toMillis());
+        int expired = jdbc.update("DELETE FROM metric_sample WHERE ts < ?", now - props.historyRetention().toMillis());
+        int perMinute = step < 60_000 ? jdbc.update("DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 60000) >= ?", now - HOUR, step) : 0;
+        int perTen = step < 600_000 ? jdbc.update("DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 600000) >= ?", now - DAY, step) : 0;
+        int events = jdbc.update("DELETE FROM alert_event WHERE fired_at < ? AND state = 'resolved'", now - 7 * DAY);
+        if (expired + perMinute + perTen + events > 0) log.debug("History pruned: {} expired, {} + {} downsampled, {} alert events", expired, perMinute, perTen, events);
+        return new int[] {expired, perMinute, perTen, events};
     }
 
     public record Row(String cluster, String scope, String key, String metric, long ts, double value) {}

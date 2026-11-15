@@ -116,5 +116,5 @@ These refine the contract above; the agent and `AgentClient` implement them.
 - **Topology.** Producers are not visible to the Admin API: the agent returns topics → consumer groups only.
 - **Schemas.** Without a configured registry every schema route answers `404 NO_SCHEMA_REGISTRY` with the variable to set.
 - **Alert rules.** `DELETE /api/alerts/rules/{id}` is a soft delete (the rule disappears; its firing alerts resolve).
-- **History retention** (`KI_HISTORY_RETENTION`) is **pending** — see DECISIONS "DECISION-PENDING". Until approved, samples are kept; queries bucket-average so responses stay small.
+- **History retention** (`KI_HISTORY_RETENTION`, default 7 d) runs every 10 min: samples older than 1 h are thinned to 1 per minute, older than 24 h to 1 per 10 min; resolved alert events are removed after 7 days. Queries bucket-average, so a thinned range reads the same.
 - **Errors.** `404 *_NOT_FOUND`, `400 BAD_REQUEST`, `502 KAFKA_UNAVAILABLE` (brokers unreachable), `503 UNAVAILABLE` (still connecting on first start).

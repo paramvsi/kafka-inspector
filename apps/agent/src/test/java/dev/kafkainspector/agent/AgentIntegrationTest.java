@@ -175,6 +175,36 @@ class AgentIntegrationTest {
         assertTrue(get("/api/alerts/rules").findValuesAsString("id").stream().noneMatch(id::equals));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    dev.kafkainspector.agent.history.HistoryRepository history;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    @Order(14)
+    void retentionExpiresDownsamplesAndPrunesResolvedAlertEvents() {
+        long now = System.currentTimeMillis(), hour = 3_600_000, day = 24 * hour;
+        long tenMin = 600_000, oneMin = 60_000;
+        long old2d = (now - 2 * day) / tenMin * tenMin, old2h = (now - 2 * hour) / oneMin * oneMin;
+        history.insert(List.of(
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", now - 8 * day, 1), // past 7 d retention
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", old2d, 2), // 10-min boundary: kept
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", old2d + 5 * oneMin, 3), // > 24 h, mid-10-min
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", old2h, 4), // minute boundary: kept
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", old2h + 30_000, 5), // > 1 h, mid-minute
+                new dev.kafkainspector.agent.history.HistoryRepository.Row("prune", "cluster", "", "lag", now - 600_000 + 30_000, 6))); // last hour: kept
+        String ev = "INSERT INTO alert_event VALUES (?, 'prune', 'r', 'warn', 't', 'e', 'x', '/', ?, ?, NULL, NULL, FALSE)";
+        jdbc.update(ev, "old-resolved", "resolved", now - 8 * day);
+        jdbc.update(ev, "old-firing", "firing", now - 8 * day);
+        jdbc.update(ev, "new-resolved", "resolved", now - day);
+
+        history.prune(now);
+
+        assertEquals(List.of(2.0, 4.0, 6.0), jdbc.queryForList("SELECT val FROM metric_sample WHERE cluster = 'prune' ORDER BY ts", Double.class));
+        assertEquals(List.of("new-resolved", "old-firing"), jdbc.queryForList("SELECT id FROM alert_event WHERE cluster = 'prune' ORDER BY id", String.class));
+    }
+
     java.net.http.WebSocket openStream(HttpClient client, String origin, List<String> received, java.util.concurrent.CountDownLatch closed) throws Exception {
         return client.newWebSocketBuilder().header("Origin", origin).buildAsync(URI.create("ws://localhost:" + port + "/api/stream"), new java.net.http.WebSocket.Listener() {
             @Override
