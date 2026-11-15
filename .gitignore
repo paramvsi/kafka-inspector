@@ -11,3 +11,4 @@ playwright-report/
 !.env.example
 # original handover packs (copied to the root; kept for reference)
 context/
+next-env.d.ts
