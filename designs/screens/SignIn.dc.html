@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<form style="width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<img src="../../assets/brand/kafka-inspector-icon-dark.png" alt="" style="width: 48px; height: 48px">
+<h1 class="page-title" style="margin: 0">Sign in to Kafka Inspector</h1>
+<div style="color: var(--ink-muted)">This instance runs at <span class="co-mono" style="font-size: 11px; color: var(--ink)">kafka-inspector.internal:8080</span> and connects to 2 clusters.</div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Username</span><input value="admin" autocomplete="username" style="height: 40px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-sans); font-size: 13px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Password</span><input type="password" value="••••••••••••" autocomplete="current-password" style="height: 40px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--copper); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-sans); font-size: 13px"><span style="font-size: 12px; color: var(--ink-muted)">Set with <span class="co-mono" style="font-size: 10.5px">KI_ADMIN_PASSWORD</span> when the container starts.</span></label>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary" size="lg">Sign in</x-import>
+</form>
+<div style="display: flex; gap: 16px; font-size: 12px; color: var(--ink-muted)"><span class="co-mono" style="font-size: 10px">v1.0.0 · read-only</span><a href="#" style="color: var(--ink-muted)">Documentation</a><a href="#" style="color: var(--ink-muted)">GitHub</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

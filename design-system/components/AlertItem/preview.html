@@ -1,0 +1,12 @@
+<!-- @dsCard group="Status" height=152 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AlertItem — preview</title></head>
+<body>
+<div id="root" class="co-preview-col"></div>
+<script>
+  var C = window.CopperOxide, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { style: { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: '0 var(--space-4)' } }, h(C.AlertItem, { severity: 'crit', title: 'fraud-scorer stalled', detail: 'Partition 7 · same offset for 6m 12s', time: '14:21' }), h(C.AlertItem, { severity: 'warn', title: 'payments-sink lag rising', detail: '9,312 behind · catch-up in ~14 min', time: '14:12' })));
+</script>
+</body>
+</html>

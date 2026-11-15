@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.DS_Store
+.env*
+!.env.example
+# original handover packs (copied to the root; kept for reference)
+context/

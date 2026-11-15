@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Topic payments messages decode error</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" parent="Topics" crumb="payments" hint-size="1048px,56px"></dc-import>
+<div style="flex-grow: 1; display: flex; min-height: 0">
+<main style="flex-grow: 1; min-width: 0; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 8px; align-items: center">
+<select aria-label="Start from" style="height: 32px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: 12px"><option>Offset 7,511,200</option></select>
+<select aria-label="Partition" style="height: 32px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: 12px"><option>Partition 4</option></select>
+<select aria-label="Decode as" style="height: 32px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: var(--font-sans); font-size: 12px"><option>Value: Auto</option></select>
+<span style="flex-grow: 1"></span>
+<span style="font-size: 12px; color: var(--crit-text)">1 of 50 messages could not be decoded</span>
+</div>
+<table class="co-table" style="font-size: 12px">
+<thead><tr><th scope="col" style="text-align: right">Offset</th><th scope="col">Time</th><th scope="col">Key</th><th scope="col">Value</th></tr></thead>
+<tbody>
+<tr><td class="co-num">7,511,203</td><td class="co-id">14:27:29.004</td><td class="co-id">pay_1a77</td><td class="co-id" style="color: var(--ink-muted)">{"paymentId":"pay_1a77","amount":742.5,"method":"card",…</td></tr>
+<tr style="background: var(--crit-soft)"><td class="co-num" style="background: transparent">7,511,202</td><td class="co-id" style="background: transparent">14:27:28.991</td><td class="co-id" style="background: transparent">pay_0e19</td><td style="background: transparent"><span class="co-badge co-badge-stalled">Decode failed</span> <span class="co-mono" style="font-size: 11px; color: var(--ink-muted)">00 00 00 00 83 0a 70 61 79 5f…</span></td></tr>
+<tr><td class="co-num">7,511,201</td><td class="co-id">14:27:28.950</td><td class="co-id">pay_c4d2</td><td class="co-id" style="color: var(--ink-muted)">{"paymentId":"pay_c4d2","amount":66.0,"method":"wallet",…</td></tr>
+<tr><td class="co-num">7,511,200</td><td class="co-id">14:27:28.902</td><td class="co-id">pay_93be</td><td class="co-id" style="color: var(--ink-muted)">{"paymentId":"pay_93be","amount":1290,"method":"card",…</td></tr>
+</tbody>
+</table>
+</main>
+<aside aria-label="Message detail" style="width: 400px; flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--line); padding: 18px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center"><h2 class="section-title" style="margin: 0">Message · offset 7,511,202</h2><span style="flex-grow: 1"></span><button type="button" aria-label="Close" style="width: 32px; height: 32px; border: none; border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); font-size: 18px">×</button></div>
+<div role="alert" style="background: var(--crit-soft); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; color: var(--crit-text)">Couldn't decode the value as Avro</div>
+<div style="font-size: 12px; line-height: 18px">The message says schema id <span class="co-mono" style="font-size: 11px">131</span>, but the registry has no schema with that id. It may have been deleted, or the producer used a different registry.</div>
+</div>
+<div style="font-size: 12px; color: var(--ink-muted)">Raw value · 214 bytes</div>
+<pre style="margin: 0; background: var(--surface-sunken); border: 1px solid var(--line-subtle); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-mono); font-size: 10.5px; line-height: 17px; color: var(--ink)"><span style="color: var(--copper)">00</span> <span style="color: var(--chart-2)">00 00 00 83</span> 0a 70 61 79 5f 30 65  |....pay_0e|
+31 39 00 00 00 00 00 b4  86 40 08 63 61 72 64 06  |19.....@.card.|
+41 45 44 02 0e 6d 65 72  63 5f 32 31 00 38 32 30  |AED..merc_21.820|
+32 36 2d 31 31 2d 31 35  54 31 34 3a 32 37 3a 32  |26-11-15T14:27:2|</pre>
+<div style="font-size: 12px; color: var(--ink-muted)"><span style="color: var(--copper)">■</span> magic byte · <span style="color: var(--chart-2)">■</span> schema id (131)</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600">Try another way</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary" size="sm">Decode with latest payments-value</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary" size="sm">Show as text</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="ghost" size="sm">Copy hex</x-import>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

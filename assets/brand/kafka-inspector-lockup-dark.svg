@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400">
+  <rect width="1600" height="400" fill="#0E1512"/>
+  <g transform="translate(96 64) scale(0.62)">
+    <circle cx="224" cy="224" r="134" fill="none" stroke="#E0884F" stroke-width="34"/>
+    <line x1="322" y1="322" x2="404" y2="404" stroke="#E0884F" stroke-width="44" stroke-linecap="round"/>
+    <rect x="152" y="171" width="150" height="22" rx="11" fill="#6CC3A0"/>
+    <rect x="152" y="213" width="96" height="22" rx="11" fill="#6CC3A0"/>
+    <circle cx="282" cy="224" r="14" fill="#E0884F"/>
+    <rect x="152" y="255" width="128" height="22" rx="11" fill="#6CC3A0"/>
+  </g>
+  <text x="460" y="214" font-family="Inter Display" font-weight="600" font-size="112" letter-spacing="-3" fill="#E8EFEA">Kafka Inspector</text>
+  <text x="464" y="282" font-family="Inter Display" font-weight="500" font-size="40" letter-spacing="1" fill="#93A59B">Real-time UI for Apache Kafka</text>
+</svg>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Topics</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Topics" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: flex-end; gap: 12px">
+<div><h1 class="page-title" style="margin: 0">Topics</h1><div style="color: var(--ink-muted); margin-top: 2px">42 topics · 186 partitions · 1.25 TB · 3 need attention</div></div>
+<div style="flex-grow: 1"></div>
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary">Bulk actions</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Create topic</x-import>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<x-import component-from-global-scope="CopperOxide.SearchInput" placeholder="Filter by name or regex" shortcut="/" label="Filter topics"></x-import>
+<x-import component-from-global-scope="CopperOxide.SegmentedControl" label="Show" options="{{ views }}" default-value="All"></x-import>
+<label style="display: flex; align-items: center; gap: 8px; color: var(--ink-muted)"><input type="checkbox" checked style="accent-color: var(--copper)">Hide internal topics</label>
+<div style="flex-grow: 1"></div>
+<span style="font-size: 12px; color: var(--ink-muted)">Sorted by: issues first</span>
+</div>
+<table class="co-table">
+<thead><tr><th scope="col">Topic</th><th scope="col" style="text-align: right">Partitions</th><th scope="col" style="text-align: right">RF</th><th scope="col" style="text-align: right">Size</th><th scope="col" style="text-align: right">In / s</th><th scope="col">Trend, 1h</th><th scope="col" style="text-align: right">Groups</th><th scope="col">Last message</th><th scope="col">Health</th></tr></thead>
+<tbody>
+<tr><td class="co-id">clickstream</td><td class="co-num">12</td><td class="co-num">3</td><td class="co-num">402 GB</td><td class="co-num">14,206</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.a }}" tone="chart-1"></x-import></td><td class="co-num">2</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn">Skew 41%</x-import></td></tr>
+<tr><td class="co-id">audit-log</td><td class="co-num">3</td><td class="co-num">1</td><td class="co-num">18 GB</td><td class="co-num">212</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.b }}" tone="chart-1"></x-import></td><td class="co-num">1</td><td class="co-dim">2s ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn">RF 1</x-import></td></tr>
+<tr><td class="co-id">legacy-events</td><td class="co-num">6</td><td class="co-num">3</td><td class="co-num">4.1 GB</td><td class="co-num">0</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.zero }}" tone="muted"></x-import></td><td class="co-num">0</td><td class="co-dim">9 days ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="neutral">No consumers</x-import></td></tr>
+<tr><td class="co-id">orders</td><td class="co-num">24</td><td class="co-num">3</td><td class="co-num">512 GB</td><td class="co-num">21,840</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.c }}" tone="chart-1"></x-import></td><td class="co-num">3</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">payments</td><td class="co-num">12</td><td class="co-num">3</td><td class="co-num">201 GB</td><td class="co-num">7,511</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.d }}" tone="chart-1"></x-import></td><td class="co-num">2</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">payments.dlq</td><td class="co-num">3</td><td class="co-num">3</td><td class="co-num">312 MB</td><td class="co-num">4</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.e }}" tone="chart-1"></x-import></td><td class="co-num">0</td><td class="co-dim">41s ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">inventory</td><td class="co-num">12</td><td class="co-num">3</td><td class="co-num">86 GB</td><td class="co-num">3,092</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.b }}" tone="chart-1"></x-import></td><td class="co-num">1</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">notifications</td><td class="co-num">6</td><td class="co-num">3</td><td class="co-num">22 GB</td><td class="co-num">1,564</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.d }}" tone="chart-1"></x-import></td><td class="co-num">1</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+</tbody>
+</table>
+<div style="display: flex; justify-content: space-between; color: var(--ink-muted); font-size: 12px"><span>Showing 8 of 42 · 3 internal topics hidden</span><span class="co-mono" style="font-size: 11px">Page 1 of 6</span></div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+return { views: ['All', 'Needs attention', 'Starred'], sp: { a: [10, 12, 11, 14, 13, 15, 14], b: [4, 5, 4, 6, 5, 5, 6], c: [12, 14, 13, 16, 18, 17, 20], d: [6, 7, 6, 7, 8, 7, 7], e: [0, 1, 0, 3, 1, 0, 2], zero: [0, 0, 0, 0, 0, 0, 0] } };
+}
+}
+</script>
+</body>
+</html>

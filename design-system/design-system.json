@@ -1,0 +1,35 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": { "v": 1, "at": "2026-11-15T11:29:00Z" },
+  "title": "Copper Oxide",
+  "namespace": "CopperOxide",
+  "libraries": [{ "name": "react", "version": "18" }, { "name": "react-dom", "version": "18" }],
+  "sections": {},
+  "groups": ["Logos"],
+  "assetGroups": {
+    "Logos": {
+      "name": "Logos",
+      "tile": "m",
+      "order": [
+        "kafka-inspector-icon-dark.svg",
+        "kafka-inspector-icon-light.svg",
+        "kafka-inspector-mark-on-dark.svg",
+        "kafka-inspector-mark-on-light.svg",
+        "kafka-inspector-lockup-dark.png",
+        "kafka-inspector-lockup-light.png"
+      ],
+      "files": {
+        "kafka-inspector-icon-dark.svg": { "name": "kafka-inspector-icon-dark.svg", "blob": "1931bb3319c0588c7ae179fdc6852f84", "size": 698, "type": "image/svg+xml" },
+        "kafka-inspector-icon-light.svg": { "name": "kafka-inspector-icon-light.svg", "blob": "6ec6b5c0d7057b55dfd31b1b39d32622", "size": 698, "type": "image/svg+xml" },
+        "kafka-inspector-mark-on-dark.svg": { "name": "kafka-inspector-mark-on-dark.svg", "blob": "88490328c5093550359266f5f2c666c7", "size": 631, "type": "image/svg+xml" },
+        "kafka-inspector-mark-on-light.svg": { "name": "kafka-inspector-mark-on-light.svg", "blob": "fbda597af4af88db92946aa6c0b549e7", "size": 631, "type": "image/svg+xml" },
+        "kafka-inspector-lockup-dark.png": { "name": "kafka-inspector-lockup-dark.png", "blob": "2be4532d983405fb5e90180230c5d811", "size": 41661, "type": "image/png" },
+        "kafka-inspector-lockup-light.png": { "name": "kafka-inspector-lockup-light.png", "blob": "43438d96e8f678bdbf946f95eb647e2c", "size": 41886, "type": "image/png" }
+      }
+    }
+  },
+  "blobs": {},
+  "docs": { "readme": "project/README.md", "sections": [] },
+  "lastChange": { "by": "Paramveer Singh", "at": "2026-11-15T11:29:00Z", "via": "Claude", "note": "Created Copper Oxide: tokens for dark and light, type, spacing, 9 components, logos, cover." }
+}

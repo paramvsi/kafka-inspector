@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Topics no results</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Topics" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: flex-end; gap: 12px">
+<div><h1 class="page-title" style="margin: 0">Topics</h1><div style="color: var(--ink-muted); margin-top: 2px">42 topics · 186 partitions · 1.25 TB · 3 need attention</div></div>
+<div style="flex-grow: 1"></div>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Create topic</x-import>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<x-import component-from-global-scope="CopperOxide.SearchInput" value="shipment" placeholder="Filter by name or regex" shortcut="/" label="Filter topics"></x-import>
+<x-import component-from-global-scope="CopperOxide.SegmentedControl" label="Show" options="{{ views }}" default-value="All"></x-import>
+<label style="display: flex; align-items: center; gap: 8px; color: var(--ink-muted)"><input type="checkbox" checked style="accent-color: var(--copper)">Hide internal topics</label>
+</div>
+<section style="height: 520px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center">
+<div style="max-width: 400px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="stroke: var(--ink-muted)"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5M8 11h6"></path></svg>
+<h2 class="section-title" style="margin: 0">No topics match “shipment”</h2>
+<p style="margin: 0; color: var(--ink-muted); line-height: 20px">Nothing in the 42 visible topics, and 3 internal topics are hidden. Check the spelling, try a regex such as <span class="co-mono" style="font-size: 11px; color: var(--ink)">ship.*</span>, or create the topic.</p>
+<div style="display: flex; gap: 10px; margin-top: 4px">
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary">Clear filter</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary">Include internal topics</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Create “shipment”</x-import>
+</div>
+</div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return { views: ['All', 'Needs attention', 'Starred'] }; }
+}
+</script>
+</body>
+</html>

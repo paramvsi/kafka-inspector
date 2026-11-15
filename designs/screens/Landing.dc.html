@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kafka Inspector — a real-time UI for Apache Kafka</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--copper)}a:hover{color:var(--copper-strong)}
+</style>
+</helmet>
+<div style="background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 24px">
+
+<header style="border-bottom: 1px solid var(--line)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap">
+<a href="#" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 600"><img src="../../assets/brand/kafka-inspector-icon-dark.png" alt="" style="width: 28px; height: 28px">Kafka Inspector</a>
+<nav aria-label="Site" style="display: flex; gap: 22px; font-size: 14px">
+<a href="#features" style="color: var(--ink-muted); text-decoration: none">Features</a>
+<a href="#how" style="color: var(--ink-muted); text-decoration: none">How it works</a>
+<a href="#self-host" style="color: var(--ink-muted); text-decoration: none">Self-host</a>
+<a href="#" style="color: var(--ink-muted); text-decoration: none">Docs</a>
+</nav>
+<div style="flex-grow: 1"></div>
+<a href="#" style="font-size: 14px; color: var(--ink-muted); text-decoration: none">GitHub</a>
+<a href="#" style="display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: var(--radius-md); background: var(--copper); color: var(--on-copper); font-weight: 600; font-size: 13px; text-decoration: none">Open live demo</a>
+</div>
+</header>
+
+<section style="max-width: 1200px; margin: 0 auto; padding: 88px 24px 48px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px">
+<span class="co-badge co-badge-neutral" style="font-family: var(--font-mono); font-size: 11px">Free and open source · Apache 2.0</span>
+<h1 style="margin: 0; max-width: 860px; font-size: 56px; line-height: 62px; font-weight: 700; letter-spacing: -0.03em">See what your Kafka is doing, and what it's about to do.</h1>
+<p style="margin: 0; max-width: 660px; font-size: 18px; line-height: 28px; color: var(--ink-muted)">A fast UI for Apache Kafka with lag history, catch-up forecasts, alerts and a live topology map. Try it in your browser on a simulated cluster, or run it on your own Kafka with one command.</p>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center">
+<a href="#" style="display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: var(--radius-md); background: var(--copper); color: var(--on-copper); font-weight: 600; text-decoration: none">Open live demo</a>
+<a href="#self-host" style="display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 600; text-decoration: none">Run on your own Kafka</a>
+</div>
+<div style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted)">No sign-up · nothing to install for the demo · read-only on real clusters</div>
+</section>
+
+<section aria-label="Product screenshot" style="max-width: 1200px; margin: 0 auto; padding: 0 24px 96px; display: flex; justify-content: center">
+<div style="width: 1050px; max-width: 100%; height: 656px; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--line-strong); box-shadow: var(--shadow-popover)">
+<div style="width: 1280px; height: 800px; transform: scale(0.8203); transform-origin: top left">
+<dc-import name="Main" hint-size="1280px,800px"></dc-import>
+</div>
+</div>
+</section>
+
+<section id="features" style="border-top: 1px solid var(--line); background: var(--bg-sidebar)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 40px">
+<div style="max-width: 640px"><div class="co-nav-section" style="padding: 0; color: var(--copper)">What it does</div><h2 style="margin: 8px 0 0; font-size: 36px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em">Answers the three questions you open a Kafka UI for.</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px">
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: var(--font-mono); font-size: 12px; color: var(--copper)">01 · Is anything falling behind?</div>
+<h3 style="margin: 0; font-size: 20px; line-height: 28px">Lag you can read at a glance</h3>
+<p style="margin: 0; color: var(--ink-muted)">Every consumer group gets a health status (Healthy, Warn, Stalled, Stopped) and a forecast like “catches up in ~14 min” or “won't catch up at current rates”.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px"><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn"></x-import><x-import component-from-global-scope="CopperOxide.StatusBadge" status="stalled"></x-import></div>
+</div>
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: var(--font-mono); font-size: 12px; color: var(--copper)">02 · What's in this topic?</div>
+<h3 style="margin: 0; font-size: 20px; line-height: 28px">Find any message, decoded</h3>
+<p style="margin: 0; color: var(--ink-muted)">Live tail, JavaScript filters, search across topics, and automatic decoding of JSON, Avro and JSON Schema through your Schema Registry. Bad messages show their raw bytes instead of disappearing.</p>
+<div style="font-family: var(--font-mono); font-size: 12px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface-sunken); color: var(--ink-muted)">value.total &gt; 500 &amp;&amp; headers.region === 'eu'</div>
+</div>
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: var(--font-mono); font-size: 12px; color: var(--copper)">03 · How does data flow?</div>
+<h3 style="margin: 0; font-size: 20px; line-height: 28px">The whole pipeline on one map</h3>
+<p style="margin: 0; color: var(--ink-muted)">Producers, topics and consumer groups drawn as a live graph. Line width is throughput; colour is health. A stalled consumer turns red before your users notice.</p>
+<div style="display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted)"><span style="padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm)">web-checkout</span>→<span style="padding: 4px 8px; border: 1px solid var(--copper); border-radius: var(--radius-sm); color: var(--ink)">orders</span>→<span style="padding: 4px 8px; border: 1px solid var(--warn); border-radius: var(--radius-sm); color: var(--warn-text)">payments-sink</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<section style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 28px">
+<div style="max-width: 640px"><div class="co-nav-section" style="padding: 0; color: var(--copper)">Why another Kafka UI</div><h2 style="margin: 8px 0 0; font-size: 36px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em">Most free Kafka UIs show you right now. This one remembers.</h2></div>
+<div style="overflow-x: auto"><table class="co-table" style="font-size: 14px; min-width: 640px">
+<thead><tr><th scope="col">Capability</th><th scope="col">Typical free Kafka UIs</th><th scope="col">Kafka Inspector</th></tr></thead>
+<tbody>
+<tr><td>Browse topics, messages, consumer groups</td><td class="co-dim">Yes</td><td>Yes</td></tr>
+<tr><td>Consumer lag</td><td class="co-dim">Current value only</td><td>History, health status and catch-up forecast</td></tr>
+<tr><td>Alerts</td><td class="co-dim">Bring your own (Prometheus, Burrow)</td><td>Built in: lag, stalled groups, silent topics, under-replicated partitions</td></tr>
+<tr><td>Topology</td><td class="co-dim">Not shown</td><td>Live producer → topic → group map</td></tr>
+<tr><td>Try without a cluster</td><td class="co-dim">Needs a running Kafka</td><td>Simulated cluster in the browser, with a chaos panel</td></tr>
+</tbody>
+</table></div>
+</section>
+
+<section id="how" style="border-top: 1px solid var(--line); background: var(--bg-sidebar)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 32px">
+<div style="max-width: 640px"><div class="co-nav-section" style="padding: 0; color: var(--copper)">Two ways to use it</div><h2 style="margin: 8px 0 0; font-size: 36px; line-height: 44px; font-weight: 700; letter-spacing: -0.02em">Try it in a minute. Run it on your cluster in five.</h2></div>
+<div id="self-host" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px">
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<span class="co-badge co-badge-neutral" style="align-self: flex-start">In your browser</span>
+<h3 style="margin: 0; font-size: 22px; line-height: 30px">Live demo on a simulated cluster</h3>
+<p style="margin: 0; color: var(--ink-muted)">A realistic cluster with 3 brokers, a dozen topics and live traffic runs inside your browser tab. Use the chaos panel to crash a consumer or spike traffic and watch every screen react.</p>
+<ul style="margin: 0; padding-left: 20px; color: var(--ink-muted)"><li>Nothing to install, no account</li><li>Every feature works, including writes</li><li>Your data never leaves the tab</li></ul>
+<div style="flex-grow: 1"></div>
+<a href="#" style="display: inline-flex; align-self: flex-start; align-items: center; height: 44px; padding: 0 20px; border-radius: var(--radius-md); background: var(--copper); color: var(--on-copper); font-weight: 600; text-decoration: none">Open live demo</a>
+</div>
+<div style="background: var(--surface); border: 1px solid var(--copper); border-radius: var(--radius-lg); padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<span class="co-badge co-badge-neutral" style="align-self: flex-start">On your server</span>
+<h3 style="margin: 0; font-size: 22px; line-height: 30px">Self-host against your own Kafka</h3>
+<p style="margin: 0; color: var(--ink-muted)">One Docker container serves the app and talks to your brokers. Works with Apache Kafka 3.x–4.x, Amazon MSK, Confluent Cloud and Aiven. Read-only in version 1.</p>
+<pre style="margin: 0; padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--line-subtle); font-family: var(--font-mono); font-size: 12px; line-height: 20px; color: var(--ink); overflow-x: auto">docker run -p 8080:8080 \
+  -e KAFKA_BOOTSTRAP=broker:9092 \
+  -e KI_ADMIN_PASSWORD=change-me \
+  ghcr.io/&lt;owner&gt;/kafka-inspector:1.0.0</pre>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<a href="#" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: var(--radius-md); background: var(--copper); color: var(--on-copper); font-weight: 600; text-decoration: none">Generate docker-compose.yml</a>
+<a href="#" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 600; text-decoration: none">Setup guide</a>
+</div>
+<div style="font-size: 13px; color: var(--ink-muted)">Credentials stay on your server. The generated files contain variable names, never passwords.</div>
+</div>
+</div>
+</div>
+</section>
+
+<section style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px 32px">
+<div><div style="font-weight: 600">Multi-cluster</div><div style="font-size: 14px; color: var(--ink-muted)">Switch between clusters from the sidebar.</div></div>
+<div><div style="font-weight: 600">Schema diff</div><div style="font-size: 14px; color: var(--ink-muted)">Compare versions and see compatibility per field.</div></div>
+<div><div style="font-weight: 600">Offset reset with dry run</div><div style="font-size: 14px; color: var(--ink-muted)">Preview exactly what moves before you apply it.</div></div>
+<div><div style="font-weight: 600">Health checks</div><div style="font-size: 14px; color: var(--ink-muted)">Replication factor 1, skew, silent topics, with fixes.</div></div>
+<div><div style="font-weight: 600">Data masking</div><div style="font-size: 14px; color: var(--ink-muted)">Hide emails and card numbers in the browser.</div></div>
+<div><div style="font-weight: 600">Kafka 4 ready</div><div style="font-size: 14px; color: var(--ink-muted)">KRaft clusters and share groups (KIP-932).</div></div>
+<div><div style="font-weight: 600">Keyboard first</div><div style="font-size: 14px; color: var(--ink-muted)">⌘K to jump to any topic, group or action.</div></div>
+<div><div style="font-weight: 600">Dark and light</div><div style="font-size: 14px; color: var(--ink-muted)">Accessible contrast in both themes.</div></div>
+</section>
+
+<section style="border-top: 1px solid var(--line)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 72px 24px; display: flex; gap: 32px; align-items: center; flex-wrap: wrap">
+<div style="flex: 1 1 420px"><div class="co-nav-section" style="padding: 0; color: var(--copper)">Who built this</div><h2 style="margin: 8px 0 8px; font-size: 28px; line-height: 36px; font-weight: 700">Built by Paramveer Singh</h2><p style="margin: 0; color: var(--ink-muted)">A senior full-stack engineer who builds real-time data platforms: React and Next.js on the front, Java, Spring Boot and Kafka behind it. Kafka Inspector is an independent open-source project.</p></div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap">
+<a href="#" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 600; text-decoration: none">Portfolio</a>
+<a href="#" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); color: var(--ink); font-weight: 600; text-decoration: none">Star on GitHub</a>
+</div>
+</div>
+</section>
+
+<footer style="border-top: 1px solid var(--line); background: var(--bg-sidebar)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 32px 24px; display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; font-size: 13px; color: var(--ink-muted)">
+<div style="display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600"><img src="../../assets/brand/kafka-inspector-icon-dark.png" alt="" style="width: 22px; height: 22px">Kafka Inspector</div>
+<div style="flex: 1 1 420px; line-height: 20px">Apache Kafka and Kafka are trademarks of the Apache Software Foundation. Kafka Inspector is not affiliated with or endorsed by the ASF. Released under the Apache License 2.0.</div>
+<nav aria-label="Footer" style="display: flex; gap: 18px"><a href="#" style="color: var(--ink-muted)">Docs</a><a href="#" style="color: var(--ink-muted)">GitHub</a><a href="#" style="color: var(--ink-muted)">Changelog</a></nav>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3000}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

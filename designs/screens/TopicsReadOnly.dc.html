@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Topics self-hosted read-only</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" selfhosted="{{ yes }}" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Topics" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="stroke: var(--ink-muted)"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+<span style="flex-grow: 1">This instance is <b>read-only</b>. Creating, editing and deleting are turned off with <span class="co-mono" style="font-size: 11px">KI_READ_ONLY=true</span>; write actions arrive in v2.</span>
+<a href="#" style="font-size: 12px; color: var(--copper)">What's read-only?</a>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 12px; position: relative">
+<div><h1 class="page-title" style="margin: 0">Topics</h1><div style="color: var(--ink-muted); margin-top: 2px">118 topics · 1,412 partitions · 9.8 TB · live from your cluster</div></div>
+<div style="flex-grow: 1"></div>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary" disabled="{{ yes }}" aria-describedby="ro-tip">Create topic</x-import>
+<div id="ro-tip" role="tooltip" style="position: absolute; right: 0; top: 46px; z-index: 2; width: 240px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--ink); color: var(--bg); font-size: 12px; line-height: 17px; box-shadow: var(--shadow-popover)">Read-only in this version. Ask your admin, or use the Kafka CLI for now.</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<x-import component-from-global-scope="CopperOxide.SearchInput" placeholder="Filter by name or regex" shortcut="/" label="Filter topics"></x-import>
+<label style="display: flex; align-items: center; gap: 8px; color: var(--ink-muted)"><input type="checkbox" checked style="accent-color: var(--copper)">Hide internal topics</label>
+</div>
+<table class="co-table">
+<thead><tr><th scope="col">Topic</th><th scope="col" style="text-align: right">Partitions</th><th scope="col" style="text-align: right">RF</th><th scope="col" style="text-align: right">Size</th><th scope="col" style="text-align: right">In / s</th><th scope="col">Last message</th><th scope="col">Health</th></tr></thead>
+<tbody>
+<tr><td class="co-id">billing.invoices.v2</td><td class="co-num">24</td><td class="co-num">3</td><td class="co-num">1.4 TB</td><td class="co-num">3,912</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">cdc.customers</td><td class="co-num">12</td><td class="co-num">3</td><td class="co-num">612 GB</td><td class="co-num">288</td><td class="co-dim">1s ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">events.mobile</td><td class="co-num">48</td><td class="co-num">3</td><td class="co-num">3.1 TB</td><td class="co-num">18,406</td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn">Skew 22%</x-import></td></tr>
+<tr><td class="co-id">ml.features</td><td class="co-num">6</td><td class="co-num">2</td><td class="co-num">88 GB</td><td class="co-num">54</td><td class="co-dim">4s ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn">RF 2</x-import></td></tr>
+<tr><td class="co-id">ops.audit</td><td class="co-num">3</td><td class="co-num">3</td><td class="co-num">21 GB</td><td class="co-num">12</td><td class="co-dim">3s ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+</tbody>
+</table>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return { yes: true }; }
+}
+</script>
+</body>
+</html>

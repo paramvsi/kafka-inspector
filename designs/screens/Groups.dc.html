@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Consumer groups</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="groups" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Consumer groups" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: flex-end; gap: 12px">
+<div><h1 class="page-title" style="margin: 0">Consumer groups</h1><div style="color: var(--ink-muted); margin-top: 2px">6 groups · 1 stalled · 1 warning · 1 stopped · total lag 12,694</div></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Healthy" value="3" delta="of 6" delta-tone="neutral"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Warning" value="1" delta="lag rising" delta-tone="warn"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Stalled or stopped" value="2" delta="needs action" delta-tone="crit"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Rebalances, 1h" value="1" delta="order-service" delta-tone="neutral"></x-import>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<x-import component-from-global-scope="CopperOxide.SearchInput" placeholder="Filter groups" shortcut="/" label="Filter groups"></x-import>
+<x-import component-from-global-scope="CopperOxide.SegmentedControl" label="Type" options="{{ types }}" default-value="All types"></x-import>
+</div>
+<table class="co-table">
+<thead><tr><th scope="col">Consumer group</th><th scope="col">Type</th><th scope="col">State</th><th scope="col">Topics</th><th scope="col" style="text-align: right">Members</th><th scope="col" style="text-align: right">Lag</th><th scope="col">Lag, 1h</th><th scope="col">Last commit</th><th scope="col">Health</th></tr></thead>
+<tbody>
+<tr><td class="co-id">fraud-scorer</td><td class="co-dim">consumer</td><td class="co-dim">Stable</td><td class="co-id">payments</td><td class="co-num">2</td><td class="co-num">3,168</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.flat }}" tone="crit"></x-import></td><td class="co-dim">2s ago · same offset</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="stalled"></x-import></td></tr>
+<tr><td class="co-id">search-indexer</td><td class="co-dim">consumer</td><td class="co-dim">Empty</td><td class="co-id">inventory</td><td class="co-num">0</td><td class="co-num">0</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.zero }}" tone="muted"></x-import></td><td class="co-dim">2h 14m ago</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="stopped"></x-import></td></tr>
+<tr><td class="co-id">payments-sink</td><td class="co-dim">classic</td><td class="co-dim">Stable</td><td class="co-id">orders, payments</td><td class="co-num">3</td><td class="co-num">9,312</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.up }}" tone="warn"></x-import></td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn"></x-import></td></tr>
+<tr><td class="co-id">notify-workers</td><td class="co-dim">share</td><td class="co-dim">Stable</td><td class="co-id">notifications</td><td class="co-num">8</td><td class="co-num">214</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.noise }}" tone="ok"></x-import></td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">analytics-etl</td><td class="co-dim">consumer</td><td class="co-dim">Stable</td><td class="co-id">clickstream, orders</td><td class="co-num">4</td><td class="co-num">0</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.zero }}" tone="ok"></x-import></td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">order-service</td><td class="co-dim">consumer</td><td class="co-dim">Stable</td><td class="co-id">orders</td><td class="co-num">6</td><td class="co-num">0</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.zero }}" tone="ok"></x-import></td><td class="co-dim">now</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+</tbody>
+</table>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+return { types: ['All types', 'Consumer', 'Classic', 'Share'], sp: { flat: [5, 5, 5, 5, 5, 5, 5], up: [2, 3, 4, 6, 8, 11, 14], noise: [3, 5, 2, 6, 3, 5, 4], zero: [0, 0, 0, 0, 0, 0, 0] } };
+}
+}
+</script>
+</body>
+</html>

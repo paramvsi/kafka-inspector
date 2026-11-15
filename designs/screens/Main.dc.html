@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="overview" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Overview" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Messages in / s" value="48,213" delta="+4.2%" delta-tone="ok"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Bytes in / s" value="61.4 MB" delta="+3.1%" delta-tone="ok"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Total consumer lag" value="12,480" delta="rising" delta-tone="warn"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Under-replicated partitions" value="0" delta="of 186" delta-tone="neutral"></x-import>
+</div>
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px">
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px"><h2 class="section-title" style="margin: 0">Throughput</h2><span style="display: flex; align-items: center; gap: 6px; color: var(--ink-muted); font-size: 12px"><span style="width: 10px; height: 2px; background: var(--chart-1)"></span>in</span><span style="display: flex; align-items: center; gap: 6px; color: var(--ink-muted); font-size: 12px"><span style="width: 10px; height: 2px; background: var(--chart-2)"></span>out</span><span style="flex-grow: 1"></span><span style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-muted)">peak 52,904/s at 13:58</span></div>
+<div style="display: flex; gap: 8px; height: 170px">
+<div style="display: flex; flex-direction: column; justify-content: space-between; width: 32px; text-align: right; font-family: var(--font-mono); font-size: 10px; color: var(--ink-muted)"><span>60k</span><span>40k</span><span>20k</span><span>0</span></div>
+<svg width="100%" height="170" viewBox="0 0 600 170" preserveAspectRatio="none" role="img" aria-label="Throughput over the last hour, rising to 48 thousand messages per second"><line x1="0" y1="6" x2="600" y2="6" style="stroke: var(--line-subtle)"></line><line x1="0" y1="60" x2="600" y2="60" style="stroke: var(--line-subtle)"></line><line x1="0" y1="114" x2="600" y2="114" style="stroke: var(--line-subtle)"></line><line x1="0" y1="168" x2="600" y2="168" style="stroke: var(--line-strong)"></line><path d="M0,112 L50,108 L100,114 L150,96 L200,100 L250,84 L300,90 L350,70 L400,76 L450,52 L500,58 L550,36 L600,40 L600,168 L0,168 Z" style="fill: var(--chart-1); fill-opacity: 0.13"></path><polyline points="0,112 50,108 100,114 150,96 200,100 250,84 300,90 350,70 400,76 450,52 500,58 550,36 600,40" fill="none" stroke-width="2" style="stroke: var(--chart-1)"></polyline><polyline points="0,124 50,122 100,126 150,112 200,116 250,102 300,108 350,92 400,98 450,80 500,86 550,70 600,74" fill="none" stroke-width="1.5" style="stroke: var(--chart-2)"></polyline></svg>
+</div>
+<div style="display: flex; justify-content: space-between; padding-left: 40px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-muted)"><span>13:27</span><span>13:42</span><span>13:57</span><span>14:12</span><span>now</span></div>
+</section>
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 4px 16px 16px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; padding: 12px 0 4px"><h2 class="section-title" style="margin: 0">Needs attention</h2><span style="flex-grow: 1"></span><a href="#" style="font-size: 12px; color: var(--copper)">All alerts</a></div>
+<x-import component-from-global-scope="CopperOxide.AlertItem" severity="crit" title="fraud-scorer stalled" detail="Partition 7 · same offset for 6m 12s" time="14:21"></x-import>
+<x-import component-from-global-scope="CopperOxide.AlertItem" severity="warn" title="payments-sink lag rising" detail="9,312 behind · catch-up in ~14 min" time="14:12"></x-import>
+<x-import component-from-global-scope="CopperOxide.AlertItem" severity="info" title="clickstream partition 3 is hot" detail="41% of topic traffic on 1 of 12 partitions" time="13:58"></x-import>
+<div style="flex-grow: 1"></div>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Investigate fraud-scorer</x-import>
+</section>
+</div>
+<table class="co-table">
+<thead><tr><th scope="col">Consumer group</th><th scope="col">Type</th><th scope="col" style="text-align: right">Members</th><th scope="col" style="text-align: right">Lag</th><th scope="col">Lag, 1h</th><th scope="col">Catch-up</th><th scope="col">Status</th></tr></thead>
+<tbody>
+<tr><td class="co-id">fraud-scorer</td><td class="co-dim">consumer</td><td class="co-num">2</td><td class="co-num">3,168</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.flat }}" tone="crit"></x-import></td><td class="co-dim">Won't catch up</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="stalled"></x-import></td></tr>
+<tr><td class="co-id">payments-sink</td><td class="co-dim">classic</td><td class="co-num">3</td><td class="co-num">9,312</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.up }}" tone="warn"></x-import></td><td class="co-dim">~14 min</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn"></x-import></td></tr>
+<tr><td class="co-id">notify-workers</td><td class="co-dim">share</td><td class="co-num">8</td><td class="co-num">214</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.noise }}" tone="ok"></x-import></td><td class="co-dim">—</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+<tr><td class="co-id">order-service</td><td class="co-dim">consumer</td><td class="co-num">6</td><td class="co-num">0</td><td><x-import component-from-global-scope="CopperOxide.Sparkline" points="{{ sp.zero }}" tone="ok"></x-import></td><td class="co-dim">—</td><td><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import></td></tr>
+</tbody>
+</table>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+return { sp: { flat: [5, 5, 5, 5, 5, 5, 5], up: [2, 3, 4, 6, 8, 11, 14], noise: [3, 5, 2, 6, 3, 5, 4], zero: [0, 0, 0, 0, 0, 0, 0] } };
+}
+}
+</script>
+</body>
+</html>

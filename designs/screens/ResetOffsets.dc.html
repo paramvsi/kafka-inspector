@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reset offsets</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; position: relative; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="groups" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" parent="Consumer groups" crumb="fraud-scorer" hint-size="1048px,56px"></dc-import>
+<main style="padding: 20px 24px"><h1 class="page-title" style="margin: 0; font-family: var(--font-mono); font-size: 22px">fraud-scorer</h1></main>
+</div>
+<div style="position: absolute; inset: 0; background: rgba(5, 9, 7, 0.62); display: flex; align-items: center; justify-content: center">
+<div role="dialog" aria-modal="true" aria-labelledby="ro-title" style="width: 640px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); display: flex; flex-direction: column">
+<div style="padding: 20px 24px 8px"><h2 id="ro-title" class="section-title" style="margin: 0; font-size: 17px">Reset offsets · <span class="co-mono" style="font-size: 15px">fraud-scorer</span></h2><div style="color: var(--ink-muted); margin-top: 2px">Moves where the group resumes reading. Nothing is deleted from the topic.</div></div>
+<div style="padding: 12px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-sunken); font-size: 12px"><span style="color: var(--ok)">✓</span>Group is empty: the simulator paused its 2 members. On a real cluster, stop the consumers first.</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Topic</span><select style="height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"><option>payments</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Partitions</span><select style="height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"><option>7 (stalled)</option></select></label>
+</div>
+<fieldset style="border: none; margin: 0; padding: 0"><legend style="font-weight: 600; padding: 0; margin-bottom: 8px">Reset to</legend>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line)"><input type="radio" name="to" style="accent-color: var(--copper)">Earliest</label>
+<label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line)"><input type="radio" name="to" style="accent-color: var(--copper)">Latest</label>
+<label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line)"><input type="radio" name="to" style="accent-color: var(--copper)">Time</label>
+<label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line)"><input type="radio" name="to" style="accent-color: var(--copper)">Offset</label>
+<label style="display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--copper); background: var(--copper-soft); font-weight: 600"><input type="radio" name="to" checked style="accent-color: var(--copper)">Shift by</label>
+</div></fieldset>
+<label style="display: flex; align-items: center; gap: 10px"><span style="font-weight: 600">Shift</span><input value="+1" aria-label="Shift by" style="width: 70px; height: 32px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"><span style="color: var(--ink-muted)">Skips the message at offset 88,410 that the group keeps failing on.</span></label>
+<div style="font-weight: 600">Dry run</div>
+<table class="co-table" style="font-size: 12px">
+<thead><tr><th scope="col">Partition</th><th scope="col" style="text-align: right">Current</th><th scope="col" style="text-align: right">New</th><th scope="col" style="text-align: right">Skipped</th><th scope="col" style="text-align: right">Lag after</th></tr></thead>
+<tbody><tr><td class="co-id">payments · 7</td><td class="co-num">88,410</td><td class="co-num" style="color: var(--copper)">88,411</td><td class="co-num">1</td><td class="co-num">3,167</td></tr></tbody>
+</table>
+<div style="font-size: 12px; color: var(--ink-muted)">Tip: send the skipped message to <span class="co-mono" style="font-size: 11px">payments.dlq</span> first so it isn't lost. <a href="#" style="color: var(--copper)">Reprocess it</a></div>
+</div>
+<div style="padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end">
+<x-import component-from-global-scope="CopperOxide.Button" variant="ghost">Cancel</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Apply reset to 1 partition</x-import>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

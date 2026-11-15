@@ -1,0 +1,12 @@
+<!-- @dsCard group="Data display" height=220 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>DataTable — preview</title></head>
+<body>
+<div id="root" class="co-preview-col"></div>
+<script>
+  var C = window.CopperOxide, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(C.DataTable, { caption: 'Consumer groups', columns: [{ key: 'name', label: 'Consumer group', kind: 'id' }, { key: 'type', label: 'Type', kind: 'dim' }, { key: 'members', label: 'Members', kind: 'num' }, { key: 'lag', label: 'Lag', kind: 'num' }, { key: 'trend', label: 'Lag, 1h' }, { key: 'status', label: 'Status' }], rows: [{ id: 1, name: 'payments-sink', type: 'classic', members: 3, lag: '9,312', trend: h(C.Sparkline, { points: [2, 3, 5, 6, 9, 12, 15], tone: 'warn' }), status: h(C.StatusBadge, { status: 'warn' }) }, { id: 2, name: 'fraud-scorer', type: 'consumer', members: 2, lag: '3,168', trend: h(C.Sparkline, { points: [5, 5, 5, 5, 5, 5], tone: 'crit' }), status: h(C.StatusBadge, { status: 'stalled' }) }, { id: 3, name: 'order-service', type: 'consumer', members: 6, lag: '0', trend: h(C.Sparkline, { points: [1, 1, 1, 1, 1, 1], tone: 'ok' }), status: h(C.StatusBadge, { status: 'healthy' }) }] }));
+</script>
+</body>
+</html>

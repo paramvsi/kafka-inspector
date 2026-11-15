@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Produce message</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; position: relative; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" parent="Topics" crumb="orders" hint-size="1048px,56px"></dc-import>
+<main style="padding: 20px 24px"><h1 class="page-title" style="margin: 0; font-family: var(--font-mono); font-size: 22px">orders</h1></main>
+</div>
+<div style="position: absolute; inset: 0; background: rgba(5, 9, 7, 0.55)"></div>
+<aside role="dialog" aria-modal="true" aria-labelledby="pm-title" style="position: absolute; top: 0; right: 0; bottom: 0; width: 520px; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-popover); display: flex; flex-direction: column">
+<div style="padding: 20px 24px 12px; display: flex; align-items: flex-start; border-bottom: 1px solid var(--line)"><div><h2 id="pm-title" class="section-title" style="margin: 0; font-size: 17px">Produce message</h2><div style="color: var(--ink-muted); margin-top: 2px">to <span class="co-mono" style="font-size: 12px">orders</span> on prod-eu-1</div></div><span style="flex-grow: 1"></span><button type="button" aria-label="Close" style="width: 32px; height: 32px; border: none; border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); font-size: 18px">×</button></div>
+<div style="flex-grow: 1; padding: 16px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Partition</span><select style="height: 36px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-sans); font-size: 13px"><option>Auto (by key)</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Key</span><input value="ord_test_001" style="height: 36px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"></label>
+</div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="font-weight: 600">Value</span><span class="co-badge co-badge-neutral">Avro · orders-value v4</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="CopperOxide.Button" variant="secondary" size="sm">Generate from schema</x-import></div>
+<pre aria-label="Value" style="margin: 0; background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px; font-family: var(--font-mono); font-size: 11px; line-height: 18px; color: var(--ink)">{
+  "orderId": "ord_test_001",
+  "customerId": "cus_18245",
+  "total": 318.4,
+  "currency": "AED",
+  "items": [{ "sku": "SKU-2210", "qty": 1 }],
+  "email": "test.user@example.com",
+  "status": "PAID",
+  "createdAt": "2026-11-15T14:30:00Z"
+}</pre>
+<div style="font-size: 12px; color: var(--ok)">✓ Valid against orders-value v4</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Headers</span>
+<div style="display: grid; grid-template-columns: 1fr 1fr 32px; gap: 8px"><input aria-label="Header name" value="region" style="height: 32px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"><input aria-label="Header value" value="eu" style="height: 32px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"><button type="button" aria-label="Remove header" style="height: 32px; border: none; background: transparent; color: var(--ink-muted)">×</button></div>
+<a href="#" style="font-size: 12px; color: var(--copper)">+ Add header</a>
+</div>
+<label style="display: flex; align-items: center; gap: 10px"><span style="font-weight: 600">Send</span><input value="1" aria-label="Number of messages" style="width: 64px; height: 32px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"><span style="color: var(--ink-muted)">message(s) · above 1, each gets new random values</span></label>
+</div>
+<div style="padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end">
+<x-import component-from-global-scope="CopperOxide.Button" variant="ghost">Cancel</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Produce 1 message</x-import>
+</div>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

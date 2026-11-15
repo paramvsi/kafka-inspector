@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Topic orders overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="topics" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" parent="Topics" crumb="orders" hint-size="1048px,56px"></dc-import>
+<main style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<h1 class="page-title co-mono" style="margin: 0; font-family: var(--font-mono); font-size: 22px">orders</h1>
+<x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy"></x-import>
+<span class="co-badge co-badge-neutral">Avro · orders-value v4</span>
+<div style="flex-grow: 1"></div>
+<x-import component-from-global-scope="CopperOxide.Button" variant="ghost">Edit config</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary">Produce message</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Browse messages</x-import>
+</div>
+<div role="tablist" aria-label="Topic sections" style="display: flex; gap: 22px; border-bottom: 1px solid var(--line)">
+<button role="tab" aria-selected="true" style="height: 36px; padding: 0; border: none; border-bottom: 2px solid var(--copper); background: transparent; color: var(--ink); font-family: var(--font-sans); font-size: 13px; font-weight: 600">Overview</button>
+<button role="tab" aria-selected="false" style="height: 36px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px">Messages</button>
+<button role="tab" aria-selected="false" style="height: 36px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px">Partitions</button>
+<button role="tab" aria-selected="false" style="height: 36px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px">Consumers · 3</button>
+<button role="tab" aria-selected="false" style="height: 36px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px">Config</button>
+<button role="tab" aria-selected="false" style="height: 36px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px">Schema</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Messages in / s" value="21,840" delta="+4.2%" delta-tone="ok"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Size on disk" value="512 GB" delta="7-day retention" delta-tone="neutral"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Partitions · RF" value="24 · 3" delta="all in sync" delta-tone="ok"></x-import>
+<x-import component-from-global-scope="CopperOxide.KpiCard" label="Last message" value="0.2 s" delta="ago" delta-tone="neutral"></x-import>
+</div>
+<div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px">
+<table class="co-table">
+<thead><tr><th scope="col">Partition</th><th scope="col">Leader</th><th scope="col">ISR</th><th scope="col" style="text-align: right">Low</th><th scope="col" style="text-align: right">High</th><th scope="col">Share of traffic</th></tr></thead>
+<tbody>
+<tr><td class="co-id">0</td><td class="co-id">b1</td><td class="co-id">1,2,3</td><td class="co-num">18,204,110</td><td class="co-num">21,880,412</td><td><div style="display: flex; align-items: center; gap: 8px"><div style="width: 100px; height: 6px; border-radius: var(--radius-sm); background: var(--surface-hover)"><div style="width: 42%; height: 6px; border-radius: var(--radius-sm); background: var(--chart-1)"></div></div><span class="co-mono" style="font-size: 11px">4.3%</span></div></td></tr>
+<tr><td class="co-id">1</td><td class="co-id">b2</td><td class="co-id">2,3,1</td><td class="co-num">18,190,006</td><td class="co-num">21,861,950</td><td><div style="display: flex; align-items: center; gap: 8px"><div style="width: 100px; height: 6px; border-radius: var(--radius-sm); background: var(--surface-hover)"><div style="width: 41%; height: 6px; border-radius: var(--radius-sm); background: var(--chart-1)"></div></div><span class="co-mono" style="font-size: 11px">4.2%</span></div></td></tr>
+<tr><td class="co-id">2</td><td class="co-id">b3</td><td class="co-id">3,1,2</td><td class="co-num">18,201,773</td><td class="co-num">21,874,221</td><td><div style="display: flex; align-items: center; gap: 8px"><div style="width: 100px; height: 6px; border-radius: var(--radius-sm); background: var(--surface-hover)"><div style="width: 42%; height: 6px; border-radius: var(--radius-sm); background: var(--chart-1)"></div></div><span class="co-mono" style="font-size: 11px">4.2%</span></div></td></tr>
+<tr><td class="co-id">3</td><td class="co-id">b1</td><td class="co-id">1,3,2</td><td class="co-num">18,188,940</td><td class="co-num">21,859,004</td><td><div style="display: flex; align-items: center; gap: 8px"><div style="width: 100px; height: 6px; border-radius: var(--radius-sm); background: var(--surface-hover)"><div style="width: 41%; height: 6px; border-radius: var(--radius-sm); background: var(--chart-1)"></div></div><span class="co-mono" style="font-size: 11px">4.1%</span></div></td></tr>
+<tr><td class="co-dim" colspan="6">+ 20 more partitions · evenly spread, max skew 0.4%</td></tr>
+</tbody>
+</table>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 class="section-title" style="margin: 0">Health checks</h2>
+<div style="display: flex; gap: 8px; align-items: center"><span style="color: var(--ok)">✓</span>Replication factor 3 (min 2)</div>
+<div style="display: flex; gap: 8px; align-items: center"><span style="color: var(--ok)">✓</span>min.insync.replicas = 2</div>
+<div style="display: flex; gap: 8px; align-items: center"><span style="color: var(--ok)">✓</span>Partition skew 0.4%</div>
+<div style="display: flex; gap: 8px; align-items: flex-start"><span style="color: var(--warn)">!</span><div>Retention 7 days, 512 GB<div style="font-size: 12px; color: var(--ink-muted)">Disk fills in ~23 days at current rate</div></div></div>
+</section>
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 class="section-title" style="margin: 0">Consumers</h2>
+<div style="display: flex; align-items: center; gap: 8px"><span class="co-mono" style="font-size: 12px">payments-sink</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="CopperOxide.StatusBadge" status="warn">9,312</x-import></div>
+<div style="display: flex; align-items: center; gap: 8px"><span class="co-mono" style="font-size: 12px">order-service</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy">0</x-import></div>
+<div style="display: flex; align-items: center; gap: 8px"><span class="co-mono" style="font-size: 12px">analytics-etl</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="CopperOxide.StatusBadge" status="healthy">12</x-import></div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

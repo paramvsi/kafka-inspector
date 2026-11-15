@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run on your own Kafka</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/copperoxide/tokens.css">
+<link rel="stylesheet" href="ds/copperoxide/components/bundle.css">
+<script src="ds/copperoxide/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&amp;family=Martian+Mono:wght@400;500&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 800px; display: flex; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px">
+<dc-import name="Sidebar" active="selfhost" hint-size="232px,800px"></dc-import>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<dc-import name="Topbar" crumb="Run on your own Kafka" hint-size="1048px,56px"></dc-import>
+<main style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div><h1 class="page-title" style="margin: 0">Run Kafka Inspector on your own Kafka</h1><div style="color: var(--ink-muted); margin-top: 2px">Same app, on your server, reading your real cluster. Nothing you type here leaves your browser.</div></div>
+<ol style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<li style="display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--radius-md); background: var(--copper-soft)"><span style="width: 22px; height: 22px; border-radius: 50%; background: var(--copper); color: var(--on-copper); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">1</span>Describe your cluster</li>
+<li style="display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--line)"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">2</span>Download and fill in secrets</li>
+<li style="display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--line)"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">3</span>Run <span class="co-mono" style="font-size: 11px">docker compose up</span></li>
+</ol>
+<div style="display: grid; grid-template-columns: 1fr 1.25fr; gap: 16px">
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Cluster name</span><input value="prod-us-2" style="height: 34px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Bootstrap servers</span><input value="b-1.prod-us-2:9096,b-2.prod-us-2:9096" style="height: 34px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"></label>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Security</span><select style="height: 34px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"><option>SASL_SSL</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Mechanism</span><select style="height: 34px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"><option>SCRAM-SHA-512</option></select></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Schema Registry <span style="font-weight: 400; color: var(--ink-muted)">optional</span></span><input value="https://schema-registry.prod-us-2.internal" style="height: 34px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 11px"></label>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Port</span><input value="8080" style="height: 34px; padding: 0 10px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-sunken); color: var(--ink); font-family: var(--font-mono); font-size: 12px"></label>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 600">Access</span><span class="co-badge co-badge-neutral" style="align-self: flex-start; height: 34px; box-sizing: border-box">Read-only (v1)</span></div>
+</div>
+<div style="font-size: 12px; color: var(--ink-muted)">Using Amazon MSK, Confluent Cloud or Aiven? <a href="#" style="color: var(--copper)">See provider settings</a></div>
+</section>
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden">
+<div role="tablist" aria-label="Output" style="display: flex; gap: 20px; padding: 0 16px; border-bottom: 1px solid var(--line)">
+<button role="tab" aria-selected="true" style="height: 40px; padding: 0; border: none; border-bottom: 2px solid var(--copper); background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">docker-compose.yml</button>
+<button role="tab" aria-selected="false" style="height: 40px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-mono); font-size: 11px">.env</button>
+<button role="tab" aria-selected="false" style="height: 40px; padding: 0; border: none; background: transparent; color: var(--ink-muted); font-family: var(--font-mono); font-size: 11px">docker run</button>
+</div>
+<pre style="margin: 0; flex-grow: 1; padding: 14px 16px; background: var(--surface-sunken); font-family: var(--font-mono); font-size: 10.5px; line-height: 17px; color: var(--ink)">services:
+  kafka-inspector:
+    image: ghcr.io/&lt;owner&gt;/kafka-inspector:1.0.0
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      KI_CLUSTERS_0_NAME: prod-us-2
+      KI_CLUSTERS_0_BOOTSTRAP: b-1.prod-us-2:9096,b-2.prod-us-2:9096
+      KI_CLUSTERS_0_SECURITY: SASL_SSL
+      KI_CLUSTERS_0_SASL_MECHANISM: SCRAM-SHA-512
+      KI_CLUSTERS_0_SCHEMA_REGISTRY: https://schema-registry.prod-us-2.internal
+      KI_READ_ONLY: "true"
+    volumes:
+      - ki-data:/data      # metric history and alert rules
+volumes:
+  ki-data:</pre>
+<div style="display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line)">
+<span style="font-size: 12px; color: var(--ink-muted); flex-grow: 1">Passwords go in <span class="co-mono" style="font-size: 10.5px">.env</span> on your server; this file never contains them.</span>
+<x-import component-from-global-scope="CopperOxide.Button" variant="secondary">Copy</x-import>
+<x-import component-from-global-scope="CopperOxide.Button" variant="primary">Download both files</x-import>
+</div>
+</section>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
