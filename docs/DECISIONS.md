@@ -40,3 +40,4 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Tailwind v4: tokens mapped with CSS `@theme inline` using the same names as the v3 excerpt in DESIGN_SYSTEM.md (no `tailwind.config.ts`) | Current stable; v4 config is CSS-first |
 | 2026-11-15 | TypeScript 6.0.x, not 7.x | `typescript-eslint` peer range is `>=4.8.4 <6.1.0` |
 
+| 2026-11-15 | `packages/ui/tokens/tokens.json` = `design-system/tokens.json` + `motion.reduced.overrides` (the reduced-motion values that previously existed only in `tokens.css`). Generated CSS is byte-identical to `design-system/tokens.css` (tested) | Generate the CSS from JSON without hard-coding values in the script |
