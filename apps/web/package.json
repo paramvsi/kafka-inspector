@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "npx serve out -l 3000",
     "typecheck": "tsc -p tsconfig.json",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "test": "vitest run lib"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4",
@@ -16,7 +17,8 @@
     "@types/react": "19",
     "@types/react-dom": "19",
     "tailwindcss": "4",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "@ki/core": "workspace:*",

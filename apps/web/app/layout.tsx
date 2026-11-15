@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Martian_Mono, Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { prefsScript } from '../lib/prefs';
 import './globals.css';
 
 const sora = Sora({
@@ -17,7 +18,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" className={`${sora.variable} ${mono.variable}`}>
+    // data-theme / data-motion are set by prefsScript before hydration, hence suppressHydrationWarning.
+    <html lang="en" className={`${sora.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: prefsScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );
