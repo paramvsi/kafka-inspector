@@ -20,6 +20,7 @@ describe('Run on your own Kafka generator', () => {
     expect(c).toContain('env_file: .env');
     expect(c).toContain('cap_drop:\n      - ALL');
     expect(c).toContain('no-new-privileges:true');
+    expect(c).toContain('- /tmp:exec'); // compressed (snappy/zstd) topics need exec on /tmp
     expect(c).not.toMatch(/PASSWORD/);
   });
   test('.env lists variable names only, with empty values', () => {
@@ -36,7 +37,9 @@ describe('Run on your own Kafka generator', () => {
     const r = dockerRun({ ...f, name: "team's cluster" });
     expect(r).toContain("-e KI_CLUSTERS_0_NAME='team'\\''s cluster'");
     expect(r).toContain('--env-file .env');
-    expect(r).toContain('--read-only --tmpfs /tmp --security-opt no-new-privileges --cap-drop ALL');
+    expect(r).toContain(
+      '--read-only --tmpfs /tmp:exec --security-opt no-new-privileges --cap-drop ALL',
+    );
   });
   test('warns about localhost and malformed bootstrap', () => {
     expect(warnings({ ...f, bootstrap: 'localhost:9092' })[0]).toContain('host.docker.internal');

@@ -11,7 +11,12 @@ permissions:
   packages: write
 
 jobs:
+  # the same checks as CI must pass for the tagged commit before anything is published
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   image:
+    needs: ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,7 +28,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: v
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        # v1.2.3 → stable (also :latest); v1.2.3-rc1 → pre-release (version tag only)
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$v" == *-* ]]; then echo "pre=true" >> "$GITHUB_OUTPUT"; else echo "pre=false" >> "$GITHUB_OUTPUT"; fi
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -33,10 +42,11 @@ jobs:
           build-args: VERSION=${{ steps.v.outputs.version }}
           tags: |
             ghcr.io/paramvsi/kafka-inspector:${{ steps.v.outputs.version }}
-            ghcr.io/paramvsi/kafka-inspector:latest
+            ${{ steps.v.outputs.pre == 'false' && 'ghcr.io/paramvsi/kafka-inspector:latest' || '' }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=Apache-2.0
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ steps.v.outputs.pre == 'true' }}

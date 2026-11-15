@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # the release runs the same checks for the tagged commit
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -62,6 +63,5 @@ jobs:
       - name: Image size and start time
         run: |
           docker image inspect ghcr.io/paramvsi/kafka-inspector:ci --format '{{.Size}}' | awk '{ s=$1/1e6; print "image " s " MB"; if (s > 300) exit 1 }'
-          docker run -d --name ki -e KI_ADMIN_PASSWORD=ci -e KAFKA_BOOTSTRAP=localhost:1 -p 8080:8080 ghcr.io/paramvsi/kafka-inspector:ci
-          for i in $(seq 1 20); do curl -fs localhost:8080/api/health && break; sleep 1; done
-          docker inspect ki --format '{{.Config.User}}' | grep -qx 10001
+      - name: Hardened image against real Kafka (health, user 10001, snappy/zstd topics)
+        run: bash scripts/image-smoke.sh ghcr.io/paramvsi/kafka-inspector:ci

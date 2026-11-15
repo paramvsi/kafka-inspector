@@ -11,14 +11,23 @@ const skipDirs = new Set([
   'coverage',
   'test-results',
   'playwright-report',
-  'tokens',
-  'agent',
+  'e2e', // tests assert computed values (rgb(…), "45s")
+  'test',
 ]);
+// skipped by path, not by name (a future components/agent/ or tokens/ folder must still be checked)
+const skipPaths = new Set([join('packages', 'ui', 'tokens'), join('apps', 'agent')]);
 const exts = /\.(tsx?|css|m?js)$/;
 const checks = [
   { name: 'hex colour', re: /#[0-9a-fA-F]{3,8}\b(?![\w-])/g },
   { name: 'literal duration', re: /(?<![\w-])\d+(\.\d+)?ms\b/g },
-  { name: 'literal easing', re: /cubic-bezier\(/g },
+  { name: 'literal easing', re: /cubic-bezier\(|steps\(/g },
+  { name: 'colour function', re: /(?<![\w-])(rgba?|hsla?|oklch|oklab|lab|lch)\(/g },
+  // seconds only where they are a duration (not "5 s ago" in copy)
+  {
+    name: 'literal duration',
+    re: /(?<![\w.$-])(?!0s)(\d+\.\d+|\.\d+|\d+)s(?![\w-])/g, // 0s (instant) is fine
+    when: /transition|animation|duration|delay/i,
+  },
 ];
 
 const files = [];
@@ -32,8 +41,8 @@ const walk = (dir) => {
   for (const e of entries) {
     const p = join(dir, e);
     if (statSync(p).isDirectory()) {
-      if (!skipDirs.has(e)) walk(p);
-    } else if (exts.test(e)) files.push(p);
+      if (!skipDirs.has(e) && !skipPaths.has(relative('.', p))) walk(p);
+    } else if (exts.test(e) && !/\.test\.tsx?$/.test(e)) files.push(p);
   }
 };
 roots.forEach(walk);
@@ -44,7 +53,8 @@ for (const f of files) {
     .split('\n')
     .forEach((line, i) => {
       if (line.includes('literal-ok')) return; // escape hatch; must carry a reason
-      for (const { name, re } of checks) {
+      for (const { name, re, when } of checks) {
+        if (when && !when.test(line)) continue;
         for (const m of line.matchAll(re))
           hits.push(`${relative('.', f)}:${i + 1}  ${name}: ${m[0]}`);
       }

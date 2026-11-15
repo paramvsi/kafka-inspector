@@ -70,7 +70,7 @@ services:
     cap_drop:
       - ALL
     tmpfs:
-      - /tmp
+      - /tmp:exec # snappy/zstd extract native libraries here; noexec breaks compressed topics
     environment:
       KI_ADMIN_PASSWORD: ${KI_ADMIN_PASSWORD:-dev-password}
       KI_CLUSTERS_0_NAME: local
