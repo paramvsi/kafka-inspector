@@ -1,0 +1,248 @@
+import avro from 'avsc';
+import { beforeAll, describe, expect, test } from 'vitest';
+import { MemoryStore, Simulator } from '../src';
+import { getSchemaById } from '../src/registry';
+
+const LOAD = Date.parse('2026-11-15T14:27:31Z');
+
+function make(store = new MemoryStore(), seed?: string) {
+  let now = LOAD;
+  const sim = new Simulator({ seed, store, now: () => now });
+  return {
+    sim,
+    init: () => sim.init(),
+    advance(seconds: number) {
+      for (let i = 0; i < seconds; i++) {
+        now += 1000;
+        sim.tick(now);
+      }
+    },
+  };
+}
+
+describe('seeded cluster', () => {
+  const h = make();
+  let ms = 0;
+  beforeAll(async () => {
+    const t0 = performance.now();
+    await h.init();
+    ms = performance.now() - t0;
+  });
+
+  test('back-fill of 24 h stays fast', () => {
+    expect(ms).toBeLessThan(2000);
+    expect(h.sim.historySize).toBeGreaterThan(1400 + 890);
+  });
+
+  test('matches the reference cluster: 42 topics, 186 partitions, 3 brokers, 6 groups', () => {
+    const all = h.sim.listTopics({ internal: true, size: 500 });
+    expect(all.total).toBe(42);
+    expect(all.items.reduce((a, t) => a + t.partitions, 0)).toBe(186);
+    expect(h.sim.listTopics({}).total).toBe(39);
+    expect(h.sim.listBrokers()).toHaveLength(3);
+    expect(h.sim.listGroups()).toHaveLength(6);
+  });
+
+  test('opening state reproduces the story', () => {
+    const g = Object.fromEntries(h.sim.listGroups().map((x) => [x.groupId, x]));
+    expect(g['fraud-scorer']!.status).toBe('stalled');
+    expect(g['search-indexer']!.status).toBe('stopped');
+    expect(g['search-indexer']!.state).toBe('Empty');
+    expect(g['order-service']!.status).toBe('healthy');
+    expect(g['notify-workers']!.type).toBe('share');
+    expect(g['payments-sink']!.status).toBe('warn');
+    expect(g['payments-sink']!.totalLag).toBeGreaterThan(7000);
+    expect(g['payments-sink']!.totalLag).toBeLessThan(10000);
+    const att = h.sim.getOverview().attention.map((a) => a.title);
+    expect(att).toContain('fraud-scorer stalled');
+    expect(att).toContain('clickstream partition 3 is hot');
+    const k = h.sim.getOverview().kpis;
+    expect(k.messagesInPerSec).toBeGreaterThan(38000);
+    expect(k.messagesInPerSec).toBeLessThan(58000);
+  });
+
+  test('payments-sink then drains and forecasts ~14 min', () => {
+    h.advance(60);
+    const s = h.sim.listGroups().find((x) => x.groupId === 'payments-sink')!;
+    expect(s.status).toBe('healthy');
+    expect(s.forecast.kind).toBe('eta');
+    expect(s.forecast.seconds! / 60).toBeGreaterThan(9);
+    expect(s.forecast.seconds! / 60).toBeLessThan(19);
+  });
+
+  test('the stalled partition holds a poison message that fails to decode', () => {
+    const gp = h.sim.getGroup('fraud-scorer').partitions.find((p) => p.status === 'stalled')!;
+    expect(gp.topic).toBe('payments');
+    expect(gp.partition).toBe(7);
+    const page = h.sim.browse({
+      topic: 'payments',
+      partition: 7,
+      from: 'offset',
+      offset: gp.committedOffset!,
+      limit: 1,
+    });
+    const v = page.messages[0]!.value!;
+    expect(v[0]).toBe(0);
+    const type = avro.Type.forSchema(
+      JSON.parse(getSchemaById(new DataView(v.buffer, v.byteOffset).getInt32(1))!.schema),
+    );
+    expect(() => type.fromBuffer(Buffer.from(v.slice(5)))).toThrow();
+  });
+});
+
+describe('messages', () => {
+  test('same seed → identical first 1,000 messages of orders', async () => {
+    const a = make(),
+      b = make();
+    await Promise.all([a.init(), b.init()]);
+    const read = (s: Simulator) => {
+      const out: string[] = [];
+      let cursor: string | undefined;
+      while (out.length < 1000) {
+        const page = s.browse({
+          topic: 'orders',
+          partition: 0,
+          from: 'oldest',
+          limit: 500,
+          cursor,
+        });
+        out.push(
+          ...page.messages.map(
+            (m) => `${m.offset}:${m.timestamp}:${Buffer.from(m.value!).toString('hex')}`,
+          ),
+        );
+        cursor = page.nextCursor;
+      }
+      return out;
+    };
+    expect(read(a.sim)).toEqual(read(b.sim));
+    const c = make(undefined, 'other-seed');
+    await c.init();
+    expect(read(c.sim).slice(0, 5)).not.toEqual(read(a.sim).slice(0, 5));
+  });
+
+  test('Avro messages round-trip through avsc with the registry schema (Confluent wire format)', async () => {
+    const h = make();
+    await h.init();
+    const m = h.sim.browse({ topic: 'orders', partition: 'all', from: 'newest', limit: 5 })
+      .messages[0]!;
+    const v = m.value!;
+    expect(v[0]).toBe(0);
+    const id = new DataView(v.buffer, v.byteOffset).getInt32(1, false);
+    expect(id).toBe(112);
+    const type = avro.Type.forSchema(JSON.parse(getSchemaById(id)!.schema));
+    const decoded = type.fromBuffer(Buffer.from(v.slice(5))) as { orderId: string; total: number };
+    expect(decoded.orderId).toMatch(/^ord_[0-9a-f]{5}$/);
+    expect(new TextDecoder().decode(m.key!)).toBe(decoded.orderId);
+    expect(Buffer.from(type.toBuffer(decoded))).toEqual(Buffer.from(v.slice(5)));
+  });
+
+  test('newest-first browse is ordered by time across partitions and respects the limit', async () => {
+    const h = make();
+    await h.init();
+    const page = h.sim.browse({ topic: 'orders', partition: 'all', from: 'newest', limit: 100 });
+    expect(page.messages).toHaveLength(100);
+    const ts = page.messages.map((m) => m.timestamp);
+    expect([...ts].sort().reverse()).toEqual(ts);
+  });
+});
+
+describe('chaos and recovery', () => {
+  test('poison → reset offsets shift +1 → fraud-scorer recovers', async () => {
+    const h = make();
+    await h.init();
+    const reset = await h.sim.resetOffsets(
+      {
+        groupId: 'fraud-scorer',
+        topic: 'payments',
+        partitions: [7],
+        strategy: { kind: 'shift', by: 1 },
+      },
+      true,
+    );
+    expect(reset.rows.find((r) => r.partition === 7)!.next).toBe(
+      reset.rows.find((r) => r.partition === 7)!.current! + 1,
+    );
+    expect(reset.applied).toBe(false);
+    await h.sim.resetOffsets(
+      {
+        groupId: 'fraud-scorer',
+        topic: 'payments',
+        partitions: [7],
+        strategy: { kind: 'shift', by: 1 },
+      },
+      false,
+    );
+    h.advance(40);
+    const g = h.sim.listGroups().find((x) => x.groupId === 'fraud-scorer')!;
+    expect(g.status).toBe('healthy');
+    const lag1 = g.totalLag;
+    h.advance(10);
+    expect(h.sim.listGroups().find((x) => x.groupId === 'fraud-scorer')!.totalLag).toBeLessThan(
+      lag1,
+    );
+  });
+
+  test('crash consumer → Empty, then stopped after the window; stop restores it', async () => {
+    const h = make();
+    await h.init();
+    const inc = h.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' });
+    h.advance(2);
+    expect(h.sim.listGroups().find((x) => x.groupId === 'order-service')!.state).toBe('Empty');
+    h.advance(62);
+    expect(h.sim.listGroups().find((x) => x.groupId === 'order-service')!.status).toBe('stopped');
+    h.sim.stopChaos(inc.id);
+    h.advance(12);
+    const g = h.sim.listGroups().find((x) => x.groupId === 'order-service')!;
+    expect(g.state).toBe('Stable');
+  });
+
+  test('broker down → under-replicated partitions, degraded cluster, leaders moved', async () => {
+    const h = make();
+    await h.init();
+    h.sim.runChaos({ kind: 'broker-down', target: '2' });
+    h.advance(1);
+    const o = h.sim.getOverview();
+    expect(o.kpis.underReplicated).toBeGreaterThan(100);
+    expect(o.kpis.brokersOnline).toBe(2);
+    expect(o.cluster.status).toBe('degraded');
+    expect(h.sim.listBrokers().find((b) => b.id === 2)!.leaders).toBe(0);
+  });
+
+  test('traffic spike multiplies throughput ×10 and expires after 2 minutes', async () => {
+    const h = make();
+    await h.init();
+    const before = h.sim.getOverview().kpis.messagesInPerSec;
+    h.sim.runChaos({ kind: 'traffic-spike' });
+    h.advance(1);
+    expect(h.sim.getOverview().kpis.messagesInPerSec / before).toBeGreaterThan(8);
+    h.advance(121);
+    expect(h.sim.listIncidents()).toHaveLength(0);
+  });
+});
+
+describe('writes and persistence', () => {
+  test('created topics and produced messages survive a reload', async () => {
+    const store = new MemoryStore();
+    const a = make(store);
+    await a.init();
+    await a.sim.createTopic({ name: 'shipments', partitions: 3, replicationFactor: 3 });
+    const res = await a.sim.produce({ topic: 'shipments', key: 'k1', value: '{"hello":"world"}' });
+    await expect(
+      a.sim.createTopic({ name: 'shipments', partitions: 3, replicationFactor: 3 }),
+    ).rejects.toThrow('already exists');
+    await expect(
+      a.sim.createTopic({ name: 'x', partitions: 1, replicationFactor: 4 }),
+    ).rejects.toThrow('between 1 and 3');
+    const b = make(store);
+    await b.init();
+    const page = b.sim.browse({
+      topic: 'shipments',
+      partition: res.partition,
+      from: 'oldest',
+      limit: 10,
+    });
+    expect(page.messages).toHaveLength(1);
+    expect(new TextDecoder().decode(page.messages[0]!.value!)).toBe('{"hello":"world"}');
+  });
+});
