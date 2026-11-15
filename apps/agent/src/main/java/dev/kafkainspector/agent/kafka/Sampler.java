@@ -270,6 +270,9 @@ public class Sampler {
                     m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
                 } catch (Exception e) {
                     log.debug("offsets for group {} failed: {}", id, rootMessage(e));
+                    // one failed read must not wipe the group's lag windows: keep the previous offsets this sample
+                    ClusterState.GroupSnap prev = s.groups.get(id);
+                    if (prev != null) prev.committed.forEach((topic, m) -> groups.get(id).committed.put(topic, new TreeMap<>(m)));
                 }
             }
         }

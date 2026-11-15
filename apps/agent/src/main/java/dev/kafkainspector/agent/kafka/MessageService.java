@@ -100,19 +100,32 @@ public class MessageService {
                     }
             }
             got.sort(desc ? Comparator.comparingLong((ConsumerRecord<byte[], byte[]> r) -> r.timestamp()).thenComparingLong(ConsumerRecord::offset).reversed() : Comparator.comparingLong((ConsumerRecord<byte[], byte[]> r) -> r.timestamp()).thenComparingLong(ConsumerRecord::offset));
-            List<ConsumerRecord<byte[], byte[]>> page = got.subList(0, Math.min(max, got.size()));
-            // next position per partition still inside the log; a cursor whenever any partition has more to read
+            List<ConsumerRecord<byte[], byte[]>> cut = got.subList(0, Math.min(max, got.size()));
+            Set<ConsumerRecord<byte[], byte[]>> inCut = Collections.newSetFromMap(new IdentityHashMap<>());
+            inCut.addAll(cut);
+            // Per partition, keep only the unbroken run from where reading started (asc: from a upward; desc: from
+            // b-1 downward) and point the cursor at the first record not kept. The timestamp sort can cut records out
+            // of offset order, and a range the 4 s budget didn't finish must not be skipped — so nothing is lost or
+            // shown twice.
+            Set<ConsumerRecord<byte[], byte[]>> keep = Collections.newSetFromMap(new IdentityHashMap<>());
             Map<Integer, Long> next = new TreeMap<>();
             for (var e : ranges.entrySet()) {
                 TopicPartition tp = e.getKey();
                 long a = e.getValue()[0], b = e.getValue()[1];
-                OptionalLong inPage = desc ? page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).min() : page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).max();
-                boolean read = got.stream().anyMatch(r -> r.partition() == tp.partition());
-                long n = inPage.isPresent() ? (desc ? inPage.getAsLong() - 1 : inPage.getAsLong() + 1)
-                        : read ? (desc ? b - 1 : a) // its records were cut from this page: same place again
-                        : (desc ? a - 1 : b); // nothing readable in the range (gaps/markers): move past it
+                boolean finished = done.contains(tp);
+                List<ConsumerRecord<byte[], byte[]>> recs = got.stream().filter(r -> r.partition() == tp.partition())
+                        .sorted(desc ? Comparator.comparingLong(ConsumerRecord<byte[], byte[]>::offset).reversed() : Comparator.comparingLong(ConsumerRecord<byte[], byte[]>::offset)).toList();
+                int k = 0;
+                // desc reads upward from a: an unfinished range is missing its newest records, so keep none of it
+                if (!(desc && !finished)) while (k < recs.size() && inCut.contains(recs.get(k))) keep.add(recs.get(k++));
+                long n;
+                if (desc && !finished) n = b - 1; // try the whole range again
+                else if (k < recs.size()) n = recs.get(k).offset(); // first record not shown: start there next time
+                else if (!finished) n = desc ? b - 1 : (k == 0 ? a : recs.get(k - 1).offset() + 1);
+                else n = desc ? a - 1 : b; // range fully read (gaps/markers included): move past it
                 if (desc ? n >= begin.get(tp) : n < end.get(tp)) next.put(tp.partition(), n);
             }
+            List<ConsumerRecord<byte[], byte[]>> page = cut.stream().filter(keep::contains).toList();
             String nextCursor = next.isEmpty() ? null : cursorOf(next);
             return new Dto.RawMessagePage(page.stream().map(MessageService::dto).toList(), nextCursor, Math.max(scanned, page.size()));
         }

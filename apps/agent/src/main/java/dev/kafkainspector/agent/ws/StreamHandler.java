@@ -125,7 +125,10 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                     return;
                 }
                 Runnable stop = messages.tail(cid, m.path("topic").asString(), m.path("partition").asString("all"), maxRate, batch -> send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "data", batch)),
-                        err -> send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", err)));
+                        err -> {
+                            tails.remove(prefix + id); // ended: frees its slot under MAX_TAILS
+                            send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", err));
+                        });
                 Runnable old = tails.put(prefix + id, stop);
                 if (old != null) old.run(); // same id re-sent: replace, don't leak the old consumer
                 if (!raw.isOpen() && tails.remove(prefix + id) != null) stop.run(); // closed while we registered

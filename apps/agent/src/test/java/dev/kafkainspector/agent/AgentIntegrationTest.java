@@ -293,6 +293,35 @@ class AgentIntegrationTest {
         }
     }
 
+    @Test
+    @Order(19)
+    void pagingOverOutOfOrderTimestampsReachesEveryRecordOnce() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic("ooo", 2, (short) 1))).all().get(30, TimeUnit.SECONDS);
+        }
+        long base = System.currentTimeMillis() - 3_600_000;
+        try (KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            for (int i = 0; i < 10; i++) {
+                p.send(new ProducerRecord<>("ooo", 0, base + (10 - i) * 1000L, "k" + i, "{}")); // p0: CreateTime runs backwards
+                p.send(new ProducerRecord<>("ooo", 1, base + i * 1000L, "k" + i, "{}"));
+            }
+            p.flush();
+        }
+        Thread.sleep(2500);
+        for (String from : List.of("oldest", "newest")) {
+            Set<String> seen = new HashSet<>();
+            String cursor = null;
+            for (int i = 0; i < 30; i++) {
+                JsonNode page = get("/api/clusters/local/topics/ooo/messages?limit=3&from=" + from + (cursor == null ? "" : "&cursor=" + java.net.URLEncoder.encode(cursor, java.nio.charset.StandardCharsets.UTF_8)));
+                for (JsonNode m : page.path("messages")) assertTrue(seen.add(m.path("partition").asInt() + ":" + m.path("offset").asLong()), from + " duplicate " + m);
+                cursor = page.path("nextCursor").isNull() || page.path("nextCursor").isMissingNode() ? null : page.path("nextCursor").asString();
+                if (cursor == null) break;
+            }
+            assertEquals(20, seen.size(), from + ": records reached");
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     dev.kafkainspector.agent.kafka.KafkaService kafka;
 

@@ -86,7 +86,12 @@ public final class Views {
         List<Dto.TopicConsumer> consumers = new ArrayList<>();
         for (ClusterState.GroupSnap g : s.groups.values()) {
             Map<Integer, Long> c = g.committed.get(t.name);
-            if (c == null) continue;
+            if (c == null) {
+                // assigned but no commits (or a share group): listed like consumersOf counts it, lag unknown
+                boolean assigned = g.members.stream().anyMatch(m -> m.assignments.stream().anyMatch(a -> a[0].equals(t.name)));
+                if (assigned) consumers.add(new Dto.TopicConsumer(g.groupId, g.type, 0, Lag.Status.unknown.name(), g.state));
+                continue;
+            }
             long lag = 0;
             List<Lag.Status> st = new ArrayList<>();
             for (var e : c.entrySet()) {
