@@ -1,0 +1,11 @@
+[build]
+  command = "pnpm --filter web build"
+  publish = "apps/web/out"
+
+# Every /app route is pre-rendered as <route>/index.html (trailingSlash) and detail pages use query
+# params (/app/topics/view/?name=…), so no SPA rewrite is needed. Unknown paths get out/404.html.
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
