@@ -20,7 +20,7 @@ const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]*@/i;
 const withoutUserinfo = (url: string) => url.replace(USERINFO, '$1');
 
 /** Non-secret settings, shared by compose and docker run. */
-export function envSettings(f: SelfHostForm): Array<[string, string]> {
+function envSettings(f: SelfHostForm): Array<[string, string]> {
   const out: Array<[string, string]> = [
     ['KI_CLUSTERS_0_NAME', f.name],
     ['KI_CLUSTERS_0_BOOTSTRAP', f.bootstrap],

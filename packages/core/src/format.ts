@@ -68,12 +68,19 @@ export function formatRelative(iso: string | number | undefined, now = Date.now(
 }
 
 /** Offsets keep full precision with grouping: 21,861,950 */
-export const formatOffset = (n: number | null) => (n === null ? '—' : formatInt(n));
 
 /** 14:21 (24 h, UTC-free local display) */
 export function formatClock(t: number | string): string {
   const d = new Date(t);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** 2026-11-16 06:00:01.234 in local time (message timestamps; the table shows the time part) */
+export function formatTimestamp(t: number | string): string {
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '—';
+  const p = (n: number, w = 2) => String(n).padStart(w, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
 }
 
 /** Value for <input type="datetime-local">: local wall-clock time, minutes precision ("" for invalid input). */

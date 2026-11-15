@@ -785,10 +785,7 @@ export class Simulator {
       underMinIsr = 0;
     for (const ps of this.parts.values()) {
       // effective min.insync.replicas (config edits included), read once per topic
-      const minIsr = Number(
-        this.getTopicConfig(ps[0]!.def.name).find((c) => c.name === 'min.insync.replicas')?.value ??
-          2,
-      );
+      const minIsr = Number(this.effectiveConfig(ps[0]!.def.name)['min.insync.replicas'] ?? 2);
       for (const s of ps) {
         total++;
         if (s.isr.length < s.replicas.length) urp++;
@@ -1001,7 +998,7 @@ export class Simulator {
     const out: HealthFinding[] = [];
     if (def.internal) return out;
     // the effective config, so F-36 edits (retention.ms, min.insync.replicas) change the checks
-    const cfg = Object.fromEntries(this.getTopicConfig(def.name).map((c) => [c.name, c.value]));
+    const cfg = this.effectiveConfig(def.name);
     const retentionMs = Number(cfg['retention.ms']);
     const minIsr = Number(cfg['min.insync.replicas']);
     if (def.rf === 1)
@@ -1161,6 +1158,17 @@ export class Simulator {
           }
         : undefined,
     };
+  }
+
+  // effective config per topic, cached: health checks and the min-ISR count read it every tick
+  private configCache = new Map<string, Record<string, string | null>>();
+  private effectiveConfig(name: string): Record<string, string | null> {
+    let c = this.configCache.get(name);
+    if (!c) {
+      c = Object.fromEntries(this.getTopicConfig(name).map((e) => [e.name, e.value]));
+      this.configCache.set(name, c);
+    }
+    return c;
   }
 
   getTopicConfig(name: string): ConfigEntry[] {
@@ -1742,6 +1750,8 @@ export class Simulator {
   }
 
   private applyAction(a: Action, replay = false): void {
+    // any write can change a topic's config (create with configs, edit, delete + re-create)
+    this.configCache.clear();
     switch (a.kind) {
       case 'create-topic': {
         const spec = a.payload as NewTopic;

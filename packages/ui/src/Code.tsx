@@ -53,28 +53,6 @@ export function CopyButton({
   );
 }
 
-export function CodeBlock({
-  children,
-  copy,
-  className,
-}: {
-  children: string;
-  copy?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={cx('relative rounded-md border border-line bg-surface-sunken', className)}>
-      {copy && <CopyButton text={children} className="absolute right-2 top-2" />}
-      <pre
-        tabIndex={0}
-        className="m-0 overflow-x-auto p-3 font-mono text-[12px] leading-[18px] text-ink"
-      >
-        {children}
-      </pre>
-    </div>
-  );
-}
-
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
 /** Collapsible JSON tree. Chevron rotates on --dur-instant; children appear instantly (big trees). */

@@ -1,5 +1,5 @@
 'use client';
-import { hexDump, toLocalInput, type DecodeAs, type RawMessage } from '@ki/core';
+import { formatInt, formatTimestamp, hexDump, type DecodeAs, type RawMessage } from '@ki/core';
 import { Button, CopyButton, Drawer, HexDump, JsonTree, Tooltip } from '@ki/ui';
 import { useEffect, useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
@@ -78,7 +78,7 @@ export function MessageDrawer({
       description={
         m ? (
           <span className="font-mono">
-            {topic} · partition {m.partition} · offset {m.offset.toLocaleString('en-US')}
+            {topic} · partition {m.partition} · offset {formatInt(m.offset)}
           </span>
         ) : (
           'Loading…'
@@ -120,15 +120,13 @@ export function MessageDrawer({
           <dl className="m-0 grid grid-cols-[100px_1fr] gap-y-2 text-[13px]">
             <Row k="Partition">
               <span className="font-mono">
-                {m.partition} · offset {m.offset.toLocaleString('en-US')}
+                {m.partition} · offset {formatInt(m.offset)}
               </span>
             </Row>
             <Row k="Timestamp">
               {/* local time like the table; the exact UTC value alongside */}
               <span className="font-mono">
-                {toLocalInput(m.timestamp).replace('T', ' ')}:
-                {String(new Date(m.timestamp).getSeconds()).padStart(2, '0')}.
-                {String(new Date(m.timestamp).getMilliseconds()).padStart(3, '0')}
+                {formatTimestamp(m.timestamp)}
                 <span className="ml-2 text-ink-muted">{m.timestamp}</span>
               </span>
             </Row>

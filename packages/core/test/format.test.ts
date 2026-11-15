@@ -27,7 +27,7 @@ test('formatters', () => {
   expect(formatDelta(-3.1)).toBe('−3.1%');
 });
 
-import { formatClock, formatOffset, formatPct } from '../src/format';
+import { formatClock, formatPct } from '../src/format';
 test('more formatters', () => {
   expect(formatBytes(1_250_000_000_000)).toBe('1.3 TB');
   expect(formatCount(2_500_000_000)).toBe('2.5B');
@@ -37,8 +37,6 @@ test('more formatters', () => {
   expect(formatRelative(1000, 2000)).toBe('just now');
   expect(formatRelative(0, 3 * 86400e3)).toBe('3d ago');
   expect(formatRelative('1970-01-01T00:01:00Z', 120_000)).toBe('1m ago');
-  expect(formatOffset(null)).toBe('—');
-  expect(formatOffset(21861950)).toBe('21,861,950');
   expect(formatPct(41.2)).toBe('41%');
   expect(formatClock(new Date(2026, 0, 1, 9, 5).getTime())).toBe('09:05');
 });

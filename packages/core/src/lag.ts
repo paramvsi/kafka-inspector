@@ -155,11 +155,3 @@ export function formatForecast(f: Forecast): string {
       return '—';
   }
 }
-
-export const STATUS_LABEL: Record<LagStatus, string> = {
-  healthy: 'Healthy',
-  warn: 'Warn',
-  stalled: 'Stalled',
-  stopped: 'Stopped',
-  unknown: 'Unknown',
-};

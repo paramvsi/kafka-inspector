@@ -4,6 +4,7 @@ import {
   formatInt,
   formatRate,
   toHex,
+  formatTimestamp,
   toLocalInput,
   type DecodeAs,
   type RawMessage,
@@ -42,10 +43,7 @@ const FROM = [
 
 type From = 'newest' | 'oldest' | 'offset' | 'timestamp' | 'group';
 
-const time = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.toTimeString().slice(0, 8)}.${String(d.getMilliseconds()).padStart(3, '0')}`;
-};
+const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
 
 function preview(
   d: DecodedMessage | undefined,

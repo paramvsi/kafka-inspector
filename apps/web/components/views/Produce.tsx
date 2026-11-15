@@ -1,5 +1,5 @@
 'use client';
-import { AvroType, fromDisplay, randomValue, type SchemaVersion } from '@ki/core';
+import { AvroType, formatInt, fromDisplay, randomValue, type SchemaVersion } from '@ki/core';
 import { Button, Drawer, Select, TextArea, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -184,7 +184,7 @@ export function ProduceDrawer({
       toast({
         tone: 'ok',
         title: `Produced ${n} message${n > 1 ? 's' : ''} to ${target}`,
-        body: `partition ${first!.partition} · offset ${first!.offset.toLocaleString('en-US')}`,
+        body: `partition ${first!.partition} · offset ${formatInt(first!.offset)}`,
         action: {
           label: 'Show in messages',
           onClick: () =>

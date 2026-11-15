@@ -14,7 +14,7 @@ export { Tabs, type TabItem } from './Tabs';
 export { Dialog, Drawer } from './Dialog';
 export { Tooltip, Banner, Skeleton, EmptyState, Kbd, ToastProvider, useToast } from './Feedback';
 export { TextField, TextArea, Select, Checkbox, Switch } from './Form';
-export { CopyButton, CodeBlock, JsonTree, HexDump, type HexAnnotation } from './Code';
+export { CopyButton, JsonTree, HexDump, type HexAnnotation } from './Code';
 export { AlertItem } from './AlertItem';
 export { SettingsIcon, SearchIcon, ChevronDownIcon } from './icons';
 export { cx } from './cx';

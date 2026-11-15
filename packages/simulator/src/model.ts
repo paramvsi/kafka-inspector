@@ -3,7 +3,6 @@ import type { GroupState, GroupType } from '@ki/core';
 
 export const CLUSTER = { id: 'prod-eu-1', name: 'prod-eu-1', kafkaVersion: '4.1.0' };
 export const DEFAULT_SEED = 'kafka-42';
-export const RETENTION_MS = 7 * 24 * 3600 * 1000;
 
 export const BROKERS = [1, 2, 3].map((id) => ({
   id,
