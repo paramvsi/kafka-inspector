@@ -28,7 +28,7 @@ export interface TopicDef {
   keyFormat?: 'string' | 'int64' | 'uuid';
   subject?: string;
   internal?: boolean;
-  /** offset of partition 0's high watermark at load, others spread around it */
+  /** partition 0's high watermark when the 24 h back-fill starts (load − 24 h); others spread around it */
   endAtLoad: number;
   silentForMs?: number;
   producer?: string;

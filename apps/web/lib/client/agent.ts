@@ -70,7 +70,14 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  const json = text ? JSON.parse(text) : undefined;
+  let json: { error?: { code?: string; message?: string } } | undefined;
+  try {
+    json = text ? JSON.parse(text) : undefined;
+  } catch {
+    // e.g. a reverse proxy's HTML 502 page
+    if (res.ok)
+      throw new ApiError(res.status, 'BAD_RESPONSE', 'The agent sent a response that is not JSON.');
+  }
   if (!res.ok)
     throw new ApiError(
       res.status,
@@ -84,6 +91,16 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 export async function signIn(username: string, password: string): Promise<void> {
   await fetch('/api/info', { credentials: 'same-origin' }).catch(() => undefined);
   await api('POST', '/api/auth/login', { username, password });
+}
+
+/** Reachability of another agent (Clusters → Add cluster). Opaque no-cors request; resolves with the round trip in ms. */
+export async function pingAgent(url: string, timeoutMs = 3000): Promise<number> {
+  const t0 = performance.now();
+  await fetch(`${url.replace(/\/$/, '')}/api/health`, {
+    mode: 'no-cors',
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  return Math.round(performance.now() - t0);
 }
 
 export async function agentInfo(): Promise<{ version: string; clusters?: number }> {
@@ -114,9 +131,14 @@ export function createAgentClient(): KafkaClient {
   let attempt = 0;
   let since: number | undefined;
   let seq = 0;
+  let retry: ReturnType<typeof setTimeout> | undefined;
 
   const emit = (c: ConnectionState) => conn.forEach((l) => l(c));
   const open = () => {
+    // one socket at a time: a subscribe during back-off opens now and cancels the pending retry
+    clearTimeout(retry);
+    retry = undefined;
+    if (ws) return;
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/stream`;
     const sock = new WebSocket(url);
     ws = sock;
@@ -145,7 +167,7 @@ export function createAgentClient(): KafkaClient {
         maxAttempts: MAX_ATTEMPTS,
         nextAt: Date.now() + wait * 1000,
       });
-      setTimeout(open, wait * 1000);
+      retry = setTimeout(open, wait * 1000);
     };
   };
   const add = (msg: Record<string, unknown>, onData: Sub['onData']) => {

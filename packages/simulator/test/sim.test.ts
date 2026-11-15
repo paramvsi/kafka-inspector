@@ -302,3 +302,91 @@ test('resetting a built-in override returns it to the default', async () => {
   await a.sim.updateTopicConfig('orders', { 'max.message.bytes': null });
   expect(get()).toMatchObject({ value: '1048588', isDefault: true });
 });
+
+test('deleting a topic a group reads keeps the group readable, and reloads still boot', async () => {
+  const store = new MemoryStore();
+  const a = make(store);
+  await a.init();
+  await a.sim.resetOffsets(
+    {
+      groupId: 'order-service',
+      topic: 'orders',
+      partitions: [0],
+      strategy: { kind: 'shift', by: 1 },
+    },
+    false,
+  );
+  await a.sim.deleteTopic('orders');
+  expect(() => a.sim.getGroup('order-service')).not.toThrow();
+  a.advance(2);
+  const b = make(store);
+  await b.init(); // replays a reset on a topic that's gone
+  expect(b.sim.listTopics({ query: 'orders' }).items.map((t) => t.name)).not.toContain('orders');
+});
+
+test('disabling or deleting a rule resolves its firing alerts', async () => {
+  const a = make();
+  await a.init();
+  a.advance(35); // seeded "group stalled" rule fires after 30 s (fraud-scorer)
+  const firing = () =>
+    a.sim.listAlerts({ state: 'firing' }).filter((e) => e.ruleId === 'r-group-stalled');
+  expect(firing().length).toBeGreaterThan(0);
+  const rule = a.sim.listAlertRules().find((r) => r.id === 'r-group-stalled')!;
+  await a.sim.saveAlertRule({ ...rule, enabled: false });
+  a.advance(1);
+  expect(firing()).toHaveLength(0);
+  await a.sim.saveAlertRule({ ...rule, enabled: true });
+  a.advance(35);
+  expect(firing().length).toBeGreaterThan(0);
+  await a.sim.deleteAlertRule('r-group-stalled');
+  expect(firing()).toHaveLength(0);
+  expect(a.sim.getOverview().kpis.activeAlerts).toBe(a.sim.listAlerts({ state: 'firing' }).length);
+});
+
+test('with two brokers down, bringing one back leaves the other out of ISR and leadership', async () => {
+  const a = make();
+  await a.init();
+  const two = a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  a.sim.runChaos({ kind: 'broker-down', target: '3' });
+  a.advance(1);
+  a.sim.stopChaos(two.id);
+  a.advance(1);
+  const parts = a.sim.getTopic('orders').partitions;
+  expect(parts.every((p) => !p.isr.includes(3) && p.leader !== 3)).toBe(true);
+  expect(a.sim.getOverview().kpis.underReplicated).toBeGreaterThan(0);
+});
+
+test('history time lookup ignores the gap before a series existed', async () => {
+  const { History } = await import('../src/history');
+  const h = new History();
+  h.push(1000, new Map([['a', 1]]));
+  h.push(
+    2000,
+    new Map([
+      ['a', 2],
+      ['b', 10],
+    ]),
+  );
+  h.push(
+    3000,
+    new Map([
+      ['a', 3],
+      ['b', 20],
+    ]),
+  );
+  expect(h.timeOf('b', 15)).toBe(2500);
+  expect(h.timeOf('b', 5)).toBeUndefined();
+});
+
+test('reset offsets rejects NaN strategies instead of storing NaN commits', async () => {
+  const a = make();
+  await a.init();
+  const req = (strategy: object) =>
+    a.sim.resetOffsets(
+      { groupId: 'order-service', topic: 'orders', partitions: [0], strategy } as never,
+      true,
+    );
+  await expect(req({ kind: 'shift', by: NaN })).rejects.toThrow('whole number');
+  await expect(req({ kind: 'offset', offset: -1 })).rejects.toThrow('0 or more');
+  await expect(req({ kind: 'timestamp', timestamp: 'soon' })).rejects.toThrow('valid date');
+});

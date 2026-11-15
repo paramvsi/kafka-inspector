@@ -14,7 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
+import org.springframework.security.web.session.HttpSessionDestroyedEvent;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -23,6 +27,7 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,6 +47,7 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, Map<String, String[]>> subs = new ConcurrentHashMap<>(); // session → id → [cluster, channel]
     private final Map<String, Runnable> tails = new ConcurrentHashMap<>(); // session|id → stop
+    private static final int MAX_TAILS = 8;
     private final ScheduledExecutorService pinger = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
 
     public StreamHandler(JsonMapper json, Sampler sampler, MessageService messages, AlertService alerts, Clusters clusters) {
@@ -56,7 +62,28 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry r) {
-        r.addHandler(this, "/api/stream").setAllowedOriginPatterns("*"); // same-origin in practice: auth cookie is SameSite=Strict
+        // Default origin policy = same origin only. SameSite ignores ports, so another service on this host could
+        // otherwise open a socket with the session cookie. The HTTP session id is kept to close sockets on logout.
+        r.addHandler(this, "/api/stream").addInterceptors(new HttpSessionHandshakeInterceptor());
+    }
+
+    /** Lets Spring publish session-destroyed events (logout, 12 h expiry). */
+    @Bean
+    public static HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    /** A signed-out or expired session ends its live streams too. */
+    @EventListener
+    public void onSessionEnd(HttpSessionDestroyedEvent e) {
+        for (WebSocketSession s : sessions.values()) {
+            if (!e.getId().equals(s.getAttributes().get(HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME))) continue;
+            try {
+                s.close(CloseStatus.POLICY_VIOLATION.withReason("Signed out"));
+            } catch (IOException ignored) {
+                // already closing
+            }
+        }
     }
 
     @Override
@@ -92,8 +119,15 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
             case "tail" -> {
                 clusters.get(cid);
                 int maxRate = Math.max(1, Math.min(500, m.path("maxRate").asInt(50)));
+                String prefix = raw.getId() + "|";
+                if (tails.keySet().stream().filter(k -> k.startsWith(prefix)).count() >= MAX_TAILS) {
+                    send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", "Too many live tails on this connection (" + MAX_TAILS + ")."));
+                    return;
+                }
                 Runnable stop = messages.tail(cid, m.path("topic").asString(), m.path("partition").asString("all"), maxRate, batch -> send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "data", batch)));
-                tails.put(raw.getId() + "|" + id, stop);
+                Runnable old = tails.put(prefix + id, stop);
+                if (old != null) old.run(); // same id re-sent: replace, don't leak the old consumer
+                if (!raw.isOpen() && tails.remove(prefix + id) != null) stop.run(); // closed while we registered
             }
             case "unsub" -> {
                 subs.getOrDefault(raw.getId(), Map.of()).remove(id);
@@ -134,6 +168,13 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
             s.sendMessage(new TextMessage(json.writeValueAsString(payload)));
         } catch (IOException | IllegalStateException e) {
             // client went away; cleanup happens in afterConnectionClosed
+        } catch (RuntimeException e) {
+            // e.g. SessionLimitExceededException (send stuck > 10 s): drop this client, never the pinger or broadcast
+            try {
+                s.close(CloseStatus.SESSION_NOT_RELIABLE);
+            } catch (IOException ignored) {
+                // already closed
+            }
         }
     }
 

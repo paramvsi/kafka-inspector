@@ -136,6 +136,37 @@ test('create topic → appears and opens its page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'e2e-shipments' })).toBeVisible();
 });
 
+test('messages open from the keyboard (WCAG 2.1.1)', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const open = page.getByRole('button', { name: /open message on partition/ }).first();
+  await open.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Message' })).toBeVisible();
+});
+
+test('a JS filter runs once per change, not in a loop', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __filterRuns: number };
+    w.__filterRuns = 0;
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (this: Worker, msg: unknown, ...rest: unknown[]) {
+      if (msg && typeof msg === 'object' && 'expr' in msg) w.__filterRuns++;
+      return (post as (...a: unknown[]) => void).call(this, msg, ...rest);
+    };
+  });
+  await page.goto('/app/topics/view/?name=orders&tab=messages&filter=value.total%20%3E%200');
+  await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(1500);
+  const settled = await page.evaluate(
+    () => (window as unknown as { __filterRuns: number }).__filterRuns,
+  );
+  await page.waitForTimeout(1500);
+  const later = await page.evaluate(
+    () => (window as unknown as { __filterRuns: number }).__filterRuns,
+  );
+  expect(later - settled).toBe(0);
+});
+
 test('produce a valid Avro order, then see it decoded in the drawer', async ({ page }) => {
   await page.goto('/app/topics/view/?name=orders&produce=1');
   const drawer = page.getByRole('dialog', { name: 'Produce message' });

@@ -39,6 +39,8 @@ export function ResetOffsetsDialog({
   const [offset, setOffset] = useState('');
   const [time, setTime] = useState(() => new Date(Date.now() - 3600e3).toISOString().slice(0, 16));
   const [preview, setPreview] = useState<ResetPreview>();
+  // the request the shown preview was computed for: Apply only acts on a fresh dry run
+  const [previewOf, setPreviewOf] = useState<unknown>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -79,7 +81,12 @@ export function ResetOffsetsDialog({
       () =>
         writes
           .resetOffsets(clusterId, req, true)
-          .then((p) => alive && setPreview(p))
+          .then((p) => {
+            if (!alive) return;
+            setPreview(p);
+            setPreviewOf(req);
+            setError(undefined);
+          })
           .catch((e) => alive && setError((e as Error).message)),
       150,
     );
@@ -89,6 +96,7 @@ export function ResetOffsetsDialog({
     };
   }, [open, writes, req, clusterId]);
 
+  const fresh = previewOf === req;
   const changed = preview?.rows.filter((r) => !r.skipped) ?? [];
   const parts = group.partitions
     .filter((p) => p.topic === topic)
@@ -134,7 +142,7 @@ export function ResetOffsetsDialog({
             variant="primary"
             data-tour="apply"
             onClick={apply}
-            disabled={busy || !changed.length}
+            disabled={busy || !fresh || !changed.length}
           >
             {busy
               ? 'Applying…'

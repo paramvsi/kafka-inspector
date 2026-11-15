@@ -31,7 +31,8 @@ function validate(schema: SchemaVersion | undefined, text: string): Validation {
     }
   }
   const s = JSON.parse(schema.schema) as { required?: string[] };
-  const missing = (s.required ?? []).filter((k) => !(parsed as Record<string, unknown>)?.[k]);
+  const obj = parsed !== null && typeof parsed === 'object' ? (parsed as object) : {};
+  const missing = (s.required ?? []).filter((k) => !(k in obj));
   return missing.length
     ? { ok: false, text: `Missing required ${missing.join(', ')}` }
     : { ok: true, text: `Valid against ${schema.subject} v${schema.version}` };
@@ -137,9 +138,17 @@ export function ProduceDrawer({
       ]);
     });
   }, [open, source.data, lookup, topic]);
+  // a fresh sample per target schema: switching topic doesn't keep the previous topic's JSON
+  const [sampledFor, setSampledFor] = useState<string>();
+  // only once the target's own detail (and schema) loaded — placeholder data is the previous topic's
+  const loaded = detail.data?.summary.name === target && (!subject || schema?.subject === subject);
+  const sampleKey = loaded ? `${target}:${subject ?? ''}` : undefined;
   useEffect(() => {
-    if (open && !reprocess && !value && schema !== undefined) setValue(generate(schema));
-  }, [open, reprocess, value, schema]);
+    if (!open) setSampledFor(undefined);
+    if (!open || reprocess || !sampleKey || sampleKey === sampledFor) return;
+    setSampledFor(sampleKey);
+    setValue(generate(subject ? schema : undefined));
+  }, [open, reprocess, sampleKey, sampledFor, schema, subject]);
 
   const v = useMemo(() => validate(schema, value), [schema, value]);
   const n = Math.max(1, Math.min(100, Number(count) || 1));

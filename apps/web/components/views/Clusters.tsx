@@ -10,6 +10,7 @@ import {
   useToast,
 } from '@ki/ui';
 import { useState } from 'react';
+import { pingAgent } from '../../lib/client/agent';
 import { useKafka } from '../../lib/kafka';
 import { useSavedClusters, type SavedCluster } from '../../lib/clusters';
 import { useUrl } from '../../lib/url';
@@ -197,16 +198,8 @@ function AddClusterDialog({
       return true;
     }
     setSteps([{ label: 'Agent reachable', state: 'Running' }]);
-    const t0 = performance.now();
     try {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 3000);
-      await fetch(`${agent.replace(/\/$/, '')}/api/health`, {
-        mode: 'no-cors',
-        signal: ctl.signal,
-      });
-      clearTimeout(timer);
-      const ms = Math.round(performance.now() - t0);
+      const ms = await pingAgent(agent);
       setSteps([
         { label: 'Agent reachable', state: 'Pass', detail: `${agent} · ${ms} ms` },
         ...[
@@ -261,9 +254,18 @@ function AddClusterDialog({
     if (connect && !(await test())) return;
     onSave(c);
     onClose();
+    // opened from the toast's own click: a window.open after the awaited check would be popup-blocked
     if (connect && mode === 'local-agent')
-      window.open(`${agent.replace(/\/$/, '')}/app/`, '_blank', 'noopener');
-    if (connect && mode === 'simulated') {
+      toast({
+        tone: 'ok',
+        title: `Saved ${c.name}`,
+        body: 'The agent is reachable.',
+        action: {
+          label: 'Open agent',
+          onClick: () => window.open(`${agent.replace(/\/$/, '')}/app/`, '_blank', 'noopener'),
+        },
+      });
+    else if (connect && mode === 'simulated') {
       await client.chaos?.settings({ seed });
       toast({ tone: 'info', title: `Simulated cluster reseeded with ${seed}` });
     } else toast({ tone: 'ok', title: `Saved ${c.name}` });

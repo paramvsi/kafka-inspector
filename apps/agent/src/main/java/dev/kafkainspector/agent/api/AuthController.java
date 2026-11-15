@@ -35,10 +35,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Login body, HttpServletRequest req, HttpServletResponse res) {
         String ip = req.getRemoteAddr();
-        long wait = limiter.check(ip);
+        long wait = limiter.acquire(ip);
         if (wait > 0) return ResponseEntity.status(429).body(Dto.ApiError.of("RATE_LIMITED", "Too many sign-in attempts. Try again in " + wait + " s."));
         boolean ok = body != null && admin.username().equals(body.username()) && body.password() != null && encoder.matches(body.password(), admin.hash());
-        if (!ok) limiter.failed(ip);
         if (!ok) return ResponseEntity.status(401).body(Dto.ApiError.of("BAD_CREDENTIALS", "Wrong username or password. The username is admin; the password is KI_ADMIN_PASSWORD."));
         limiter.succeeded(ip);
         HttpSession old = req.getSession(false);

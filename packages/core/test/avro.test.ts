@@ -156,3 +156,26 @@ test('randomValue always produces data that encodes under its schema', () => {
   expect(String(randomValue('string', rnd, 'customerId'))).toMatch(/^cus_/);
   expect(randomValue('fixedish' as unknown as 'null', rnd)).toBeNull();
 });
+
+test('longs are exact across the whole 64-bit range (beyond 2^53 as decimal strings)', () => {
+  const t = AvroType.parse('"long"');
+  const min = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]);
+  expect(t.decode(min)).toBe('-9223372036854775808');
+  for (const v of ['9007199254740993', '9223372036854775807', '-9223372036854775808'])
+    expect(t.decode(t.encode(v))).toBe(v);
+  expect(t.decode(t.encode(9007199254740991))).toBe(9007199254740991);
+  expect(t.decode(t.encode(-1))).toBe(-1);
+  expect(() => t.encode(2 ** 60)).toThrow(AvroError); // already imprecise as a JS number
+  expect(() => t.encode('9223372036854775808')).toThrow(AvroError);
+});
+
+test('corrupt lengths and block counts fail fast', () => {
+  expect(() => AvroType.parse('"bytes"').decode(new Uint8Array([0x01]))).toThrow(
+    'negative bytes length',
+  );
+  const nulls = AvroType.parse('{"type":"array","items":"null"}');
+  // block count 2^40 with no data behind it
+  expect(() => nulls.decode(new Uint8Array([0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02]))).toThrow(
+    'exceeds the data',
+  );
+});

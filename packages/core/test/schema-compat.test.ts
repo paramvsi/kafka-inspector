@@ -110,3 +110,41 @@ test('field diff lists added, removed and changed fields', () => {
     ).map((x) => x.change),
   ).toEqual(['added', 'removed']);
 });
+
+test('namespaced references are resolved and checked', () => {
+  const withAddress = (zipType: string) =>
+    JSON.stringify({
+      type: 'record',
+      name: 'Order',
+      namespace: 'com.acme',
+      fields: [
+        {
+          name: 'ship',
+          type: { type: 'record', name: 'Address', fields: [{ name: 'zip', type: zipType }] },
+        },
+        { name: 'bill', type: 'com.acme.Address' },
+      ],
+    });
+  const r = checkCompatibility('AVRO', withAddress('string'), withAddress('int'), 'BACKWARD');
+  expect(r.compatible).toBe(false);
+  expect(r.messages.join(' ')).toContain('bill.zip');
+});
+
+test('recursive schemas terminate; fixed size changes are incompatible', () => {
+  const node = JSON.stringify({
+    type: 'record',
+    name: 'Node',
+    fields: [
+      { name: 'v', type: 'long' },
+      { name: 'next', type: ['null', 'Node'], default: null },
+    ],
+  });
+  expect(checkCompatibility('AVRO', node, node, 'FULL').compatible).toBe(true);
+  const fx = (size: number) =>
+    JSON.stringify({
+      type: 'record',
+      name: 'R',
+      fields: [{ name: 'h', type: { type: 'fixed', name: 'H', size } }],
+    });
+  expect(checkCompatibility('AVRO', fx(16), fx(8), 'BACKWARD').compatible).toBe(false);
+});

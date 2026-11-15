@@ -13,6 +13,7 @@ import {
 import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField, useToast } from '@ki/ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { csvCell } from '../../lib/csv';
 import { runFilter, type FilterResult } from '../../lib/filter';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useQueryClient } from '@tanstack/react-query';
@@ -135,7 +136,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     );
   }, [live, paused, client, clusterId, topic, p]);
 
-  const raws = live ? ring : [...(page.data?.messages ?? []), ...extra];
+  // stable identity: the decode and filter effects key on it
+  const raws = useMemo(
+    () => (live ? ring : [...(page.data?.messages ?? []), ...extra]),
+    [live, ring, page.data, extra],
+  );
 
   // ── decode (async, cached per message + format) ──
   const cache = useRef(new Map<string, DecodedMessage>());
@@ -251,14 +256,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         : [
             'topic,partition,offset,timestamp,key,value',
             ...items.map((i) =>
-              [
-                i.topic,
-                i.partition,
-                i.offset,
-                i.timestamp,
-                JSON.stringify(i.key ?? ''),
-                JSON.stringify(JSON.stringify(i.value)),
-              ].join(','),
+              [i.topic, i.partition, i.offset, i.timestamp, i.key, i.value].map(csvCell).join(','),
             ),
           ].join('\n');
     const a = document.createElement('a');
@@ -312,7 +310,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             className="flex items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              url.set({ ts: new Date(ts).toISOString() });
+              const at = new Date(ts);
+              if (!Number.isNaN(at.getTime())) url.set({ ts: at.toISOString() });
             }}
           >
             <div className="w-[220px]">
@@ -592,7 +591,18 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                   >
                     {regex !== undefined && <Td mono>{m.topic}</Td>}
                     <Td mono right>
-                      {formatInt(m.offset)}
+                      {/* keyboard and screen-reader path into the drawer; the row click is the mouse shortcut */}
+                      <button
+                        type="button"
+                        className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] tabular-nums text-ink hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          url.set({ msg: `${m.partition}:${m.offset}` }, 'push');
+                        }}
+                      >
+                        {formatInt(m.offset)}
+                        <span className="sr-only">, open message on partition {m.partition}</span>
+                      </button>
                     </Td>
                     <Td mono right>
                       {m.partition}

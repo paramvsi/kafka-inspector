@@ -17,7 +17,9 @@ spring:
     banner-mode: off
 server:
   port: ${KI_PORT:8080}
-  forward-headers-strategy: framework
+  # native = Tomcat RemoteIpValve: X-Forwarded-* trusted only from private-network proxies, so a client
+  # on the internet can't spoof its IP past the sign-in rate limit; behind a TLS proxy the scheme is honoured
+  forward-headers-strategy: native
   shutdown: graceful
   servlet:
     session:

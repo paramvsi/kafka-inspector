@@ -273,7 +273,7 @@ export class Simulator {
 
     const pending = [...actions].sort((a, b) => a.t - b.t);
     const applyDue = (t: number) => {
-      while (pending.length && pending[0]!.t <= t) this.applyAction(pending.shift()!, true);
+      while (pending.length && pending[0]!.t <= t) this.replay(pending.shift()!);
     };
 
     this.replaying = true;
@@ -287,7 +287,7 @@ export class Simulator {
       applyDue(t);
       this.step(t);
     }
-    while (pending.length) this.applyAction(pending.shift()!, true);
+    while (pending.length) this.replay(pending.shift()!);
     this.replaying = false;
   }
 
@@ -1375,7 +1375,16 @@ export class Simulator {
   checkCompatibility(subject: string, schema: string): CompatibilityResult {
     const latest = this.getSchema(subject, 'latest');
     const sub = registry.listSubjects().find((s) => s.subject === subject)!;
-    return checkCompatibility(latest.type, latest.schema, schema, sub.compatibility);
+    if (!sub.compatibility.endsWith('_TRANSITIVE'))
+      return checkCompatibility(latest.type, latest.schema, schema, sub.compatibility);
+    // *_TRANSITIVE: the candidate must be compatible with every registered version
+    const messages: string[] = [];
+    for (const v of sub.versions) {
+      const old = this.getSchema(subject, v);
+      const r = checkCompatibility(old.type, old.schema, schema, sub.compatibility);
+      if (!r.compatible) messages.push(...r.messages.map((m) => `v${v}: ${m}`));
+    }
+    return { compatible: messages.length === 0, messages };
   }
 
   // ───────────────────────────── topology ─────────────────────────────
@@ -1541,8 +1550,8 @@ export class Simulator {
 
   private evaluateAlerts(t: number): void {
     for (const rule of this.rules) {
-      if (!rule.enabled) continue;
-      const hits = this.conditions(rule, t);
+      // a disabled rule has no hits, so its firing alerts resolve below
+      const hits = rule.enabled ? this.conditions(rule, t) : [];
       const active = new Set(hits.map((h) => `${rule.id}|${h.target}`));
       for (const h of hits) {
         const k = `${rule.id}|${h.target}`;
@@ -1622,7 +1631,12 @@ export class Simulator {
 
   async deleteAlertRule(id: string): Promise<void> {
     this.rules = this.rules.filter((r) => r.id !== id);
-    for (const k of [...this.firing.keys()]) if (k.startsWith(`${id}|`)) this.firing.delete(k);
+    for (const [k, e] of [...this.firing]) {
+      if (!k.startsWith(`${id}|`)) continue;
+      e.state = 'resolved';
+      e.resolvedAt = new Date(this.lastTick).toISOString();
+      this.firing.delete(k);
+    }
     await this.store.saveRules(this.rules);
   }
 
@@ -1689,6 +1703,15 @@ export class Simulator {
 
   // ───────────────────────────── writes (demo) ─────────────────────────────
 
+  /** A saved action that no longer applies (e.g. a reset on a deleted topic) is skipped, not fatal. */
+  private replay(a: Action): void {
+    try {
+      this.applyAction(a, true);
+    } catch (e) {
+      console.warn(`Skipped a saved demo change (${a.kind}): ${(e as Error).message}`);
+    }
+  }
+
   private applyAction(a: Action, replay = false): void {
     switch (a.kind) {
       case 'create-topic': {
@@ -1725,6 +1748,10 @@ export class Simulator {
         const name = a.payload as string;
         this.topics.delete(name);
         this.parts.delete(name);
+        // groups stop reading it; its produced messages and poison markers go with it
+        for (const g of this.groups.values()) g.parts = g.parts.filter((gp) => gp.topic !== name);
+        for (const k of this.produced.keys()) if (k.startsWith(`${name}:`)) this.produced.delete(k);
+        for (const k of this.poisoned) if (k.startsWith(`${name}:`)) this.poisoned.delete(k);
         this.pushEvent({
           ts: new Date(a.t).toISOString(),
           kind: 'topic-deleted',
@@ -1932,6 +1959,13 @@ export class Simulator {
   }
 
   async resetOffsets(req: ResetOffsetsRequest, dryRun: boolean): Promise<ResetPreview> {
+    const st = req.strategy;
+    if (st.kind === 'offset' && !(Number.isInteger(st.offset) && st.offset >= 0))
+      throw new Error('The offset must be a whole number of 0 or more.');
+    if (st.kind === 'shift' && !Number.isInteger(st.by))
+      throw new Error('Shift by a whole number of messages.');
+    if (st.kind === 'timestamp' && Number.isNaN(Date.parse(st.timestamp)))
+      throw new Error('Pick a valid date and time.');
     if (dryRun) return this.doReset(req, true, this.lastTick);
     const res = this.doReset(req, false, this.lastTick);
     await this.store.append({ t: this.lastTick, kind: 'reset-offsets', payload: req });
@@ -2014,8 +2048,9 @@ export class Simulator {
           this.brokersOnline.set(id2, true);
           for (const ps of this.parts.values()) {
             for (const s of ps) {
-              s.isr = [...s.replicas];
-              if (s.leader === null || s.leader !== s.replicas[0]) s.leader = s.replicas[0]!;
+              // other brokers may still be down: only online replicas rejoin, preferred leader if online
+              s.isr = s.replicas.filter((b) => this.brokersOnline.get(b) !== false);
+              s.leader = s.isr.includes(s.replicas[0]!) ? s.replicas[0]! : (s.isr[0] ?? null);
             }
           }
           this.pushEvent({

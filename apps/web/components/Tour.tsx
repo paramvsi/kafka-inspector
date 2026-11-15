@@ -2,7 +2,7 @@
 // Guided tour (F-102): one incident end to end — stalled → open group → reset +1 → recovered.
 // Spotlight moves between targets on --dur-slow (MOTION.md "Signature moments"). Skippable, resumable.
 import type { GroupSummary } from '@ki/core';
-import { Button } from '@ki/ui';
+import { Button, useToast } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -64,6 +64,7 @@ export function GuidedTour() {
   const router = useRouter();
   const { client, clusterId } = useKafka();
   const groups = useStream<GroupSummary[]>('lag');
+  const toast = useToast();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
@@ -139,7 +140,11 @@ export function GuidedTour() {
       }
     : { top: 120, left: innerWidth / 2 - 180 };
 
-  const primary = async () => {
+  const primary = () =>
+    run().catch((e: Error) =>
+      toast({ tone: 'crit', title: "That step didn't work", body: e.message }),
+    );
+  const run = async () => {
     if (step === 1 && fraud && fraud.status !== 'stalled') {
       await client.chaos?.run({ kind: 'poison-message' });
       return;

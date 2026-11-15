@@ -137,18 +137,57 @@ class AgentIntegrationTest {
 
     @Test
     @Order(99)
-    void loginIsRateLimitedTo5PerMinute() throws Exception {
-        HttpClient other = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
-        int last = 0;
+    void loginIsRateLimitedTo5PerMinuteEvenInAParallelBurstWithSpoofedForwardedFor() throws Exception {
         CookieManager cm = new CookieManager();
         HttpClient c = HttpClient.newBuilder().cookieHandler(cm).build();
         c.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/info")).build(), HttpResponse.BodyHandlers.ofString());
         String csrf = cm.getCookieStore().getCookies().stream().filter(x -> x.getName().equals("KI_CSRF")).findFirst().orElseThrow().getValue();
-        for (int i = 0; i < 7; i++) {
-            last = c.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/login")).header("X-KI-CSRF", csrf).header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{\"username\":\"admin\",\"password\":\"nope\"}")).build(), HttpResponse.BodyHandlers.ofString()).statusCode();
-        }
-        assertEquals(429, last);
-        assertNotNull(other);
+        java.util.function.IntFunction<Long> burst = spoof -> {
+            List<java.util.concurrent.CompletableFuture<HttpResponse<String>>> rs = new ArrayList<>();
+            for (int i = 0; i < 40; i++) {
+                HttpRequest.Builder b = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/login"))
+                        .header("X-KI-CSRF", csrf).header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"username\":\"admin\",\"password\":\"nope\"}"));
+                if (spoof == 1) b.header("X-Forwarded-For", "203.0.113." + i); // a client inventing addresses
+                rs.add(c.sendAsync(b.build(), HttpResponse.BodyHandlers.ofString()));
+            }
+            return rs.stream().map(java.util.concurrent.CompletableFuture::join).filter(r -> r.statusCode() == 401).count();
+        };
+        assertEquals(5, burst.apply(0), "parallel attempts from one address: only 5 password checks");
+        long spoofed = burst.apply(1);
+        assertTrue(spoofed <= 25, "forged X-Forwarded-For got " + spoofed + " password checks; the global cap is 30/min");
+    }
+
+    java.net.http.WebSocket openStream(HttpClient client, String origin, List<String> received, java.util.concurrent.CountDownLatch closed) throws Exception {
+        return client.newWebSocketBuilder().header("Origin", origin).buildAsync(URI.create("ws://localhost:" + port + "/api/stream"), new java.net.http.WebSocket.Listener() {
+            @Override
+            public java.util.concurrent.CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
+                received.add(data.toString());
+                ws.request(1);
+                return null;
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<?> onClose(java.net.http.WebSocket ws, int code, String reason) {
+                closed.countDown();
+                return null;
+            }
+        }).get(10, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @Order(12)
+    void liveStreamRefusesOtherOriginsAndClosesOnSignOut() throws Exception {
+        signIn();
+        var none = new java.util.concurrent.CountDownLatch(1);
+        Exception refused = assertThrows(Exception.class, () -> openStream(http, "http://localhost:8081", new ArrayList<>(), none));
+        assertEquals(403, ((java.net.http.WebSocketHandshakeException) refused.getCause()).getResponse().statusCode());
+
+        var closed = new java.util.concurrent.CountDownLatch(1);
+        var ws = openStream(http, "http://localhost:" + port, java.util.Collections.synchronizedList(new ArrayList<>()), closed);
+        ws.sendText("{\"op\":\"sub\",\"id\":\"m\",\"cluster\":\"local\",\"channel\":\"metrics\"}", true);
+        assertEquals(204, send("POST", "/api/auth/logout", null).statusCode());
+        assertTrue(closed.await(10, TimeUnit.SECONDS), "socket still open after sign-out");
     }
 
     @Test

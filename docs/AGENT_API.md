@@ -100,7 +100,7 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 
 - Run as non-root; read-only root filesystem except `/data`.
 - Never log config values containing `PASSWORD`, `SECRET`, `TOKEN`, `KEY`; mask in `/api/.../config` responses.
-- Session timeout 12 h; login rate limiting; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`). Worker scripts (`/_next/static/chunks/turbopack-worker-*`) get their own CSP — `script-src 'self' 'unsafe-eval'; connect-src 'none'` — so the message filter can compile expressions but has no network; pages never allow eval.
+- Session timeout 12 h; login rate limiting (5 failed attempts / min per address, 30 / min in total; the attempt is reserved before the password check); `/api/stream` accepts same-origin handshakes only and closes when the session ends; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`). Worker scripts (`/_next/static/chunks/turbopack-worker-*`) get their own CSP — `script-src 'self' 'unsafe-eval'; connect-src 'none'` — so the message filter can compile expressions but has no network; pages never allow eval.
 - Startup log line lists clusters and security protocol only.
 
 ## Notes from the build (phase 4)

@@ -105,8 +105,12 @@ export class History {
   /** First time the (non-decreasing) series reached `value`, interpolated; undefined if before history. */
   timeOf(key: string, value: number): number | undefined {
     const arr = this.data.get(key);
-    if (!arr || arr.length === 0 || value < arr[0]!) return undefined;
-    let lo = 0,
+    if (!arr) return undefined;
+    // a series that began after the first sample (e.g. a created topic) is NaN before it existed
+    let first = 0;
+    while (first < arr.length && Number.isNaN(arr[first]!)) first++;
+    if (first === arr.length || value < arr[first]!) return undefined;
+    let lo = first,
       hi = arr.length - 1;
     if (value > arr[hi]!) return this.times[hi];
     while (lo < hi) {
@@ -114,7 +118,7 @@ export class History {
       if (arr[mid]! < value) lo = mid + 1;
       else hi = mid;
     }
-    if (lo === 0) return this.times[0];
+    if (lo === first) return this.times[first];
     const v0 = arr[lo - 1]!,
       v1 = arr[lo]!;
     const t0 = this.times[lo - 1]!,

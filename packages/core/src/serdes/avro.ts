@@ -78,7 +78,7 @@ export class AvroType {
           return;
         case 'int':
         case 'long':
-          if (!Number.isInteger(v)) throw new AvroError(`invalid ${s}: ${v}`);
+          if (!isLong(v)) throw new AvroError(`invalid ${s}: ${v}`);
           return writeLong(v, out);
         case 'float':
         case 'double':
@@ -144,7 +144,7 @@ export class AvroType {
           return typeof v === 'boolean';
         case 'int':
         case 'long':
-          return Number.isInteger(v);
+          return isLong(v);
         case 'float':
         case 'double':
           return typeof v === 'number';
@@ -177,7 +177,7 @@ export class AvroType {
   private read(schema: AvroSchema, r: Reader): Value {
     const s = this.resolve(schema);
     if (Array.isArray(s)) {
-      const i = readLong(r);
+      const i = readLen(r);
       if (i < 0 || i >= s.length) throw new AvroError(`union branch ${i} out of range`);
       return this.read(s[i], r);
     }
@@ -200,7 +200,7 @@ export class AvroType {
           r.p += 8;
           return r.dv.getFloat64(r.p - 8, true);
         case 'string': {
-          const n = readLong(r);
+          const n = readLen(r);
           if (n < 0) throw new AvroError('negative string length');
           need(r, n);
           r.p += n;
@@ -211,7 +211,8 @@ export class AvroType {
           }
         }
         case 'bytes': {
-          const n = readLong(r);
+          const n = readLen(r);
+          if (n < 0) throw new AvroError('negative bytes length');
           need(r, n);
           r.p += n;
           return r.b.slice(r.p - n, r.p);
@@ -227,7 +228,7 @@ export class AvroType {
         return o;
       }
       case 'enum': {
-        const i = readLong(r);
+        const i = readLen(r);
         if (i < 0 || i >= s.symbols.length) throw new AvroError(`enum index ${i} out of range`);
         return s.symbols[i];
       }
@@ -266,36 +267,67 @@ function need(r: Reader, n: number): void {
     throw new AvroError(`unexpected end of data: needed ${n} more bytes at position ${r.p}`);
 }
 
-/** zig-zag varint, exact up to 2^53 */
-function writeLong(n: number, out: number[]): void {
-  let z = n >= 0 ? n * 2 : -n * 2 - 1;
-  while (z >= 0x80) {
-    out.push((z % 0x80) | 0x80);
-    z = Math.floor(z / 0x80);
-  }
-  out.push(z);
+const LONG_MIN = -(2n ** 63n);
+const LONG_MAX = 2n ** 63n - 1n;
+
+/** A long is a safe integer, or (beyond 2^53) its exact decimal string as decoded. */
+function isLong(v: unknown): v is number | string {
+  if (typeof v === 'number') return Number.isSafeInteger(v);
+  if (typeof v !== 'string' || !/^-?\d+$/.test(v)) return false;
+  const b = BigInt(v);
+  return b >= LONG_MIN && b <= LONG_MAX;
 }
 
-function readLong(r: Reader): number {
-  let z = 0,
-    mul = 1,
-    b: number;
+/** zig-zag varint, exact for the whole 64-bit range */
+function writeLong(n: number | string, out: number[]): void {
+  const v = BigInt(n);
+  let z = BigInt.asUintN(64, (v << 1n) ^ (v >> 63n));
+  while (z >= 0x80n) {
+    out.push(Number(z & 0x7fn) | 0x80);
+    z >>= 7n;
+  }
+  out.push(Number(z));
+}
+
+/** Exact 64-bit read: a number when safe, else the decimal string (never a silently rounded number). */
+function readLong(r: Reader): number | string {
+  const start = r.p;
+  let b: number;
   do {
     need(r, 1);
     b = r.b[r.p++]!;
-    z += (b & 0x7f) * mul;
-    mul *= 0x80;
-    if (mul > 2 ** 63) throw new AvroError('varint too long');
+    if (r.p - start > 10) throw new AvroError('varint too long');
   } while (b & 0x80);
-  return z % 2 === 0 ? z / 2 : -(z + 1) / 2;
+  if (r.p - start <= 7) {
+    // ≤ 49 bits: plain arithmetic is exact
+    let z = 0;
+    for (let i = r.p - 1; i >= start; i--) z = z * 0x80 + (r.b[i]! & 0x7f);
+    return z % 2 === 0 ? z / 2 : -(z + 1) / 2;
+  }
+  let z = 0n;
+  for (let i = r.p - 1; i >= start; i--) z = (z << 7n) | BigInt(r.b[i]! & 0x7f);
+  z = BigInt.asUintN(64, z);
+  const v = (z >> 1n) ^ -(z & 1n);
+  return v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(v)
+    : v.toString();
+}
+
+/** Lengths, counts and indexes must be safe integers. */
+function readLen(r: Reader): number {
+  const n = readLong(r);
+  if (typeof n !== 'number') throw new AvroError(`length ${n} is out of range`);
+  return n;
 }
 
 function readBlock(r: Reader): number {
-  const n = readLong(r);
+  let n = readLen(r);
   if (n < 0) {
-    readLong(r); // block size in bytes
-    return -n;
+    readLen(r); // block size in bytes
+    n = -n;
   }
+  // every item but null takes ≥ 1 byte: a count far beyond the data is corrupt, not a long array
+  if (n > r.b.length - r.p + 65_536) throw new AvroError(`block of ${n} items exceeds the data`);
   return n;
 }
 

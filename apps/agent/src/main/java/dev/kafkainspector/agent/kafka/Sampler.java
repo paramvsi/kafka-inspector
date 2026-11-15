@@ -256,6 +256,7 @@ public class Sampler {
         // ── lag windows and rules ──
         double msgsOut = 0;
         long windowMs = props.sampleInterval().toMillis() * props.lagWindow();
+        Set<String> live = new HashSet<>();
         for (ClusterState.GroupSnap gs : groups.values()) {
             ClusterState.GroupSnap prev = s.groups.get(gs.groupId);
             if (prev != null && !Objects.equals(prev.state, gs.state) && gs.state.contains("Rebalance")) event(s, now, "rebalance", "info", gs.groupId + " rebalancing", gs.members.size() + " members");
@@ -269,6 +270,7 @@ public class Sampler {
                     ClusterState.PartSnap ps = t.partitions.stream().filter(x -> x.partition == pe.getKey()).findFirst().orElse(null);
                     if (ps == null) continue;
                     String key = gs.groupId + "|" + te.getKey() + "|" + pe.getKey();
+                    live.add(key);
                     Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new ArrayDeque<>());
                     Lag.Sample last = w.peekLast();
                     if (last == null || !Objects.equals(last.committed(), pe.getValue())) s.lastChange.put(key, now);
@@ -290,6 +292,9 @@ public class Sampler {
             if (prev != null && prev.status != gs.status && (gs.status == Lag.Status.stalled || gs.status == Lag.Status.stopped)) event(s, now, "chaos", "crit", gs.groupId + " " + gs.status, null);
         }
 
+        // deleted groups/topics/partitions drop their windows
+        s.windows.keySet().retainAll(live);
+        s.lastChange.keySet().retainAll(live);
         s.ts = now;
         s.controller = controller == null ? null : controller.id();
         s.brokers = brokers;
@@ -323,8 +328,13 @@ public class Sampler {
         rows.add(new HistoryRepository.Row(cid, "cluster", "", "lag", now, total));
         rows.add(new HistoryRepository.Row(cid, "cluster", "", "underReplicated", now, urp));
         s.totalLagPrev = total;
-        history.insert(rows);
-        alerts.evaluate(cid, s, now);
+        // storage or alert problems are not Kafka problems: keep the cluster connected, log, retry next sample
+        try {
+            history.insert(rows);
+            alerts.evaluate(cid, s, now);
+        } catch (RuntimeException e) {
+            log.warn("Cluster {}: couldn't store history or evaluate alerts: {}", cid, rootMessage(e));
+        }
     }
 
     private static String stateName(Object st) {

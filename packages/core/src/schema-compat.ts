@@ -23,16 +23,27 @@ function typeName(s: Avro, named: Named): string {
   return typeName(s.type as Avro, named);
 }
 
-function collect(s: Avro, named: Named): void {
+/** Registers named types under their bare and full names; nested types inherit the namespace (spec "Names"). */
+function collect(s: Avro, named: Named, ns = ''): void {
   if (typeof s === 'string') return;
-  if (Array.isArray(s)) return s.forEach((x) => collect(x, named));
-  if (typeof s.name === 'string' && ['record', 'enum', 'fixed'].includes(String(s.type)))
-    named.set(s.name, s);
+  if (Array.isArray(s)) return s.forEach((x) => collect(x, named, ns));
+  let inner = ns;
+  if (typeof s.name === 'string' && ['record', 'error', 'enum', 'fixed'].includes(String(s.type))) {
+    const space = s.name.includes('.')
+      ? s.name.slice(0, s.name.lastIndexOf('.'))
+      : typeof s.namespace === 'string'
+        ? s.namespace
+        : ns;
+    const bare = s.name.slice(s.name.lastIndexOf('.') + 1);
+    named.set(bare, s);
+    if (space) named.set(`${space}.${bare}`, s);
+    inner = space;
+  }
   if (Array.isArray(s.fields))
-    (s.fields as Array<{ type: Avro }>).forEach((f) => collect(f.type, named));
-  if (s.items) collect(s.items as Avro, named);
-  if (s.values) collect(s.values as Avro, named);
-  if (typeof s.type !== 'string') collect(s.type as Avro, named);
+    (s.fields as Array<{ type: Avro }>).forEach((f) => collect(f.type, named, inner));
+  if (s.items) collect(s.items as Avro, named, inner);
+  if (s.values) collect(s.values as Avro, named, inner);
+  if (typeof s.type !== 'string') collect(s.type as Avro, named, inner);
 }
 
 const resolve = (s: Avro, named: Named): Avro =>
@@ -46,6 +57,13 @@ const describe = (s: Avro, named: Named): string => {
   return t;
 };
 
+const ids = new WeakMap<object, number>();
+let nextId = 0;
+const seenId = (o: object): number => {
+  if (!ids.has(o)) ids.set(o, ++nextId);
+  return ids.get(o)!;
+};
+
 /** Can data written with `writer` be read with `reader`? Problems are appended to `out`. */
 function canRead(
   reader: Avro,
@@ -54,14 +72,36 @@ function canRead(
   wn: Named,
   path: string,
   out: string[],
+  seen = new Set<Avro>(),
 ): boolean {
   const r = resolve(reader, rn),
     w = resolve(writer, wn);
+  // recursive types (e.g. a linked-list Node): a pair already on the stack is assumed fine
+  const pair = typeof r === 'object' && typeof w === 'object' ? `${seenId(r)}|${seenId(w)}` : '';
+  if (pair && seen.has(pair)) return true;
+  if (!pair) return check(r, w, rn, wn, path, out, seen);
+  seen.add(pair);
+  try {
+    return check(r, w, rn, wn, path, out, seen);
+  } finally {
+    seen.delete(pair);
+  }
+}
+
+function check(
+  r: Avro,
+  w: Avro,
+  rn: Named,
+  wn: Named,
+  path: string,
+  out: string[],
+  seen: Set<Avro>,
+): boolean {
   const rt = typeName(r, rn),
     wt = typeName(w, wn);
-  if (wt === 'union') return (w as Avro[]).every((b) => canRead(r, b, rn, wn, path, out));
+  if (wt === 'union') return (w as Avro[]).every((b) => canRead(r, b, rn, wn, path, out, seen));
   if (rt === 'union') {
-    if ((r as Avro[]).some((b) => canRead(b, w, rn, wn, path, []))) return true;
+    if ((r as Avro[]).some((b) => canRead(b, w, rn, wn, path, [], seen))) return true;
     out.push(`${path}: ${describe(w, wn)} is not in the reader's union ${describe(r, rn)}`);
     return false;
   }
@@ -76,7 +116,8 @@ function canRead(
     let ok = true;
     for (const f of rf) {
       const g = wf.find((x) => x.name === f.name);
-      if (g) ok = canRead(f.type, g.type, rn, wn, path ? `${path}.${f.name}` : f.name, out) && ok;
+      if (g)
+        ok = canRead(f.type, g.type, rn, wn, path ? `${path}.${f.name}` : f.name, out, seen) && ok;
       else if (!('default' in f)) {
         out.push(
           `${path ? `${path}.` : ''}${f.name} is missing in the writer's schema and has no default`,
@@ -94,6 +135,12 @@ function canRead(
       return false;
     }
   }
+  if (rt === 'fixed' && (r as { size: number }).size !== (w as { size: number }).size) {
+    out.push(
+      `${path}: fixed size ${(w as { size: number }).size} can't be read as size ${(r as { size: number }).size}`,
+    );
+    return false;
+  }
   if (rt === 'array')
     return canRead(
       (r as { items: Avro }).items,
@@ -102,6 +149,7 @@ function canRead(
       wn,
       `${path}[]`,
       out,
+      seen,
     );
   if (rt === 'map')
     return canRead(
@@ -111,6 +159,7 @@ function canRead(
       wn,
       `${path}{}`,
       out,
+      seen,
     );
   return true;
 }
