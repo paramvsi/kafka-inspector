@@ -8,8 +8,9 @@
     "build": "next build",
     "start": "npx serve out -l 3000",
     "typecheck": "tsc -p tsconfig.json",
-    "e2e": "playwright test",
-    "test": "vitest run lib"
+    "e2e": "playwright test --project=chromium --project=reduced-motion",
+    "test": "vitest run lib",
+    "shots": "node scripts/shots.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

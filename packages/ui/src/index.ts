@@ -18,4 +18,5 @@ export { CopyButton, CodeBlock, JsonTree, HexDump, type HexAnnotation } from './
 export { AlertItem } from './AlertItem';
 export { SettingsIcon, SearchIcon, ChevronDownIcon } from './icons';
 export { cx } from './cx';
-export { TimeSeriesChart, type ChartSeries, type SeriesColor } from './TimeSeriesChart';
+// TimeSeriesChart (Recharts) has its own entry, '@ki/ui/chart', so apps can lazy-load it.
+export type { ChartSeries, SeriesColor, TimeSeriesChartProps } from './TimeSeriesChart';

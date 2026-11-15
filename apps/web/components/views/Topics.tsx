@@ -116,7 +116,7 @@ export function TopicsView() {
         subtitle={
           all.data
             ? `${everything.length} topics · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention`
-            : ' '
+            : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
         actions={
           <WriteButton variant="primary" onClick={() => url.set({ create: 1 })}>
@@ -264,7 +264,7 @@ export function TopicsView() {
                       e.stopPropagation();
                       toggleStar(t.name);
                     }}
-                    className={`cursor-pointer border-none bg-transparent p-0 text-[13px] ${starred.includes(t.name) ? 'text-copper' : 'text-ink-subtle hover:text-ink'}`}
+                    className={`-m-1 inline-flex size-6 cursor-pointer items-center justify-center border-none bg-transparent p-0 text-[13px] ${starred.includes(t.name) ? 'text-copper' : 'text-ink-subtle hover:text-ink'}`}
                   >
                     {starred.includes(t.name) ? '★' : '☆'}
                   </button>

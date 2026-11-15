@@ -21,6 +21,15 @@ export default defineConfig({
         contextOptions: { reducedMotion: 'reduce' },
       },
     },
+    // nightly only (CI on push runs chromium + reduced-motion)
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } },
+    },
   ],
   webServer: {
     // ponytail: python's static server — swap for `serve` if CI images ever lack python3.

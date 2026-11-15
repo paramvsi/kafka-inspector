@@ -2,6 +2,33 @@
 
 Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria (AC). "Demo" = simulated mode; "Self" = self-hosted agent mode. Unless stated, a feature works in both. In Self mode v1, write actions are disabled (F-90).
 
+
+## Build status (2026-11-15)
+
+✅ done and tested · ⚠️ done with a noted gap (see DECISIONS) · ⏳ not done
+
+| Area | Features | Status |
+| --- | --- | --- |
+| App shell | F-01, F-02, F-03, F-05, F-06, F-07, F-08 | ✅ (motion via native dialog/popover + CSS, not the `motion` library) |
+| Deep links, saved filters | F-04 | ⚠️ saved filters are per-browser (localStorage) in both modes — AGENT_API has no endpoint for them |
+| Overview | F-10 … F-15 | ✅ |
+| Brokers | F-20, F-21, F-22 | ✅ (config edit is v2) |
+| Topics | F-30, F-31, F-32, F-33, F-34, F-35, F-37, F-38, F-39 | ✅ F-30 paginates (25/page) instead of virtualising |
+| Topic config | F-36 | ⚠️ read-only in both modes; editing in the demo is not built |
+| Message browser | F-40 … F-49 | ✅ |
+| Produce | F-50, F-51 | ✅ (demo) |
+| Consumer groups | F-60 … F-64 | ✅ (reset/delete in demo) |
+| Lag health | F-70, F-71 | ✅ shared vectors pass in TS and Java |
+| History | F-72 | ⚠️ demo keeps 24 h (7d shows what exists); agent retention is DECISION-PENDING |
+| Alerts | F-80 … F-83 | ✅ (rule preview is demo-only; Slack/webhook v2) |
+| Topology | F-85 | ✅ agent shows topics → groups only (producers aren't visible to the Admin API) |
+| Schemas | F-87, F-88, F-89 | ✅ |
+| Read-only, sign-in | F-90, F-91 | ✅ |
+| Clusters, self-hosting | F-95, F-96 | ✅ |
+| Docker image | F-97 | ⚠️ built and tested; not published (Q-01) |
+| Simulator, chaos, tour | F-100, F-101, F-102 | ✅ |
+| Landing page | F-110 | ✅ product shot is a Playwright screenshot (`pnpm shots`); not deployed yet |
+
 ---
 
 ## App shell and navigation

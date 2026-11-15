@@ -21,9 +21,9 @@ import {
   Select,
   StatusBadge,
   TextField,
-  TimeSeriesChart,
   useToast,
 } from '@ki/ui';
+import { TimeSeriesChart } from '../Chart';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';

@@ -17,8 +17,8 @@ import {
   KpiCard,
   StatusBadge,
   Tabs,
-  TimeSeriesChart,
 } from '@ki/ui';
+import { TimeSeriesChart } from '../Chart';
 import Link from 'next/link';
 import { useApp } from '../../lib/app';
 import { useKafkaQuery } from '../../lib/kafka';

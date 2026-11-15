@@ -61,6 +61,16 @@ describe('seeded cluster', () => {
     expect(k.messagesInPerSec).toBeLessThan(58000);
   });
 
+  test('topic health: only clickstream is skewed; 3 topics need attention (clickstream, audit-log, legacy-events)', () => {
+    const all = h.sim.listTopics({ size: 500 }).items;
+    expect(all.filter((t) => t.health.some((x) => x.id === 'skew')).map((t) => t.name)).toEqual([
+      'clickstream',
+    ]);
+    expect(
+      h.sim.listTopics({ view: 'attention', size: 500, sort: 'name' }).items.map((t) => t.name),
+    ).toEqual(['audit-log', 'clickstream', 'legacy-events']);
+  });
+
   test('payments-sink then drains and forecasts ~14 min', () => {
     h.advance(60);
     const s = h.sim.listGroups().find((x) => x.groupId === 'payments-sink')!;

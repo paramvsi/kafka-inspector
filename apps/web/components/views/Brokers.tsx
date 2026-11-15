@@ -36,7 +36,7 @@ export function BrokersView() {
         subtitle={
           list.length
             ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'} · Kafka ${overview.data?.cluster.kafkaVersion ?? ''}`
-            : ' '
+            : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />
       <DataTable

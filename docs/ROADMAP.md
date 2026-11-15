@@ -15,14 +15,14 @@ Each phase ends with a **gate**: a demo check. If it fails, the next phase waits
 
 ## Definition of done (MVP)
 
-- [ ] Live demo on Netlify with the "Simulated cluster" note
-- [ ] Every chaos action produces a visible change on the dashboard
-- [ ] Lighthouse 90+ (performance, accessibility, best practices) on `/app`; no dropped frames during live updates
-- [ ] Unit tests for lag status, forecast and serdes; Playwright tests for the main flows; agent integration tests with Testcontainers; CI green
-- [ ] Docker image on GHCR; `docker run` with `KAFKA_BOOTSTRAP` + `KI_ADMIN_PASSWORD` works against a real cluster read-only
-- [ ] The "Run on your own Kafka" page downloads a compose file that connects read-only
-- [ ] README: what it is, live demo link, screenshots/GIFs, architecture diagram, how the simulator works, self-hosting guide (incl. MSK / Confluent Cloud / Aiven settings), trademark notice, licence (Apache-2.0)
-- [ ] Pinned on GitHub; case study on the portfolio
+- [ ] Live demo on Netlify with the "Simulated cluster" note — **not deployed**: `netlify.toml` ready (demo mode), needs a Netlify site linked to the repo
+- [x] Every chaos action produces a visible change on the dashboard (simulator tests + e2e)
+- [x] Lighthouse 90+ on `/app` with the desktop preset (99/100/100); mobile-throttled preset scores 87 on performance (LCP waits for the simulator back-fill). No long tasks during live updates (e2e)
+- [x] Unit tests for lag status, forecast and serdes; Playwright tests for the main flows; agent integration tests with Testcontainers; CI green
+- [ ] Docker image on GHCR — **not published** (Q-01). `docker run` with `KAFKA_BOOTSTRAP` + `KI_ADMIN_PASSWORD` works against a real cluster read-only ✓ (dev stack + e2e)
+- [x] The "Run on your own Kafka" page downloads a compose file that connects read-only (`scripts/selfhost-gate.sh`)
+- [x] README: what it is, screenshots, architecture diagram, how the simulator works, self-hosting guide, trademark, licence — **gaps:** live demo link (not deployed), GIFs (needs ffmpeg), provider settings unverified
+- [ ] Pinned on GitHub; case study on the portfolio — owner's step
 
 ## After the MVP (v2 order suggestion)
 

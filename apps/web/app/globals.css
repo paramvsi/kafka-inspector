@@ -414,3 +414,61 @@ html.theme-switching * {
     animation: none;
   }
 }
+
+/* ───────── Landing (MOTION.md "Landing page") ───────── */
+.ki-hero {
+  animation: ki-rise var(--dur-slow) var(--ease-enter) both;
+}
+.ki-shot {
+  animation: ki-rise-md var(--dur-slow) var(--ease-enter) both;
+  animation-delay: calc(var(--dur-slow) * 1.1);
+}
+@keyframes ki-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--move-sm));
+  }
+}
+@keyframes ki-rise-md {
+  from {
+    opacity: 0;
+    transform: translateY(var(--move-md));
+  }
+}
+.ki-reveal-once[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(calc(var(--move-sm) * 1.5));
+}
+.ki-reveal-once[data-reveal='shown'] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-slow) var(--ease-enter),
+    transform var(--dur-slow) var(--ease-enter);
+}
+.ki-chip-flow {
+  background: repeating-linear-gradient(90deg, var(--copper) 0 4px, transparent 4px 8px);
+  background-size: 16px 2px;
+  animation: ki-chip-flow calc(var(--pulse-period) / 2) linear infinite;
+}
+@keyframes ki-chip-flow {
+  to {
+    background-position: 16px 0;
+  }
+}
+:root[data-motion='reduced'] :is(.ki-hero, .ki-shot, .ki-chip-flow) {
+  animation: none;
+}
+:root[data-motion='reduced'] .ki-reveal-once {
+  opacity: 1 !important;
+  transform: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) :is(.ki-hero, .ki-shot, .ki-chip-flow) {
+    animation: none;
+  }
+  :root:not([data-motion='full']) .ki-reveal-once {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

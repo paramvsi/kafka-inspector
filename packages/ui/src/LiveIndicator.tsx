@@ -13,7 +13,7 @@ export function LiveIndicator({ live, onToggle }: LiveIndicatorProps) {
       onClick={onToggle}
       title={live ? 'Pause live updates' : 'Resume live updates'}
       className={cx(
-        'flex cursor-pointer items-center gap-[6px] rounded-md border-none bg-transparent px-1 text-[12px] font-medium',
+        'flex h-control-sm cursor-pointer items-center gap-[6px] rounded-md border-none bg-transparent px-2 text-[12px] font-medium hover:bg-surface-hover',
         live ? 'text-ok-text' : 'text-ink-muted',
       )}
     >

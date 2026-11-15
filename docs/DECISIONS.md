@@ -68,6 +68,11 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Agent contract details settled during the build are in AGENT_API.md "Notes from the build" (anonymous info shape, CSRF on login, failed-attempt rate limit, client-chosen stream ids, commit-time inference, no producers in topology) | One durable home for the API contract |
 | 2026-11-15 | Image runs on `eclipse-temurin:21-jre-alpine`, user 10001, read-only root FS (`read_only: true` + tmpfs `/tmp` in compose); measured 126 MB compressed / ~221 MB unpacked, starts in ~2.3 s | Prompt 06 targets: < 300 MB, < 10 s, non-root |
 | 2026-11-15 | Release workflow (GHCR, multi-arch) is in place but not triggered; no tag pushed | Q-01 (product name) must be settled before the first image is published |
+| 2026-11-15 | Recharts loads lazily (`@ki/ui/chart` + `next/dynamic`): initial JS on `/app` is 212 kB gzip (budget 250) | Performance budget; chart is below the fold of the first paint |
+| 2026-11-15 | Lighthouse is reported with the desktop preset (`/app` 99/100/100/100, `/` 100); the mobile-throttled preset gives 87 performance on `/app` (LCP waits for the worker back-fill) | A 1280-px dashboard; both numbers kept so nothing is hidden |
+| 2026-11-15 | README uses screenshots, not GIFs | No ffmpeg on this machine; Playwright can record video once `brew install ffmpeg` is available |
+| 2026-11-15 | Known minor: a menu opened during the first second of a page load closes when the boot frame is swapped for the live one | Low impact; noted rather than restructuring the shell |
+| 2026-11-15 | Nightly workflow runs Playwright on Chromium, Firefox and WebKit; CI on push runs Chromium + reduced motion | prompts/08 |
 
 ## DECISION-PENDING (needs the owner's go-ahead)
 

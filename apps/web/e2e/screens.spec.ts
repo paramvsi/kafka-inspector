@@ -16,6 +16,12 @@ const SCREENS: Array<[string, string | RegExp]> = [
   ['/app/groups/view/?id=notify-workers', 'notify-workers'],
   ['/app/schemas/?subject=orders-value&from=3&to=4', 'Schemas'],
   ['/app/clusters/', 'Clusters'],
+  ['/app/alerts/', 'Alerts'],
+  ['/app/topology/', 'Topology'],
+  ['/app/chaos/', 'Chaos panel'],
+  ['/app/self-host/', 'Run Kafka Inspector on your own Kafka'],
+  ['/app/sign-in/', 'Sign in to Kafka Inspector'],
+  ['/', /See what your Kafka is doing/],
 ];
 
 async function axe(page: Page) {

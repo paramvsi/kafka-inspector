@@ -10,7 +10,9 @@ export function SignInView() {
   const [error, setError] = useState<string>();
   const [meta, setMeta] = useState<{ version: string; clusters?: number } | null>(null);
   const [demo, setDemo] = useState(false);
+  const [host, setHost] = useState('');
   useEffect(() => {
+    setHost(location.host); // after mount: the static HTML can't know the host (hydration)
     if (process.env.NEXT_PUBLIC_KI_MODE === 'demo') return setDemo(true);
     agentInfo()
       .then(setMeta)
@@ -63,10 +65,7 @@ export function SignInView() {
               </>
             ) : (
               <>
-                This instance runs at{' '}
-                <code className="font-mono text-[12px] text-ink">
-                  {typeof location !== 'undefined' ? location.host : ''}
-                </code>
+                This instance runs at <code className="font-mono text-[12px] text-ink">{host}</code>
                 {meta?.clusters
                   ? ` and connects to ${meta.clusters} cluster${meta.clusters === 1 ? '' : 's'}`
                   : ''}

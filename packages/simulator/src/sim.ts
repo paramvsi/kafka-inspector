@@ -540,7 +540,8 @@ export class Simulator {
       });
     }
     const prev = g.status;
-    g.status = rollupStatus(statuses);
+    // Share groups (KIP-932) have in-flight records, not a committed position: lag rules don't apply while members run.
+    g.status = g.def.type === 'share' && g.members > 0 ? 'healthy' : rollupStatus(statuses);
     // Share groups (KIP-932) have in-flight records, not a committed position to catch up: no forecast.
     g.forecast = g.def.type === 'share' ? { kind: 'unknown' } : combineForecasts(fparts);
     if (!this.replaying || t > this.loadedAt - FINE_MS) {
@@ -1003,14 +1004,13 @@ export class Simulator {
         message: 'Infinite retention',
         fix: 'Set retention.ms or use compaction so the topic stops growing.',
       });
-    const shares = this.shares(def);
-    const max = Math.max(...shares);
-    if (def.partitions > 1 && max > 0.25)
+    const sk = skewOf(this.shares(def));
+    if (sk.flagged)
       out.push({
         id: 'skew',
         severity: 'warn',
-        message: `Skew ${Math.round(max * 100)}%`,
-        fix: `Partition ${shares.indexOf(max)} takes ${Math.round(max * 100)}% of the traffic. Use a key with more distinct values.`,
+        message: `Skew ${Math.round(sk.max * 100)}%`,
+        fix: `Partition ${sk.p} takes ${Math.round(sk.max * 100)}% of the traffic. Use a key with more distinct values.`,
       });
     if (def.name === 'orders') {
       const broker = this.listBrokers()[0]!;

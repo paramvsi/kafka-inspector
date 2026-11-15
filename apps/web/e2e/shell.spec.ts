@@ -92,6 +92,8 @@ test('theme choice persists and applies before any app JavaScript runs (no flash
 
 test('Reduce motion toggle persists and stops the Live pulse', async ({ page }) => {
   await page.goto('/app/');
+  // the shell swaps its boot frame for the live one when the cluster is ready; open menus after that
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Settings' }).click();
   const box = page.getByRole('checkbox', { name: 'Reduce motion' });
   // Starts checked when the OS already reduces motion; an explicit choice is stored only on change.

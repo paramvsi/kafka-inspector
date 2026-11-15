@@ -1,0 +1,29 @@
+name: Nightly
+
+# Full Playwright suite on all three engines (prompts/08). CI on every push runs Chromium only.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter web exec playwright install --with-deps ${{ matrix.browser }}
+      - run: pnpm --filter web exec playwright test --project=chromium
+        if: matrix.browser == 'chromium'
+      - run: pnpm --filter web exec playwright test --project=${{ matrix.browser }}
+        if: matrix.browser != 'chromium'

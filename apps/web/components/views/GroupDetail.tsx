@@ -17,9 +17,9 @@ import {
   KpiCard,
   StatusBadge,
   Tabs,
-  TimeSeriesChart,
   useToast,
 } from '@ki/ui';
+import { TimeSeriesChart } from '../Chart';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

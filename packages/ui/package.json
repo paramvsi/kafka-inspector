@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tokens.css": "./tokens/tokens.css"
+    "./tokens.css": "./tokens/tokens.css",
+    "./chart": "./src/TimeSeriesChart.tsx"
   },
   "scripts": {
     "tokens": "node scripts/build-tokens.ts",

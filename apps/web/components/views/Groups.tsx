@@ -49,7 +49,7 @@ export function GroupsView() {
         subtitle={
           all.length
             ? `${all.length} groups · ${stalled} stalled · ${warn} warning · ${stopped} stopped · active lag ${formatInt(total)}`
-            : ' '
+            : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">

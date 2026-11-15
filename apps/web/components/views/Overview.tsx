@@ -10,16 +10,8 @@ import {
   type Overview as OverviewData,
   type Series,
 } from '@ki/core';
-import {
-  AlertItem,
-  Button,
-  Card,
-  DataTable,
-  KpiCard,
-  Sparkline,
-  StatusBadge,
-  TimeSeriesChart,
-} from '@ki/ui';
+import { AlertItem, Button, Card, DataTable, KpiCard, Sparkline, StatusBadge } from '@ki/ui';
+import { TimeSeriesChart } from '../Chart';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '../../lib/app';
