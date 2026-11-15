@@ -23,7 +23,9 @@ public class ClusterState {
     public final Map<String, Long> lastChange = new HashMap<>();
     public final Deque<dev.kafkainspector.agent.api.Dto.ClusterEvent> events = new ArrayDeque<>();
     public volatile double messagesIn, messagesOut, bytesIn;
+    /** total lag of the previous sample (the overview's trend word compares against it) */
     public volatile long totalLagPrev = -1;
+    public volatile long totalLagNow = -1;
 
     public record BrokerSnap(int id, String host, int port, String rack, boolean online, Long diskUsed, Long diskTotal) {}
 

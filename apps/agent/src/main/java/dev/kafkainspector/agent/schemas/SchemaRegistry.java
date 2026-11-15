@@ -69,28 +69,62 @@ public class SchemaRegistry {
         return out;
     }
 
+    private final Map<String, Map.Entry<Long, List<Dto.SubjectSummary>>> subjectCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Cached 30 s; per-subject calls run in parallel (≤ 16 at once), so 500 subjects isn't 1,500 sequential calls. */
     public List<Dto.SubjectSummary> subjects(String cid) {
+        var hit = subjectCache.get(cid);
+        if (hit != null && System.currentTimeMillis() - hit.getKey() < 30_000) return hit.getValue();
+        List<Dto.SubjectSummary> fresh = loadSubjects(cid);
+        subjectCache.put(cid, Map.entry(System.currentTimeMillis(), fresh));
+        return fresh;
+    }
+
+    private List<Dto.SubjectSummary> loadSubjects(String cid) {
         String global = "BACKWARD";
         try {
             global = call(cid, "GET", "/config", null).path("compatibilityLevel").asString("BACKWARD");
         } catch (RuntimeException ignored) {
             // keep default
         }
-        List<Dto.SubjectSummary> out = new ArrayList<>();
-        for (JsonNode n : call(cid, "GET", "/subjects", null)) {
-            String s = n.asString();
-            List<Integer> versions = new ArrayList<>();
-            call(cid, "GET", "/subjects/" + enc(s) + "/versions", null).forEach(v -> versions.add(v.asInt()));
-            JsonNode latest = call(cid, "GET", "/subjects/" + enc(s) + "/versions/latest", null);
-            String compat = global;
-            try {
-                compat = call(cid, "GET", "/config/" + enc(s) + "?defaultToGlobal=true", null).path("compatibilityLevel").asString(global);
-            } catch (RuntimeException ignored) {
-                // global applies
+        final String globalCompat = global;
+        List<String> names = new ArrayList<>();
+        call(cid, "GET", "/subjects", null).forEach(n -> names.add(n.asString()));
+        java.util.concurrent.Semaphore slots = new java.util.concurrent.Semaphore(16);
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            List<java.util.concurrent.Future<Dto.SubjectSummary>> futures = names.stream().map(s -> pool.submit(() -> {
+                slots.acquire();
+                try {
+                    List<Integer> versions = new ArrayList<>();
+                    call(cid, "GET", "/subjects/" + enc(s) + "/versions", null).forEach(v -> versions.add(v.asInt()));
+                    JsonNode latest = call(cid, "GET", "/subjects/" + enc(s) + "/versions/latest", null);
+                    String compat = globalCompat;
+                    try {
+                        compat = call(cid, "GET", "/config/" + enc(s) + "?defaultToGlobal=true", null).path("compatibilityLevel").asString(globalCompat);
+                    } catch (RuntimeException ignored) {
+                        // global applies
+                    }
+                    return new Dto.SubjectSummary(s, latest.path("version").asInt(), latest.path("schemaType").asString("AVRO"), compat, versions);
+                } catch (dev.kafkainspector.agent.config.Clusters.NotFound gone) {
+                    return null; // deleted while we listed: skip it, don't fail the list
+                } finally {
+                    slots.release();
+                }
+            })).toList();
+            List<Dto.SubjectSummary> out = new ArrayList<>();
+            for (var f : futures) {
+                try {
+                    Dto.SubjectSummary x = f.get();
+                    if (x != null) out.add(x);
+                } catch (java.util.concurrent.ExecutionException e) {
+                    throw e.getCause() instanceof RuntimeException r ? r : new IllegalStateException(e.getCause());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while listing subjects.");
+                }
             }
-            out.add(new Dto.SubjectSummary(s, latest.path("version").asInt(), latest.path("schemaType").asString("AVRO"), compat, versions));
+            return out;
         }
-        return out;
     }
 
     private Dto.SchemaVersion version(JsonNode n, String subject) {

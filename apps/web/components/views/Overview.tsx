@@ -143,9 +143,9 @@ export function OverviewView() {
         />
         <KpiCard
           label="Active controller"
-          value={k.activeController === null ? 'none' : `broker ${k.activeController}`}
-          delta={k.activeController === null ? 'no controller elected' : undefined}
-          deltaTone={k.activeController === null ? 'crit' : 'neutral'}
+          value={k.activeController == null ? 'none' : `broker ${k.activeController}`}
+          delta={k.activeController == null ? 'no controller elected' : undefined}
+          deltaTone={k.activeController == null ? 'crit' : 'neutral'}
           stale={stale}
         />
         <KpiCard

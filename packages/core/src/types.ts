@@ -495,7 +495,13 @@ export interface KafkaClient {
   getTopicConfig(clusterId: string, name: string): Promise<ConfigEntry[]>;
 
   browse(clusterId: string, req: BrowseRequest): Promise<RawMessagePage>;
-  tail(clusterId: string, req: TailRequest, onBatch: (batch: RawMessage[]) => void): Unsubscribe;
+  /** onError: the tail stopped (unknown topic, auth, broker gone); no more batches follow. */
+  tail(
+    clusterId: string,
+    req: TailRequest,
+    onBatch: (batch: RawMessage[]) => void,
+    onError?: (message: string) => void,
+  ): Unsubscribe;
   search(clusterId: string, req: SearchRequest): Promise<RawMessagePage>;
 
   listGroups(clusterId: string, q?: GroupQuery): Promise<GroupSummary[]>;

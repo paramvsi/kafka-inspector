@@ -216,6 +216,79 @@ class AgentIntegrationTest {
         assertEquals(404, page.statusCode());
     }
 
+    @Test
+    @Order(17)
+    void browsePagesThroughEverythingOnceEndsQuicklyOnTxMarkersAndSurvivesRetention() throws Exception {
+        signIn();
+        // 1. newest-first pagination over all partitions: every message exactly once
+        Set<String> seen = new HashSet<>();
+        String cursor = null;
+        for (int i = 0; i < 40; i++) {
+            JsonNode page = get("/api/clusters/local/topics/orders/messages?limit=50" + (cursor == null ? "" : "&cursor=" + java.net.URLEncoder.encode(cursor, java.nio.charset.StandardCharsets.UTF_8)));
+            for (JsonNode m : page.path("messages")) assertTrue(seen.add(m.path("partition").asInt() + ":" + m.path("offset").asLong()), "duplicate " + m);
+            cursor = page.path("nextCursor").isNull() || page.path("nextCursor").isMissingNode() ? null : page.path("nextCursor").asString();
+            if (cursor == null) break;
+        }
+        assertEquals(300, seen.size(), "messages reached by paging");
+
+        // 2. a topic that ends with a transaction marker answers without waiting out the 4 s budget
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic("tx", 1, (short) 1), new NewTopic("retained", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+        }
+        try (KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "transactional.id", "it-tx", "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            p.initTransactions();
+            p.beginTransaction();
+            for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>("tx", "k" + i, "{\"n\":" + i + "}"));
+            p.commitTransaction();
+        }
+        Thread.sleep(2500); // sampler sees the new topics
+        long t0 = System.currentTimeMillis();
+        JsonNode tx = get("/api/clusters/local/topics/tx/messages?limit=10");
+        assertEquals(5, tx.path("messages").size());
+        assertTrue(System.currentTimeMillis() - t0 < 2500, "took " + (System.currentTimeMillis() - t0) + " ms");
+
+        // 3. a group committed below the log start (retention) is browsed from the log start, not a 500
+        try (KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            for (int i = 0; i < 10; i++) p.send(new ProducerRecord<>("retained", "k" + i, "{}"));
+            p.flush();
+        }
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "old-reader", "key.deserializer", StringDeserializer.class.getName(), "value.deserializer", StringDeserializer.class.getName()))) {
+            c.commitSync(Map.of(new TopicPartition("retained", 0), new OffsetAndMetadata(2)));
+        }
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            admin.deleteRecords(Map.of(new TopicPartition("retained", 0), org.apache.kafka.clients.admin.RecordsToDelete.beforeOffset(6))).all().get(10, TimeUnit.SECONDS);
+        }
+        Thread.sleep(2500);
+        HttpResponse<String> r = send("GET", "/api/clusters/local/topics/retained/messages?from=group&group=old-reader&limit=10", null);
+        assertEquals(200, r.statusCode(), r::body);
+        assertEquals(6, JSON.readTree(r.body()).path("messages").get(0).path("offset").asLong());
+    }
+
+    @Test
+    @Order(18)
+    void assignedPartitionsWithoutCommitsAreListedNotDropped() throws Exception {
+        signIn();
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "fresh-reader", "key.deserializer", StringDeserializer.class.getName(), "value.deserializer", StringDeserializer.class.getName(), ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"))) {
+            c.subscribe(List.of("payments"));
+            long until = System.currentTimeMillis() + 15_000;
+            JsonNode parts = null;
+            while (System.currentTimeMillis() < until) {
+                c.poll(Duration.ofMillis(300)); // stays a live member, never commits
+                HttpResponse<String> r = send("GET", "/api/clusters/local/groups/fresh-reader", null);
+                if (r.statusCode() == 200) {
+                    parts = JSON.readTree(r.body()).path("partitions");
+                    if (parts.size() == 2) break;
+                }
+            }
+            assertNotNull(parts);
+            assertEquals(2, parts.size(), String.valueOf(parts));
+            for (JsonNode p : parts) {
+                assertTrue(p.path("committedOffset").isNull() || p.path("committedOffset").isMissingNode(), p::toString);
+                assertEquals("unknown", p.path("status").asString());
+            }
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     dev.kafkainspector.agent.kafka.KafkaService kafka;
 

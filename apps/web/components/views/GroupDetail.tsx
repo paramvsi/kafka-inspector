@@ -81,23 +81,29 @@ export function GroupDetailView() {
       />
       <Kpis d={d} points={hist.data ?? []} />
       <LagChart d={d} points={hist.data ?? []} />
-      {d.share && (
+      {d.summary.type === 'share' && (
         <Card title="Share group (KIP-932)">
-          <dl className="m-0 grid grid-cols-3 gap-4 text-[13px]">
-            <div>
-              <dt className="text-ink-muted">Records in flight</dt>
-              <dd className="m-0 font-mono">{formatInt(d.share.inFlight)}</dd>
-            </div>
-            <div>
-              {/* from the group's data, not an assumed default */}
-              <dt className="text-ink-muted">Delivery count</dt>
-              <dd className="m-0 font-mono">{formatInt(d.share.deliveryCount)}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted">Acquisition lock</dt>
-              <dd className="m-0 font-mono">{d.share.acquisitionLockMs / 1000} s</dd>
-            </div>
-          </dl>
+          {d.share ? (
+            <dl className="m-0 grid grid-cols-3 gap-4 text-[13px]">
+              <div>
+                <dt className="text-ink-muted">Records in flight</dt>
+                <dd className="m-0 font-mono">{formatInt(d.share.inFlight)}</dd>
+              </div>
+              <div>
+                {/* from the group's data, not an assumed default */}
+                <dt className="text-ink-muted">Delivery count</dt>
+                <dd className="m-0 font-mono">{formatInt(d.share.deliveryCount)}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-muted">Acquisition lock</dt>
+                <dd className="m-0 font-mono">{d.share.acquisitionLockMs / 1000} s</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="m-0 text-[13px] text-ink-muted">
+              In-flight records and delivery counts aren&apos;t reported by Kafka&apos;s Admin API.
+            </p>
+          )}
           <p className="m-0 mt-3 text-[12px] text-ink-muted">
             Members share every partition; records are acquired, acknowledged or released
             individually, so there is no committed position to catch up and no forecast.
@@ -388,7 +394,7 @@ function Partitions({ rows, groupId }: { rows: GroupPartitionLag[]; groupId: str
           key: 'c',
           header: 'Committed',
           kind: 'num',
-          cell: (r) => (r.committedOffset === null ? '—' : formatInt(r.committedOffset)),
+          cell: (r) => (r.committedOffset == null ? '—' : formatInt(r.committedOffset)),
         },
         { key: 'e', header: 'End offset', kind: 'num', cell: (r) => formatInt(r.endOffset) },
         { key: 'l', header: 'Lag', kind: 'num', cell: (r) => formatInt(r.lag) },

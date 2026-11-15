@@ -57,6 +57,22 @@ test('the last unsubscribe during back-off cancels the pending reconnect', () =>
   expect(FakeSocket.all).toHaveLength(1);
 });
 
+test('a tail error frame reaches onError, never onBatch', () => {
+  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080' });
+  const onBatch = vi.fn();
+  const onError = vi.fn();
+  createAgentClient().tail('local', { topic: 'nope', partition: 'all' }, onBatch, onError);
+  const sock = FakeSocket.all[0]!;
+  sock.up();
+  const id = JSON.parse(sock.sent[0]!).id;
+  sock.onmessage?.({
+    data: JSON.stringify({ id, channel: 'tail', error: "Topic nope doesn't exist." }),
+  });
+  expect(onError).toHaveBeenCalledWith("Topic nope doesn't exist.");
+  expect(onBatch).not.toHaveBeenCalled();
+});
+
 test('a non-JSON error page becomes an ApiError with the status', async () => {
   vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080', pathname: '/', search: '' });
   vi.stubGlobal('fetch', async () => new Response('<html>502 Bad Gateway</html>', { status: 502 }));

@@ -40,7 +40,10 @@ public final class Views {
     // ── topics ──
 
     private static int consumersOf(ClusterState s, String topic) {
-        return (int) s.groups.values().stream().filter(g -> g.committed.containsKey(topic)).count();
+        // committed offsets, or a member assigned to it (share groups don't commit offsets)
+        return (int) s.groups.values().stream()
+                .filter(g -> g.committed.containsKey(topic) || g.members.stream().anyMatch(m -> m.assignments.stream().anyMatch(a -> a[0].equals(topic))))
+                .count();
     }
 
     public static List<Dto.HealthFinding> health(ClusterState s, ClusterState.TopicSnap t) {
@@ -79,7 +82,7 @@ public final class Views {
 
     public static Dto.TopicDetail topicDetail(ClusterState s, ClusterState.TopicSnap t, List<Double> trend, Set<String> subjects) {
         double total = t.rate();
-        List<Dto.PartitionInfo> parts = t.partitions.stream().map(p -> new Dto.PartitionInfo(p.partition, p.leader, p.replicas, p.isr, p.low, p.high, total > 0 ? p.rate / total * 100 : 100.0 / Math.max(1, t.partitions.size()), iso(p.lastMessageAt))).toList();
+        List<Dto.PartitionInfo> parts = t.partitions.stream().map(p -> new Dto.PartitionInfo(p.partition, p.leader, p.replicas, p.isr, p.low, p.high, total > 0 ? Double.valueOf(p.rate / total * 100) : null /* idle: no share to show */, iso(p.lastMessageAt))).toList();
         List<Dto.TopicConsumer> consumers = new ArrayList<>();
         for (ClusterState.GroupSnap g : s.groups.values()) {
             Map<Integer, Long> c = g.committed.get(t.name);
@@ -127,9 +130,20 @@ public final class Views {
                         g.partStatus.getOrDefault(te.getKey() + "|" + pe.getKey(), Lag.Status.unknown).name()));
             }
         }
+        // assigned but never committed: listed with no committed offset and unknown status (like kafka-consumer-groups' "-")
+        owner.forEach((k, m) -> {
+            String[] tp = k.split("\\|");
+            int part = Integer.parseInt(tp[1]);
+            if (g.committed.getOrDefault(tp[0], Map.of()).containsKey(part)) return;
+            long end = 0;
+            ClusterState.TopicSnap t = s.topics.get(tp[0]);
+            if (t != null) for (ClusterState.PartSnap p : t.partitions) if (p.partition == part) end = p.high;
+            parts.add(new Dto.GroupPartitionLag(tp[0], part, null, end, 0, m.memberId, m.clientId, m.host, Lag.Status.unknown.name()));
+        });
         parts.sort(Comparator.comparingLong(Dto.GroupPartitionLag::lag).reversed());
         List<Dto.GroupMember> members = g.members.stream().map(m -> new Dto.GroupMember(m.memberId, m.clientId, m.host, m.assignments.stream().map(a -> new Dto.Assignment(a[0], Integer.parseInt(a[1]))).toList())).toList();
-        Map<String, Object> share = g.type.equals("share") ? Map.of("deliveryCount", 5, "inFlight", 0, "acquisitionLockMs", 30000) : null;
+        // rule 7: the Admin API doesn't report in-flight records or delivery counts, so nothing is invented here
+        Map<String, Object> share = null;
         return new Dto.GroupDetail(group(s, g, trend), parts, members, share);
     }
 

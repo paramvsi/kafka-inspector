@@ -124,7 +124,11 @@ const q = (o: Record<string, unknown>) =>
 
 export function createAgentClient(): KafkaClient {
   // ── one WebSocket, many subscriptions, resubscribed after reconnect ──
-  type Sub = { msg: Record<string, unknown>; onData: (data: unknown, ts: string) => void };
+  type Sub = {
+    msg: Record<string, unknown>;
+    onData: (data: unknown, ts: string) => void;
+    onError?: (message: string) => void;
+  };
   const subs = new Map<string, Sub>();
   const conn = new Set<(c: ConnectionState) => void>();
   let ws: WebSocket | null = null;
@@ -151,7 +155,9 @@ export function createAgentClient(): KafkaClient {
     sock.onmessage = (e) => {
       const m = JSON.parse(e.data as string);
       if (m.op === 'ping') return;
-      subs.get(m.id)?.onData(m.data, m.ts);
+      const sub = subs.get(m.id);
+      if (typeof m.error === 'string') sub?.onError?.(m.error);
+      else sub?.onData(m.data, m.ts);
     };
     sock.onclose = () => {
       if (ws !== sock) return;
@@ -170,10 +176,10 @@ export function createAgentClient(): KafkaClient {
       retry = setTimeout(open, wait * 1000);
     };
   };
-  const add = (msg: Record<string, unknown>, onData: Sub['onData']) => {
+  const add = (msg: Record<string, unknown>, onData: Sub['onData'], onError?: Sub['onError']) => {
     const id = `s${++seq}`;
     const full = { ...msg, id };
-    subs.set(id, { msg: full, onData });
+    subs.set(id, { msg: full, onData, onError });
     if (!ws) open();
     else if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(full));
     return () => {
@@ -212,7 +218,7 @@ export function createAgentClient(): KafkaClient {
       );
       return { ...page, messages: page.messages.map(toRaw) };
     },
-    tail: (id, r, onBatch) =>
+    tail: (id, r, onBatch, onError) =>
       add(
         {
           op: 'tail',
@@ -222,6 +228,7 @@ export function createAgentClient(): KafkaClient {
           maxRate: r.maxRate ?? 50,
         },
         (data) => onBatch((data as Dto[]).map(toRaw)),
+        onError,
       ),
     listGroups: (id, g = {}) => api('GET', `${c(id)}/groups?${q(g as Record<string, unknown>)}`),
     getGroup: (id, g) => api('GET', `${c(id)}/groups/${encodeURIComponent(g)}`),

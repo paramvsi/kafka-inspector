@@ -56,6 +56,7 @@ public class MessageService {
             for (TopicPartition tp : tps) {
                 long lo = begin.get(tp), hi = end.get(tp);
                 long start;
+                if (cursor != null && !cur.containsKey(tp.partition())) continue; // finished on an earlier page
                 if (cur.containsKey(tp.partition())) start = cur.get(tp.partition());
                 else start = switch (from) {
                     case "newest" -> hi - 1;
@@ -65,6 +66,9 @@ public class MessageService {
                     case "group" -> groupOffsets.getOrDefault(tp.partition(), hi);
                     default -> hi - 1;
                 };
+                // inside the log: a committed offset or cursor below the log start (retention) or past the end must
+                // not seek out of range (auto.offset.reset=none would throw)
+                start = desc ? Math.min(hi - 1, start) : Math.max(lo, Math.min(hi, start));
                 long a = desc ? Math.max(lo, start - per + 1) : start;
                 long b = desc ? start + 1 : Math.min(hi, start + max);
                 if (b > a) ranges.put(tp, new long[] {a, b});
@@ -88,15 +92,28 @@ public class MessageService {
                         c.pause(List.of(tp));
                     }
                 }
+                // past the range without a record at its last offset: compaction gaps or a transaction marker
+                for (var e : ranges.entrySet())
+                    if (!done.contains(e.getKey()) && c.position(e.getKey()) >= e.getValue()[1]) {
+                        done.add(e.getKey());
+                        c.pause(List.of(e.getKey()));
+                    }
             }
             got.sort(desc ? Comparator.comparingLong((ConsumerRecord<byte[], byte[]> r) -> r.timestamp()).thenComparingLong(ConsumerRecord::offset).reversed() : Comparator.comparingLong((ConsumerRecord<byte[], byte[]> r) -> r.timestamp()).thenComparingLong(ConsumerRecord::offset));
             List<ConsumerRecord<byte[], byte[]>> page = got.subList(0, Math.min(max, got.size()));
+            // next position per partition still inside the log; a cursor whenever any partition has more to read
             Map<Integer, Long> next = new TreeMap<>();
-            for (TopicPartition tp : tps) {
-                OptionalLong o = desc ? page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).min() : page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).max();
-                if (o.isPresent()) next.put(tp.partition(), desc ? o.getAsLong() - 1 : o.getAsLong() + 1);
+            for (var e : ranges.entrySet()) {
+                TopicPartition tp = e.getKey();
+                long a = e.getValue()[0], b = e.getValue()[1];
+                OptionalLong inPage = desc ? page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).min() : page.stream().filter(r -> r.partition() == tp.partition()).mapToLong(ConsumerRecord::offset).max();
+                boolean read = got.stream().anyMatch(r -> r.partition() == tp.partition());
+                long n = inPage.isPresent() ? (desc ? inPage.getAsLong() - 1 : inPage.getAsLong() + 1)
+                        : read ? (desc ? b - 1 : a) // its records were cut from this page: same place again
+                        : (desc ? a - 1 : b); // nothing readable in the range (gaps/markers): move past it
+                if (desc ? n >= begin.get(tp) : n < end.get(tp)) next.put(tp.partition(), n);
             }
-            String nextCursor = page.size() == max ? cursorOf(next) : null;
+            String nextCursor = next.isEmpty() ? null : cursorOf(next);
             return new Dto.RawMessagePage(page.stream().map(MessageService::dto).toList(), nextCursor, Math.max(scanned, page.size()));
         }
     }
@@ -120,16 +137,34 @@ public class MessageService {
     }
 
     /** Live tail: polls from the end on a virtual thread, samples down to maxRate per second, until stopped. */
-    public Runnable tail(String cid, String topic, String partition, int maxRate, Consumer<List<Dto.RawMessage>> onBatch) {
+    /** Live tail: polls from the end on a virtual thread, samples to maxRate per second; errors go to onError. */
+    public Runnable tail(String cid, String topic, String partition, int maxRate, Consumer<List<Dto.RawMessage>> onBatch, Consumer<String> onError) {
         Thread t = Thread.ofVirtual().name("tail-" + topic).start(() -> {
             try (KafkaConsumer<byte[], byte[]> c = kafka.consumer(cid, 2000)) {
-                List<TopicPartition> tps = c.partitionsFor(topic, Duration.ofSeconds(10)).stream().map(i -> new TopicPartition(topic, i.partition())).filter(tp -> "all".equals(partition) || String.valueOf(tp.partition()).equals(partition)).toList();
+                List<TopicPartition> tps = new ArrayList<>(partitionsOf(c, topic, partition));
+                if (tps.isEmpty()) {
+                    onError.accept("Topic " + topic + ("all".equals(partition) ? "" : " partition " + partition) + " doesn't exist.");
+                    return;
+                }
                 c.assign(tps);
                 c.seekToEnd(tps);
                 tps.forEach(c::position);
                 List<ConsumerRecord<byte[], byte[]>> buf = new ArrayList<>();
                 long next = System.currentTimeMillis() + 1000;
+                long recheck = System.currentTimeMillis() + 30_000;
                 while (!Thread.currentThread().isInterrupted()) {
+                    // partitions added while tailing join from their end
+                    if (System.currentTimeMillis() >= recheck) {
+                        recheck += 30_000;
+                        List<TopicPartition> now = partitionsOf(c, topic, partition);
+                        List<TopicPartition> added = now.stream().filter(tp -> !tps.contains(tp)).toList();
+                        if (!added.isEmpty()) {
+                            tps.addAll(added);
+                            c.assign(tps);
+                            c.seekToEnd(added);
+                            added.forEach(c::position);
+                        }
+                    }
                     c.poll(Duration.ofMillis(250)).forEach(buf::add);
                     if (System.currentTimeMillis() >= next) {
                         if (!buf.isEmpty()) {
@@ -151,9 +186,19 @@ public class MessageService {
                 }
             } catch (org.apache.kafka.common.errors.InterruptException e) {
                 // stopped
+            } catch (RuntimeException e) {
+                Throwable r = e;
+                while (r.getCause() != null) r = r.getCause();
+                onError.accept("Live tail stopped: " + r.getMessage());
             }
         });
         return t::interrupt;
+    }
+
+    private static List<TopicPartition> partitionsOf(KafkaConsumer<byte[], byte[]> c, String topic, String partition) {
+        List<PartitionInfo> infos = c.partitionsFor(topic, Duration.ofSeconds(10));
+        if (infos == null) return List.of();
+        return infos.stream().map(i -> new TopicPartition(topic, i.partition())).filter(tp -> "all".equals(partition) || String.valueOf(tp.partition()).equals(partition)).toList();
     }
 
     private static Map<TopicPartition, Long> tpsMap(List<TopicPartition> tps, long ts) {

@@ -124,19 +124,25 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   // ── live tail ──
   const [ring, setRing] = useState<RawMessage[]>([]);
   const [paused, setPaused] = useState(false);
+  const [tailError, setTailError] = useState<string>();
   const [unseen, setUnseen] = useState(0);
   const atTop = useRef(true);
   // a new tail (topic/partition/live) starts empty; Resume continues the same list
-  useEffect(() => setRing([]), [live, topic, p]);
+  useEffect(() => {
+    setRing([]);
+    setTailError(undefined);
+  }, [live, topic, p]);
   useEffect(() => {
     if (!live || paused) return;
     return client.tail(
       clusterId,
       { topic, partition: p === 'all' ? 'all' : Number(p), maxRate: 50 },
       (batch) => {
+        setTailError(undefined);
         setRing((r) => [...batch.reverse(), ...r].slice(0, RING));
         if (!atTop.current) setUnseen((n) => n + batch.length);
       },
+      (message) => setTailError(message),
     );
   }, [live, paused, client, clusterId, topic, p]);
 
@@ -742,7 +748,12 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               )}
             </tbody>
           </table>
-          {rows.length === 0 && (
+          {live && tailError && (
+            <p role="alert" className="m-0 px-4 py-3 text-[13px] text-crit-text">
+              {tailError} Switch off Live tail to browse, or try again.
+            </p>
+          )}
+          {rows.length === 0 && !(live && tailError) && (
             <EmptyState
               title={
                 expr || quickOn

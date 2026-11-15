@@ -264,7 +264,7 @@ export function ResetOffsetsDialog({
                 key: 'c',
                 header: 'Current',
                 kind: 'num',
-                cell: (r) => (r.current === null ? '—' : formatInt(r.current)),
+                cell: (r) => (r.current == null ? '—' : formatInt(r.current)),
               },
               {
                 key: 'n',

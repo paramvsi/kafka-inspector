@@ -326,11 +326,7 @@ export function PartitionTable({
           header: 'Leader',
           kind: 'id',
           cell: (p) =>
-            p.leader === null ? (
-              <StatusBadge status="stopped">offline</StatusBadge>
-            ) : (
-              `b${p.leader}`
-            ),
+            p.leader == null ? <StatusBadge status="stopped">offline</StatusBadge> : `b${p.leader}`,
         },
         {
           key: 'isr',
@@ -359,7 +355,7 @@ export function PartitionTable({
                 />
               </span>
               <span className="font-mono text-[11px] tabular-nums text-ink-muted">
-                {formatPct(p.sharePct ?? 0, 1)}
+                {p.sharePct == null ? '—' : formatPct(p.sharePct, 1)}
               </span>
             </span>
           ),

@@ -77,7 +77,14 @@ public class Sampler {
                 s.error = rootMessage(e);
                 kafka.reset(cid);
             }
-            listeners.forEach(l -> l.accept(cid, s));
+            for (var l : listeners) {
+                // a failing listener (e.g. a DB error while pushing) must not skip the other clusters this tick
+                try {
+                    l.accept(cid, s);
+                } catch (RuntimeException e) {
+                    log.warn("Cluster {}: live update failed: {}", cid, rootMessage(e));
+                }
+            }
         }
     }
 
@@ -108,6 +115,21 @@ public class Sampler {
         }));
         Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> hi = latest.isEmpty() ? Map.of() : admin.listOffsets(latest).all().get(30, TimeUnit.SECONDS);
         Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> lo = earliest.isEmpty() ? Map.of() : admin.listOffsets(earliest).all().get(30, TimeUnit.SECONDS);
+        // freshness for partitions we haven't seen yet (first sample, new topic): the newest record's timestamp;
+        // the "latest" spec only returns an offset (timestamp -1)
+        Map<TopicPartition, Long> newestTs = new HashMap<>();
+        Map<TopicPartition, OffsetSpec> unseen = new HashMap<>();
+        latest.keySet().forEach(tp -> {
+            ClusterState.TopicSnap known = s.topics.get(tp.topic());
+            if (known == null || known.partitions.stream().noneMatch(x -> x.partition == tp.partition())) unseen.put(tp, OffsetSpec.maxTimestamp());
+        });
+        if (!unseen.isEmpty()) {
+            try {
+                admin.listOffsets(unseen).all().get(30, TimeUnit.SECONDS).forEach((tp, r) -> { if (r.timestamp() > 0) newestTs.put(tp, r.timestamp()); });
+            } catch (Exception e) {
+                log.debug("max-timestamp offsets failed: {}", rootMessage(e));
+            }
+        }
 
         // broker disks + partition sizes every 6th sample (describeLogDirs is heavy)
         Map<Integer, long[]> disks = new HashMap<>();
@@ -132,13 +154,21 @@ public class Sampler {
         }
         // topic configs every 30th sample
         Map<String, Map<String, String>> configs = new HashMap<>();
-        if ((tick % 30 == 1 || s.ts == 0) && !names.isEmpty()) {
-            List<ConfigResource> rs = names.stream().map(n -> new ConfigResource(ConfigResource.Type.TOPIC, n)).toList();
-            admin.describeConfigs(rs).all().get(30, TimeUnit.SECONDS).forEach((r, cfg) -> {
-                Map<String, String> m = new HashMap<>();
-                cfg.entries().forEach(e -> { if (!e.isDefault() || Set.of("retention.ms", "min.insync.replicas", "cleanup.policy").contains(e.name())) m.put(e.name(), e.value()); });
-                configs.put(r.name(), m);
-            });
+        // all topics every 30th sample; a topic that appeared since gets its config right away (min ISR etc.)
+        boolean full = tick % 30 == 1 || s.ts == 0;
+        List<String> wanted = full ? List.copyOf(names) : names.stream().filter(n -> !s.topics.containsKey(n)).toList();
+        if (!wanted.isEmpty()) {
+            List<ConfigResource> rs = wanted.stream().map(n -> new ConfigResource(ConfigResource.Type.TOPIC, n)).toList();
+            // best effort, like describeLogDirs: without DescribeConfigs the cluster still connects (defaults apply)
+            try {
+                admin.describeConfigs(rs).all().get(30, TimeUnit.SECONDS).forEach((r, cfg) -> {
+                    Map<String, String> m = new HashMap<>();
+                    cfg.entries().forEach(e -> { if (!e.isDefault() || Set.of("retention.ms", "min.insync.replicas", "cleanup.policy").contains(e.name())) m.put(e.name(), e.value()); });
+                    configs.put(r.name(), m);
+                });
+            } catch (Exception e) {
+                log.debug("describeConfigs failed: {}", rootMessage(e));
+            }
         }
 
         // ── topics ──
@@ -161,7 +191,7 @@ public class Sampler {
                 ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : 0;
                 ClusterState.PartSnap pp = prev == null ? null : prev.partitions.stream().filter(x -> x.partition == p.partition()).findFirst().orElse(null);
                 ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
-                ps.lastMessageAt = pp == null ? (hi.containsKey(tp) ? hi.get(tp).timestamp() : 0) : ps.high > pp.high ? now : pp.lastMessageAt;
+                ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high > pp.high ? now : pp.lastMessageAt;
                 ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? 0 : pp.sizeBytes);
                 if (pp != null && pp.isr.size() != ps.isr.size()) {
                     boolean shrink = ps.isr.size() < pp.isr.size();
@@ -233,13 +263,27 @@ public class Sampler {
             consumerIds.forEach(id -> spec.put(id, new ListConsumerGroupOffsetsSpec()));
             ListConsumerGroupOffsetsResult offs = admin.listConsumerGroupOffsets(spec);
             for (String id : consumerIds) {
-                Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(20, TimeUnit.SECONDS);
-                ClusterState.GroupSnap gs = groups.get(id);
-                m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
+                // per group: one group without Describe ACL, or deleted mid-sample, must not fail the cluster
+                try {
+                    Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(20, TimeUnit.SECONDS);
+                    ClusterState.GroupSnap gs = groups.get(id);
+                    m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
+                } catch (Exception e) {
+                    log.debug("offsets for group {} failed: {}", id, rootMessage(e));
+                }
             }
         }
         if (!shareIds.isEmpty()) {
-            admin.describeShareGroups(shareIds).all().get(20, TimeUnit.SECONDS).forEach((id, d) -> {
+            var shareResult = admin.describeShareGroups(shareIds).describedGroups();
+            Map<String, org.apache.kafka.clients.admin.ShareGroupDescription> shares = new HashMap<>();
+            shareResult.forEach((id, f) -> {
+                try {
+                    shares.put(id, f.get(20, TimeUnit.SECONDS));
+                } catch (Exception e) {
+                    log.debug("share group {} failed: {}", id, rootMessage(e));
+                }
+            });
+            shares.forEach((id, d) -> {
                 ClusterState.GroupSnap gs = groups.get(id);
                 gs.state = stateName(d.groupState());
                 d.members().forEach(m -> {
@@ -279,7 +323,9 @@ public class Sampler {
                     while (w.size() > props.lagWindow()) w.removeFirst();
                     long changed = s.lastChange.getOrDefault(key, now);
                     long lastCommitAt = gs.members.isEmpty() ? changed : now;
-                    lastCommit = Math.max(lastCommit, lastCommitAt);
+                    // displayed "last commit": when an offset last moved (a frozen consumer must not read "just now");
+                    // the lag rules keep getting lastCommitAt as before (shared vectors)
+                    lastCommit = Math.max(lastCommit, changed);
                     Lag.Status st = Lag.evaluate(List.copyOf(w), lastCommitAt, now, windowMs);
                     gs.partStatus.put(te.getKey() + "|" + pe.getKey(), st);
                     statuses.add(st);
@@ -327,7 +373,8 @@ public class Sampler {
         }
         rows.add(new HistoryRepository.Row(cid, "cluster", "", "lag", now, total));
         rows.add(new HistoryRepository.Row(cid, "cluster", "", "underReplicated", now, urp));
-        s.totalLagPrev = total;
+        s.totalLagPrev = s.totalLagNow; // the sample before this one
+        s.totalLagNow = total;
         // storage or alert problems are not Kafka problems: keep the cluster connected, log, retry next sample
         try {
             history.insert(rows);
