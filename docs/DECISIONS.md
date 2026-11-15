@@ -44,3 +44,6 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Don't use the token type class `.overline` in markup: Tailwind v4 has an `overline` utility (text-decoration) with the same name. Section labels use explicit utilities with the same values (11/16, 500, 0.06em, uppercase) | Name collision drew a line over sidebar section labels |
 | 2026-11-15 | Sidebar stays 232px (`--sidebar-width`, F-01). The reference PNGs show ~228px because the sidebar is a shrinkable flex child there | Spec over rendering artifact |
 | 2026-11-15 | `netlify.toml` at the repo root, not `deploy/` (ARCHITECTURE layout) | Netlify reads it from the base directory |
+| 2026-11-15 | Q-02 answered: repo `github.com/paramvsi/kafka-inspector`, public | User |
+| 2026-11-15 | When a phase prompt disagrees with the spec docs (ARCHITECTURE, FEATURES), the spec wins. Prompts corrected: forecast type and test-vector path (02, 06), back-fill resolution (02), decode-error shape, tail buffer 2,000, export JSON/CSV (04), Recharts and ranges 15m/1h/24h/7d (05), F-refs (03, 04) | User ruling: ARCHITECTURE wins |
+| 2026-11-15 | Full suite (`pnpm lint && pnpm typecheck && pnpm test`, `pnpm e2e` for UI) runs before every commit in this repo | User ruling: repo rule over the global push-only rule |

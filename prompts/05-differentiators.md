@@ -3,7 +3,7 @@
 Context: `docs/FEATURES.md` Lag health and forecast, Alerts, Topology, Simulator and chaos, App shell (deep links, saved views); `docs/ARCHITECTURE.md` Lag rules, Storage; references `GroupDetail`, `Alerts`, `AlertRule`, `Topology`, `Chaos`, `Main`.
 
 ## Tasks
-1. `TimeSeriesChart` (uPlot or Recharts — pick one, record in DECISIONS) using `chart-1..3` tokens; range picker 15m/1h/6h/24h/custom; crosshair with mono values; annotations for events (rebalances, chaos).
+1. `TimeSeriesChart` (Recharts — ARCHITECTURE Stack) using `chart-1..3` tokens; range picker 15m/1h/24h/7d (F-01, F-72); crosshair with mono values; annotations for events (rebalances, chaos).
 2. History everywhere it's designed: Overview throughput, Topic overview, Group detail lag chart with forecast line + "clears in" label.
 3. Alerts: rule model (metric, scope, condition, duration, severity), evaluator in the simulator worker (agent evaluates server-side in phase 4), firing → resolved lifecycle, history list, bell badge + toast + optional browser notification (permission asked on user action only). Rule builder dialog per `AlertRule`.
 4. Topology per F-85 (React Flow): layout, edge widths, health colours, DLQ dashed edges, search highlight, fit, click-through.

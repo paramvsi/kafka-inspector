@@ -5,12 +5,12 @@ Context: `docs/ARCHITECTURE.md` (KafkaClient, Core types, Client picking, Lag ru
 ## Tasks
 1. `packages/core`
    - Types and the `KafkaClient` interface exactly as in ARCHITECTURE (export from `index.ts`).
-   - `evaluateLag(window)` → `healthy | warn | stalled | stopped | unknown` (Burrow-style rules in ARCHITECTURE) and `forecast(lag, consumeRate, produceRate)` → `{ kind: 'clearsIn', seconds } | { kind: 'growing', ratePerSec } | { kind: 'steady' }` + `formatForecast()`.
+   - `evaluateLag(window)` → `healthy | warn | stalled | stopped | unknown` (Burrow-style rules in ARCHITECTURE) and `forecast(window)` → `Forecast` `{ kind: 'caught-up' | 'eta' | 'never' | 'unknown'; seconds?; consumeRate?; produceRate? }` exactly as in ARCHITECTURE + `formatForecast()`.
    - Formatters: counts (`1.2M`), bytes, rates (`/s`), durations (`~14 min`), relative time, offsets with thin-space grouping. All mono-friendly.
-   - `test-vectors/lag.json` (≥ 20 cases incl. edges: empty window, offsets reset, committed > end, single sample) consumed by Vitest now and by JUnit in phase 4.
+   - `packages/core/test/lag-vectors.json` (≥ 20 cases incl. edges: empty window, offsets reset, committed > end, single sample) consumed by Vitest now and by JUnit in phase 4.
 2. `packages/simulator`
    - Seeded PRNG; seed cluster `prod-eu-1` (3 brokers, topics, groups, producers, schemas) matching the sample-data story in SCREENS so the screens' numbers are reachable.
-   - Tick loop (1 s): produce rates with daily wave + noise, consumer rates, commits, partition skew. Back-fill 24 h of history at 1-minute resolution on start.
+   - Tick loop (1 s): produce rates with daily wave + noise, consumer rates, commits, partition skew. Back-fill 24 h of history on start (every 60 s for older data, 1 s for the last 15 min — ARCHITECTURE).
    - Messages as a pure function of `(topic, partition, offset, seed)`: keys, headers, JSON bodies, **real Avro binary with Confluent wire format** for Avro topics, a few deliberately malformed payloads (for 06b).
    - Chaos hooks (implemented in phase 3 UI, but the engine supports them now): crash/slow consumer, spike, broker down, rebalance, hot partition, poison message.
    - User changes (created topics, produced messages, offset resets) persisted to IndexedDB via Dexie; `reset()`.

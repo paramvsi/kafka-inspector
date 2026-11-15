@@ -9,7 +9,7 @@ Context: `docs/AGENT_API.md` (all of it), `docs/ARCHITECTURE.md` (Lag rules, Tes
 4. Read endpoints per AGENT_API. Browse consumer uses `assign` + `seek`, `enable.auto.commit=false`, never commits, unique `group.id`-less consumption; bounded by limit 500 and a time budget. Raw bytes as base64.
 5. WebSocket `/api/stream` with `sub/tail/unsub/ping`; backpressure (drop oldest + `dropped` count).
 6. Sampler every `KI_SAMPLE_INTERVAL` → H2/Postgres via Flyway; retention job; history endpoint returns the same shape as the simulator.
-7. Lag evaluator in Java consuming `packages/core/test-vectors/lag.json` in JUnit — must produce identical verdicts.
+7. Lag evaluator in Java consuming `packages/core/test/lag-vectors.json` in JUnit — must produce identical verdicts.
 8. Alert evaluator server-side; same rule model as phase 3.
 9. Schema Registry proxy (read-only + compatibility check).
 10. Serve the exported web app from `/app` and redirect `/` → `/app/`; SPA fallbacks for query-param routes.

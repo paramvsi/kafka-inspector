@@ -14,7 +14,7 @@ Build each screen against its reference, all states included. For each: route + 
 7. Reset offsets (10) — F-62: strategies, dry-run preview table, typed confirmation.
 8. Schemas list + version diff + compatibility check (11) — F-87…F-89.
 9. Clusters (14, 14b) — F-95 demo half (saved connections; Test connection steps; errors explain the fix).
-10. Command palette (16) — F-03; global shortcuts (F-04).
+10. Command palette (16) — F-03; global shortcuts (F-06).
 11. Read-only states (20) — F-90 UI side, toggled by `info().readOnly` (add a demo dev flag to preview it).
 
 ## Motion (docs/MOTION.md)
