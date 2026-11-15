@@ -93,7 +93,10 @@ export function useKafkaQuery<T>(
     enabled,
     queryKey: [clusterId, ...key],
     queryFn: () => fn(client, clusterId),
-    refetchInterval: refreshMs,
+    // a failed query with nothing to show (e.g. a topic that doesn't exist) stops polling, so its error
+    // stays on screen instead of flickering with every refetch; one with data keeps polling and recovers
+    refetchInterval: (q) =>
+      q.state.status === 'error' && q.state.data === undefined ? false : refreshMs,
     placeholderData: (prev) => prev,
   });
 }

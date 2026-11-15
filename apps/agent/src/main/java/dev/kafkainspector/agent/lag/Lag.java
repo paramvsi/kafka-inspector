@@ -69,8 +69,9 @@ public final class Lag {
         if (known.isEmpty()) return Forecast.of("unknown");
         Sample first = known.get(0), last = known.get(known.size() - 1);
         long lag = lagOf(last);
-        if (lag == 0) return Forecast.of("caught-up");
         double dt = (last.t() - first.t()) / 1000.0;
+        // rates kept for caught-up partitions too (same as lag.ts), so group totals include every partition
+        if (lag == 0) return dt > 0 ? new Forecast("caught-up", null, Math.max(0, last.committed() - first.committed()) / dt, Math.max(0, last.end() - first.end()) / dt) : Forecast.of("caught-up");
         if (dt <= 0) return Forecast.of("unknown");
         double consume = Math.max(0, last.committed() - first.committed()) / dt;
         double produce = Math.max(0, last.end() - first.end()) / dt;
@@ -84,9 +85,9 @@ public final class Lag {
         List<Part> known = parts.stream().filter(p -> !p.forecast().kind().equals("unknown")).toList();
         if (known.isEmpty()) return Forecast.of("unknown");
         long lag = known.stream().mapToLong(Part::lag).sum();
-        if (lag == 0) return Forecast.of("caught-up");
         double c = known.stream().mapToDouble(p -> p.forecast().consumeRate() == null ? 0 : p.forecast().consumeRate()).sum();
         double pr = known.stream().mapToDouble(p -> p.forecast().produceRate() == null ? 0 : p.forecast().produceRate()).sum();
+        if (lag == 0) return new Forecast("caught-up", null, c, pr);
         if (known.stream().anyMatch(p -> p.forecast().kind().equals("never") && p.lag() > 0)) return new Forecast("never", null, c, pr);
         double seconds = known.stream().mapToDouble(p -> p.forecast().seconds() == null ? 0 : p.forecast().seconds()).max().orElse(0);
         return new Forecast("eta", seconds, c, pr);

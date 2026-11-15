@@ -111,6 +111,7 @@ export function GroupDetailView() {
         </Card>
       )}
       <Tabs
+        linkAs={Link}
         label="Group sections"
         active={tab}
         items={[

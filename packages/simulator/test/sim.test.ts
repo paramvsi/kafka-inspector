@@ -498,3 +498,54 @@ test('poison scenario: deleting payments does not brick reloads; only a reset th
   expect(() => a.sim.runChaos({ kind: 'poison-message' })).not.toThrow();
   expect(() => a.sim.runChaos({ kind: 'poison-message' })).toThrow('already running');
 });
+
+test('config edits reject values Kafka would refuse', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  const bad: Array<[string, string, string]> = [
+    ['max.message.bytes', '-5', 'at least 0'],
+    ['retention.ms', '-7', '-1 or more'],
+    ['segment.bytes', '0', 'at least 14'],
+    ['min.insync.replicas', '0', 'at least 1'],
+    ['min.insync.replicas', '7', "can't exceed the replication factor"],
+  ];
+  for (const [k, v, msg] of bad)
+    await expect(a.sim.updateTopicConfig('orders', { [k]: v })).rejects.toThrow(msg);
+  await expect(
+    a.sim.updateTopicConfig('orders', { 'retention.ms': '-1' }),
+  ).resolves.toBeUndefined();
+});
+
+test('a topic nothing was produced to has no "last message" time', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  await a.sim.createTopic({ name: 'empty-one', partitions: 2, replicationFactor: 1 });
+  const d = await a.sim.getTopic('empty-one');
+  expect(d.summary.lastMessageAt).toBeUndefined();
+  expect(d.partitions.every((p) => p.lastMessageAt === undefined)).toBe(true);
+});
+
+test('a reload right after fixing the poison shows the same catch-up, not an instant caught-up', async () => {
+  const store = new MemoryStore();
+  let now = LOAD;
+  const first = new Simulator({ store, now: () => now });
+  await first.init();
+  await first.resetOffsets(
+    {
+      groupId: 'fraud-scorer',
+      topic: 'payments',
+      partitions: [7],
+      strategy: { kind: 'shift', by: 1 },
+    },
+    false,
+  );
+  for (let i = 0; i < 12; i++) first.tick((now += 1000));
+  const lagOf = (s: Simulator) =>
+    s.getGroup('fraud-scorer').partitions.find((p) => p.topic === 'payments' && p.partition === 7)!
+      .lag!;
+  const live = lagOf(first);
+  expect(live).toBeGreaterThan(10_000); // still catching up
+  const second = new Simulator({ store, now: () => now });
+  await second.init();
+  expect(Math.abs(lagOf(second) - live) / live).toBeLessThan(0.1);
+});

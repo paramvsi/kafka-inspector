@@ -70,3 +70,16 @@ test('group forecast: any partition that never catches up makes the group never;
     ]).kind,
   ).toBe('never');
 });
+
+test('group rates include caught-up partitions (payments-sink-style: lag on a few partitions only)', () => {
+  const s = (t: number, committed: number, end: number) => ({ t, committed, end });
+  const caughtUp = forecast([s(0, 0, 0), s(10_000, 1000, 1000)]); // 100/s in and out, no lag
+  expect(caughtUp).toMatchObject({ kind: 'caught-up', consumeRate: 100, produceRate: 100 });
+  const behind = forecast([s(0, 0, 500), s(10_000, 1000, 1500)]);
+  const g = combineForecasts([
+    { lag: 0, forecast: caughtUp },
+    { lag: 500, forecast: behind },
+  ]);
+  expect(g.produceRate).toBeCloseTo(200);
+  expect(g.consumeRate).toBeCloseTo(200);
+});

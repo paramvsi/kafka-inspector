@@ -321,13 +321,21 @@ function RuleDialog({
   };
   const [r, setR] = useState<AlertRuleInput & { id?: string }>(blank);
   const [error, setError] = useState<string>();
+  // the threshold as typed: invalid text is shown as an error, never silently saved as 0
+  const [thresholdText, setThresholdText] = useState('5000');
   useEffect(() => {
     if (open) {
       setR(rule ? { ...rule } : blank);
+      setThresholdText(String((rule ?? blank).threshold ?? 0));
       setError(undefined);
     }
   }, [open, rule?.id]);
   const meta = METRICS.find((m) => m.value === r.metric)!;
+  const thresholdValue = Number(thresholdText.replace(/,/g, ''));
+  const thresholdError =
+    meta.unit && (!thresholdText.trim() || !Number.isFinite(thresholdValue) || thresholdValue < 0)
+      ? 'Enter a number of 0 or more.'
+      : undefined;
   const preview = useKafkaQuery(
     ['rule-preview', r.metric, JSON.stringify(r.scope), r.threshold, r.durationSec],
     (c) => c.previewAlertRule?.(r) ?? Promise.resolve({ firings: 0 }),
@@ -412,7 +420,7 @@ function RuleDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={save}>
+          <Button variant="primary" onClick={save} disabled={!!thresholdError}>
             {rule ? 'Save rule' : 'Create rule'}
           </Button>
         </>
@@ -474,12 +482,21 @@ function RuleDialog({
                 <input
                   aria-label="Threshold"
                   inputMode="numeric"
-                  value={r.threshold ?? 0}
-                  onChange={(e) =>
-                    setR({ ...r, threshold: Number(e.target.value.replace(/,/g, '')) || 0 })
-                  }
-                  className="h-control-md w-[100px] rounded-md border border-line bg-surface px-3 font-mono text-[12px] text-ink focus:border-copper"
+                  value={thresholdText}
+                  aria-invalid={!!thresholdError}
+                  aria-describedby={thresholdError ? 'ki-threshold-err' : undefined}
+                  onChange={(e) => {
+                    setThresholdText(e.target.value);
+                    const n = Number(e.target.value.replace(/,/g, ''));
+                    if (Number.isFinite(n) && n >= 0) setR({ ...r, threshold: n });
+                  }}
+                  className="h-control-md w-[100px] rounded-md border border-line bg-surface px-3 font-mono text-[12px] text-ink focus:border-copper aria-[invalid=true]:border-crit"
                 />
+                {thresholdError && (
+                  <span id="ki-threshold-err" role="alert" className="text-[12px] text-crit-text">
+                    {thresholdError}
+                  </span>
+                )}
               </>
             )}
             {r.metric === 'group-status' && (

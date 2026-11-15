@@ -48,6 +48,7 @@ public class AlertService {
         if (r.severity() == null) throw new IllegalArgumentException("Choose a severity: info, warn or crit.");
         if (!METRICS.contains(r.metric())) throw new IllegalArgumentException("Unknown metric " + r.metric() + ". Use one of " + METRICS + ".");
         if (r.durationSec() < 0) throw new IllegalArgumentException("Duration can't be negative.");
+        if (r.threshold() != null && (r.threshold().isNaN() || r.threshold().isInfinite() || r.threshold() < 0)) throw new IllegalArgumentException("The threshold must be a number of 0 or more.");
         if (r.name().length() > 200) throw new IllegalArgumentException("Rule names are limited to 200 characters.");
         if (!List.of("info", "warn", "crit").contains(r.severity())) throw new IllegalArgumentException("Severity must be info, warn or crit.");
         if (r.scope() != null && !List.of("any", "specific").contains(r.scope().kind())) throw new IllegalArgumentException("Scope kind must be any or specific.");

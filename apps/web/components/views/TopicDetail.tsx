@@ -126,6 +126,7 @@ export function TopicDetailView() {
         }
       />
       <Tabs
+        linkAs={Link}
         label="Topic sections"
         active={tab}
         items={TABS.map((t) => ({

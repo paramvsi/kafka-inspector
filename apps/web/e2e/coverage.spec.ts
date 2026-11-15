@@ -759,3 +759,49 @@ test('F-43: ticking Sample refetches the search across partitions', async ({ pag
   await expect.poll(partitions, { timeout: 10_000 }).toBeGreaterThan(1);
 });
 
+test('a missing topic or group stays "not found" (no flicker)', async ({ page }) => {
+  for (const [path, title] of <Array<[string, string]>>[
+    ['/app/groups/view/?id=nope', 'Consumer group nope not found'],
+    ['/app/topics/view/?name=nonexistent', 'Topic nonexistent not found'],
+  ]) {
+    await page.goto(path);
+    await expect(page.getByText(title, { exact: true })).toBeVisible({ timeout: 15_000 });
+    for (let i = 0; i < 12; i++) {
+      await page.waitForTimeout(250);
+      await expect(page.getByText(title, { exact: true })).toBeVisible({ timeout: 100 });
+    }
+  }
+});
+
+test('an alert threshold that is not a number of 0 or more is refused, not saved as 0', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/?tab=rules');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog', { name: 'New alert rule' });
+  for (const v of ['abc', '', '-1']) {
+    await d.getByLabel('Threshold', { exact: true }).fill(v);
+    await expect(d.getByText('Enter a number of 0 or more.')).toBeVisible();
+    await expect(d.getByRole('button', { name: 'Create rule' })).toBeDisabled();
+  }
+  await d.getByLabel('Threshold', { exact: true }).fill('250');
+  await expect(d.getByRole('button', { name: 'Create rule' })).toBeEnabled();
+});
+
+test('pausing Live stays paused across pages and tabs', async ({ page }) => {
+  await page.goto('/app/');
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Live' }).click();
+  await expect(page.getByRole('button', { name: 'Paused' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await nav.getByRole('link', { name: /^Topics/ }).click();
+  await page.getByRole('link', { name: 'orders', exact: true }).click();
+  await page.getByRole('link', { name: 'Messages', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Messages in orders' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('button', { name: 'Paused' })).toBeVisible();
+});

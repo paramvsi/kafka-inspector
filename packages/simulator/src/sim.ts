@@ -224,6 +224,9 @@ export class Simulator {
   private events: ClusterEvent[] = [];
   private incidents = new Map<string, IncidentState>();
   private poisonFixed = false;
+  /** When the opening poison starts in this back-fill: 6m 12s before load, or when it started before a recorded fix. */
+  private poisonStartAt = 0;
+  private poisonStarted = false;
   private poison: Poison | null = null;
   private poisoned = new Set<string>();
   private produced = new Map<string, RawMessage>();
@@ -275,7 +278,13 @@ export class Simulator {
     const pending = [...actions].sort((a, b) => a.t - b.t);
     // the user already moved fraud-scorer past the poison message: don't stall it again on reload
     // recorded only when a live reset actually moved fraud-scorer past the poison message
-    this.poisonFixed = actions.some((a) => a.kind === 'poison-fixed');
+    // A fix that recorded when its poison started replays that poison from then, so the saved reset
+    // lands on the same stalled offsets; an older fix without it just leaves the poison out.
+    const fix = actions.find((a) => a.kind === 'poison-fixed');
+    const since = (fix?.payload as { since?: number } | null)?.since;
+    this.poisonFixed = !!fix && since === undefined;
+    this.poisonStartAt = since ?? now - POISON.activeForMsAtLoad;
+    this.poisonStarted = false;
     const applyDue = (t: number) => {
       while (pending.length && pending[0]!.t <= t) this.replay(pending.shift()!);
     };
@@ -1061,7 +1070,8 @@ export class Simulator {
       sizeBytes: this.sizeOf(def),
       messagesInPerSec: rate,
       consumerGroups: this.consumersOf(name).length,
-      lastMessageAt: new Date(last).toISOString(),
+      // nothing produced yet → no "last message" (lastMsgAt starts at creation for the silence alert)
+      lastMessageAt: ps.some((s) => s.end >= 1) ? new Date(last).toISOString() : undefined,
       underReplicated: ps.filter((s) => s.isr.length < s.replicas.length).length,
       health: this.health(def, ps),
       trend,
@@ -1124,7 +1134,7 @@ export class Simulator {
       lowWatermark: this.low(s),
       highWatermark: Math.floor(s.end),
       sharePct: shares[s.p]! * 100,
-      lastMessageAt: new Date(s.lastMsgAt).toISOString(),
+      lastMessageAt: s.end >= 1 ? new Date(s.lastMsgAt).toISOString() : undefined,
     }));
     const consumers = this.consumersOf(name).map((g) => ({
       groupId: g.def.groupId,
@@ -1647,6 +1657,8 @@ export class Simulator {
 
   async saveAlertRule(input: AlertRuleInput & { id?: string }): Promise<AlertRule> {
     if (!input.name.trim()) throw new Error('Give the rule a name.');
+    if (input.threshold !== undefined && !(Number.isFinite(input.threshold) && input.threshold >= 0))
+      throw new Error('The threshold must be a number of 0 or more.');
     const rule: AlertRule = {
       ...input,
       id: input.id ?? `r_${hash(input.name, this.lastTick).toString(36)}`,
@@ -1862,6 +1874,16 @@ export class Simulator {
       const def0 = known.get(k)!;
       if (/^-?\d+$/.test(def0) && !/^-?\d+$/.test(v))
         throw new Error(`${k} must be a whole number.`);
+      if (/^-?\d+$/.test(def0)) {
+        // Kafka's own lower bounds: -1 means "unlimited" for retention, -2 "use the broker's" for local retention
+        const min = MIN_CONFIG[k] ?? 0;
+        if (Number(v) < min)
+          throw new Error(`${k} must be ${min < 0 ? `${min} or more` : `at least ${min}`}.`);
+        if (k === 'min.insync.replicas' && Number(v) > def.rf)
+          throw new Error(
+            `min.insync.replicas can't exceed the replication factor (${def.rf}): every acks=all write would fail.`,
+          );
+      }
       if ((def0 === 'true' || def0 === 'false') && v !== 'true' && v !== 'false')
         throw new Error(`${k} must be true or false.`);
     }
@@ -1983,7 +2005,7 @@ export class Simulator {
           if (this.poison.incident) this.incidents.delete(this.poison.incident);
           // the opening scenario must not re-stall it on reload (a chaos-made poison isn't replayed)
           if (!this.replaying && !this.poison.incident)
-            void this.store.append({ t, kind: 'poison-fixed', payload: null });
+            void this.store.append({ t, kind: 'poison-fixed', payload: { since: this.poison.since } });
           this.poison = null;
         }
       }
@@ -2206,13 +2228,14 @@ export class Simulator {
     }
     // the opening poison scenario starts 6m 12s before load
     if (
-      !this.poison &&
+      !this.poisonStarted &&
       !this.poisonFixed &&
       this.replaying &&
-      t >= this.loadedAt - POISON.activeForMsAtLoad &&
-      t < this.loadedAt - POISON.activeForMsAtLoad + 1000
-    )
-      this.startPoison(t);
+      t >= this.poisonStartAt
+    ) {
+      this.poisonStarted = true;
+      if (!this.poison) this.startPoison(t);
+    }
   }
 
   async reset(): Promise<void> {
@@ -2286,6 +2309,17 @@ function describeStrategy(req: ResetOffsetsRequest): string {
 function strip(i: IncidentState): Incident {
   return { id: i.id, kind: i.kind, target: i.target, startedAt: i.startedAt, endsAt: i.endsAt };
 }
+
+const MIN_CONFIG: Record<string, number> = {
+  'retention.ms': -1,
+  'retention.bytes': -1,
+  'local.retention.ms': -2,
+  'local.retention.bytes': -2,
+  'segment.bytes': 14,
+  'segment.index.bytes': 4,
+  'min.insync.replicas': 1,
+  'max.message.bytes': 0,
+};
 
 const TOPIC_DEFAULTS: Array<[string, string]> = [
   ['cleanup.policy', 'delete'],

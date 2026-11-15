@@ -106,8 +106,16 @@ export function forecast(samples: LagSample[]): Forecast {
   const first = known[0]!;
   const last = known[known.length - 1]!;
   const lag = lagOf(last)!;
-  if (lag === 0) return { kind: 'caught-up' };
   const dt = (last.t - first.t) / 1000;
+  // rates are kept for caught-up partitions too, so a group's totals include every partition
+  if (lag === 0)
+    return dt > 0
+      ? {
+          kind: 'caught-up',
+          consumeRate: Math.max(0, last.committed! - first.committed!) / dt,
+          produceRate: Math.max(0, last.end - first.end) / dt,
+        }
+      : { kind: 'caught-up' };
   if (dt <= 0) return { kind: 'unknown' };
   const consumeRate = Math.max(0, last.committed! - first.committed!) / dt;
   const produceRate = Math.max(0, last.end - first.end) / dt;
@@ -122,16 +130,13 @@ export function combineForecasts(parts: Array<{ lag: number; forecast: Forecast 
   const known = parts.filter((p) => p.forecast.kind !== 'unknown');
   if (known.length === 0) return { kind: 'unknown' };
   const lag = known.reduce((a, p) => a + p.lag, 0);
-  if (lag === 0) return { kind: 'caught-up' };
-  if (known.some((p) => p.forecast.kind === 'never' && p.lag > 0)) {
-    const c = known.reduce((a, p) => a + (p.forecast.consumeRate ?? 0), 0);
-    const pr = known.reduce((a, p) => a + (p.forecast.produceRate ?? 0), 0);
-    return { kind: 'never', consumeRate: c, produceRate: pr };
-  }
-  // The group catches up when its slowest partition does.
-  const seconds = Math.max(...known.map((p) => p.forecast.seconds ?? 0));
   const consumeRate = known.reduce((a, p) => a + (p.forecast.consumeRate ?? 0), 0);
   const produceRate = known.reduce((a, p) => a + (p.forecast.produceRate ?? 0), 0);
+  if (lag === 0) return { kind: 'caught-up', consumeRate, produceRate };
+  if (known.some((p) => p.forecast.kind === 'never' && p.lag > 0))
+    return { kind: 'never', consumeRate, produceRate };
+  // The group catches up when its slowest partition does.
+  const seconds = Math.max(...known.map((p) => p.forecast.seconds ?? 0));
   return { kind: 'eta', seconds, consumeRate, produceRate };
 }
 
