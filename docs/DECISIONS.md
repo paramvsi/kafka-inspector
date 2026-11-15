@@ -41,3 +41,5 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | TypeScript 6.0.x, not 7.x | `typescript-eslint` peer range is `>=4.8.4 <6.1.0` |
 
 | 2026-11-15 | `packages/ui/tokens/tokens.json` = `design-system/tokens.json` + `motion.reduced.overrides` (the reduced-motion values that previously existed only in `tokens.css`). Generated CSS is byte-identical to `design-system/tokens.css` (tested) | Generate the CSS from JSON without hard-coding values in the script |
+| 2026-11-15 | Don't use the token type class `.overline` in markup: Tailwind v4 has an `overline` utility (text-decoration) with the same name. Section labels use explicit utilities with the same values (11/16, 500, 0.06em, uppercase) | Name collision drew a line over sidebar section labels |
+| 2026-11-15 | Sidebar stays 232px (`--sidebar-width`, F-01). The reference PNGs show ~228px because the sidebar is a shrinkable flex child there | Spec over rendering artifact |

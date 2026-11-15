@@ -4,6 +4,20 @@
 
 @source '../../../packages/ui/src';
 
+/* Theme and motion variants follow the <html> attributes, not only the OS (F-05, F-08). */
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+@custom-variant dark (&:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *));
+@custom-variant motion-off {
+  &:where([data-motion='reduced'] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:where(:root:not([data-motion='full']) *) {
+      @slot;
+    }
+  }
+}
+
 /* Copper Oxide → Tailwind (docs/DESIGN_SYSTEM.md). Tailwind's default palette is removed: tokens only. */
 @theme inline {
   --color-*: initial;
@@ -59,6 +73,13 @@
   --ease-standard: var(--ease-standard);
   --ease-enter: var(--ease-enter);
   --ease-exit: var(--ease-exit);
+  --animate-live-pulse: ki-pulse var(--pulse-period) var(--ease-standard) infinite;
+}
+
+@keyframes ki-pulse {
+  50% {
+    opacity: 0.4;
+  }
 }
 
 html {
@@ -79,4 +100,33 @@ html.theme-switching * {
     background-color var(--dur-fast) var(--ease-standard),
     border-color var(--dur-fast) var(--ease-standard),
     color var(--dur-fast) var(--ease-standard);
+}
+
+/* Popover (native [popover]): fade + rise from the trigger side on enter, fade out on exit (MOTION.md "Overlays"). */
+.ki-popover {
+  position: fixed;
+  inset: auto;
+  top: calc(var(--topbar-height) - var(--space-1));
+  right: var(--space-6);
+  margin: 0;
+  opacity: 0;
+  transition:
+    opacity var(--dur-instant) var(--ease-exit),
+    overlay var(--dur-instant) allow-discrete,
+    display var(--dur-instant) allow-discrete;
+}
+.ki-popover:popover-open {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-enter),
+    transform var(--dur-fast) var(--ease-enter),
+    overlay var(--dur-fast) allow-discrete,
+    display var(--dur-fast) allow-discrete;
+}
+@starting-style {
+  .ki-popover:popover-open {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--move-xs)));
+  }
 }
