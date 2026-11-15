@@ -44,6 +44,8 @@ public class AlertService {
 
     public Rule save(Rule r) {
         if (r.name() == null || r.name().isBlank()) throw new IllegalArgumentException("Give the rule a name.");
+        if (r.metric() == null) throw new IllegalArgumentException("Choose a metric.");
+        if (r.severity() == null) throw new IllegalArgumentException("Choose a severity: info, warn or crit.");
         if (!METRICS.contains(r.metric())) throw new IllegalArgumentException("Unknown metric " + r.metric() + ". Use one of " + METRICS + ".");
         if (r.durationSec() < 0) throw new IllegalArgumentException("Duration can't be negative.");
         if (r.name().length() > 200) throw new IllegalArgumentException("Rule names are limited to 200 characters.");

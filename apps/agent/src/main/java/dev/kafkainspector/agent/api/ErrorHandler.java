@@ -22,7 +22,7 @@ public class ErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
     /** Malformed input from the client: always 400 in the API's own shape, never Boot's default body. */
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class, DateTimeParseException.class, NumberFormatException.class, NullPointerException.class})
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class, DateTimeParseException.class, NumberFormatException.class})
     ResponseEntity<Dto.ApiError> malformed(Exception e) {
         String msg = switch (e) {
             case MissingServletRequestParameterException m -> "Missing parameter " + m.getParameterName() + ".";
@@ -39,10 +39,17 @@ public class ErrorHandler {
         return ResponseEntity.status(405).body(Dto.ApiError.of("METHOD_NOT_ALLOWED", "This endpoint doesn't accept " + e.getMethod() + ". The agent is read-only in this version."));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    ResponseEntity<Dto.ApiError> invalidData(DataAccessException e) {
+        log.warn("Rejected by the database: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(400).body(Dto.ApiError.of("INVALID_DATA", "The agent couldn't store that: a value is missing or too long."));
+    }
+
+    /** The database itself failing (outage, lock timeout) is not the caller's mistake. */
     @ExceptionHandler(DataAccessException.class)
     ResponseEntity<Dto.ApiError> storage(DataAccessException e) {
         log.warn("Storage error: {}", e.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(400).body(Dto.ApiError.of("INVALID_DATA", "The agent couldn't store that: a value is missing or too long."));
+        return ResponseEntity.status(503).body(Dto.ApiError.of("STORAGE_UNAVAILABLE", "The agent's database didn't answer. Check the agent log and its KI_DB_URL, then try again."));
     }
 
     @ExceptionHandler({org.springframework.web.servlet.resource.NoResourceFoundException.class, org.springframework.web.servlet.NoHandlerFoundException.class})
@@ -58,6 +65,9 @@ public class ErrorHandler {
     /** Anything else: a generic 500 without internals (the cause is logged, not returned). */
     @ExceptionHandler(Exception.class)
     ResponseEntity<Dto.ApiError> unexpected(Exception e) {
+        // Spring MVC's own client errors (415, 406, missing header…) keep their status
+        if (e instanceof org.springframework.web.ErrorResponse er && er.getStatusCode().is4xxClientError())
+            return ResponseEntity.status(er.getStatusCode()).body(Dto.ApiError.of("BAD_REQUEST", er.getBody().getDetail() == null ? "The request can't be handled as sent." : er.getBody().getDetail()));
         log.error("Unexpected error", e);
         return ResponseEntity.status(500).body(Dto.ApiError.of("INTERNAL", "Something went wrong in the agent. Check its logs."));
     }

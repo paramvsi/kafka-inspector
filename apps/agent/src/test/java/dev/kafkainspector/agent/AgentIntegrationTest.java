@@ -212,6 +212,10 @@ class AgentIntegrationTest {
         expect.accept(send("GET", "/api/clusters/local/history?metric=bytesOut&scope=topic&key=orders", null), 400);
         expect.accept(send("GET", "/api/clusters/local/history?metric=lag&scope=group&key=x&range=2y", null), 400);
         expect.accept(send("GET", "/api/clusters/local/brokers/999/config", null), 404);
+        HttpRequest.Builder plain = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/alerts/rules")).header("Content-Type", "text/plain")
+                .header("X-KI-CSRF", cookies.getCookieStore().getCookies().stream().filter(x -> x.getName().equals("KI_CSRF")).findFirst().orElseThrow().getValue())
+                .POST(HttpRequest.BodyPublishers.ofString("hello"));
+        assertEquals(415, http.send(plain.build(), HttpResponse.BodyHandlers.ofString()).statusCode(), "wrong content type is the client's mistake");
         HttpResponse<String> page = send("GET", "/nope.js", null);
         assertEquals(404, page.statusCode());
     }

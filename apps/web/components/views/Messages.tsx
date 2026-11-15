@@ -894,11 +894,18 @@ function useSavedFilters(): [SavedFilter[], (f: SavedFilter) => void] {
   return [
     fromAgent.data ?? [],
     (f) =>
-      void remote
-        .save(f)
-        .then(() => qc.invalidateQueries({ queryKey: [clusterId, 'saved-filters'] }))
-        .catch((e: Error) =>
-          toast({ tone: 'crit', title: `Couldn't save filter ${f.name}`, body: e.message }),
-        ),
+      // the name travels in the URL path, where a "/" is rejected before it reaches the agent
+      f.name.includes('/')
+        ? toast({
+            tone: 'crit',
+            title: `Couldn't save filter ${f.name}`,
+            body: 'Filter names can’t contain “/”. Rename it and save again.',
+          })
+        : void remote
+            .save(f)
+            .then(() => qc.invalidateQueries({ queryKey: [clusterId, 'saved-filters'] }))
+            .catch((e: Error) =>
+              toast({ tone: 'crit', title: `Couldn't save filter ${f.name}`, body: e.message }),
+            ),
   ];
 }
