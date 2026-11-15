@@ -24,7 +24,7 @@ export function topicMatches(glob: string, topic: string): boolean {
 }
 
 /** "$.a.b", "$.items[*].sku", "$.items[0]", "$['a.b']" → segments; null when the path can't be read. */
-export function segments(path: string): string[] | null {
+function segments(path: string): string[] | null {
   const rest = path.trim().replace(/^\$/, '');
   const re = /\.([^.[\]]+)|\[(\d+|\*)\]|\[(['"])(.+?)\3\]/gy;
   const out: string[] = [];

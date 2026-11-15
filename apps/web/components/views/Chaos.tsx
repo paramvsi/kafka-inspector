@@ -12,6 +12,7 @@ import { Button, Card, Checkbox, Select, StatusBadge, TextField, useToast } from
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useAttempt } from '../../lib/attempt';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { startTour } from '../Tour';
 import { PageHeader } from '../Page';
@@ -83,6 +84,7 @@ const ACTIONS: Array<{
 export function ChaosView() {
   const { client, info } = useKafka();
   const toast = useToast();
+  const attempt = useAttempt();
   const qc = useQueryClient();
   const incidents = useKafkaQuery(
     ['incidents'],
@@ -121,32 +123,20 @@ export function ChaosView() {
   const running = incidents.data ?? [];
   const label = (k: ChaosActionKind) => ACTIONS.find((a) => a.kind === k)!.title;
   const refresh = () => qc.invalidateQueries({ queryKey: [info.clusters[0]?.id, 'incidents'] });
-  /** Runs a simulator call; a failure becomes a toast instead of an unhandled rejection. */
-  const attempt = (what: string, p: Promise<unknown>) =>
-    p.then(
-      () => true,
-      (e: Error) => {
-        toast({ tone: 'crit', title: `Couldn't ${what}`, body: e.message });
-        return false;
-      },
-    );
   const trigger = async (kind: ChaosActionKind, target?: string) => {
-    try {
-      const inc = await chaos.run({ kind, target });
-      toast({
-        tone: 'warn',
-        title: `${label(kind)} started`,
-        body: inc.target && inc.target !== '*' ? `on ${inc.target}` : 'on all topics',
-        action: { label: 'Watch on Overview', onClick: () => location.assign('/app/') },
-      });
-      refresh();
-    } catch (e) {
-      toast({
-        tone: 'crit',
-        title: `Couldn't start ${label(kind).toLowerCase()}`,
-        body: (e as Error).message,
-      });
-    }
+    let inc: Incident | undefined;
+    const ok = await attempt(
+      `start ${label(kind).toLowerCase()}`,
+      chaos.run({ kind, target }).then((i) => (inc = i)),
+    );
+    if (!ok || !inc) return;
+    toast({
+      tone: 'warn',
+      title: `${label(kind)} started`,
+      body: inc.target && inc.target !== '*' ? `on ${inc.target}` : 'on all topics',
+      action: { label: 'Watch on Overview', onClick: () => location.assign('/app/') },
+    });
+    refresh();
   };
   const metricFor = (i: Incident) => {
     const g = groups?.find((x) => x.groupId === i.target);

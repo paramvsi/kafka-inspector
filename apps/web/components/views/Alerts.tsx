@@ -27,6 +27,7 @@ import { TimeSeriesChart } from '../Chart';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useAttempt } from '../../lib/attempt';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -59,11 +60,13 @@ const SEV_TONE: Record<Severity, 'stalled' | 'warn' | 'info'> = {
   info: 'info',
 };
 
+const GONE = 'It may have just resolved; the list refreshes.';
 export function AlertsView() {
   const url = useUrl();
   const { client, clusterId } = useKafka();
   const qc = useQueryClient();
   const toast = useToast();
+  const attempt = useAttempt();
   const firingLive = useStream<AlertEvent[]>('alerts');
   const all = useKafkaQuery(
     ['alerts', 'all'],
@@ -143,16 +146,14 @@ export function AlertsView() {
                         size="sm"
                         disabled={!!muted}
                         onClick={async () => {
-                          try {
-                            await client.muteAlert(a.id, new Date(now + 3600e3).toISOString());
+                          if (
+                            await attempt(
+                              'mute the alert',
+                              client.muteAlert(a.id, new Date(now + 3600e3).toISOString()),
+                              GONE,
+                            )
+                          )
                             toast({ tone: 'info', title: 'Muted for 1 hour', body: a.title });
-                          } catch (e) {
-                            toast({
-                              tone: 'crit',
-                              title: "Couldn't mute the alert",
-                              body: `${(e as Error).message} It may have just resolved; the list refreshes.`,
-                            });
-                          }
                           refresh();
                         }}
                       >
@@ -162,15 +163,11 @@ export function AlertsView() {
                         size="sm"
                         variant="ghost"
                         onClick={async () => {
-                          try {
-                            await client.acknowledgeAlert(a.id);
-                          } catch (e) {
-                            toast({
-                              tone: 'crit',
-                              title: "Couldn't acknowledge the alert",
-                              body: `${(e as Error).message} It may have just resolved; the list refreshes.`,
-                            });
-                          }
+                          await attempt(
+                            'acknowledge the alert',
+                            client.acknowledgeAlert(a.id),
+                            GONE,
+                          );
                           refresh();
                         }}
                       >

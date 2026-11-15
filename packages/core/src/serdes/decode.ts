@@ -64,15 +64,16 @@ const utf8 = new TextDecoder('utf-8', { fatal: true });
  * Caches registry lookups by id. A miss (unknown id, or the registry failing) is remembered for 30 s, so a
  * poison message doesn't hit the registry per row, yet a transient error doesn't stick until reload.
  */
+const MISS_TTL_MS = 30_000;
+
 export function cachedLookup(
   fetchById: (id: number) => Promise<SchemaVersion>,
   now: () => number = Date.now,
-  missTtlMs = 30_000,
 ): SchemaLookup {
   const cache = new Map<number, { p: Promise<SchemaVersion | undefined>; missAt?: number }>();
   return (id) => {
     const hit = cache.get(id);
-    if (hit && (hit.missAt === undefined || now() - hit.missAt < missTtlMs)) return hit.p;
+    if (hit && (hit.missAt === undefined || now() - hit.missAt < MISS_TTL_MS)) return hit.p;
     const entry: { p: Promise<SchemaVersion | undefined>; missAt?: number } = {
       p: fetchById(id).catch(() => {
         entry.missAt = now();
