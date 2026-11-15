@@ -41,6 +41,8 @@ public class KafkaService implements DisposableBean {
         p.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         p.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPoll);
         p.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
+        // read-only: asking for a misspelled topic must never create it (the consumer default is true)
+        p.put(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, false);
         p.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafka-inspector-browse");
         p.remove(ConsumerConfig.GROUP_ID_CONFIG);
         return new KafkaConsumer<>(p);

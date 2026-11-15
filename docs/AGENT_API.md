@@ -105,6 +105,10 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 
 ## Notes from the build (phase 4)
 
+- **Errors.** Every error uses `{ "error": { "code", "message", "details" } }`: 400 `BAD_REQUEST` / `INVALID_DATA`, 404 `NOT_FOUND` / `TOPIC_NOT_FOUND` / `BROKER_NOT_FOUND` / `RULE_NOT_FOUND` / `ALERT_NOT_FOUND`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED`, 502 `KAFKA_UNAVAILABLE`, 503 `UNAVAILABLE`, 500 `INTERNAL` (no internals; see the agent log).
+- **History** accepts only what the sampler records: cluster `messagesIn`, `messagesOut`, `bytesIn`, `lag`, `underReplicated`; topic `messagesIn`; partition `endOffset`; group `lag`. Ranges `15m`, `1h`, `24h`, `7d`; anything else is 400.
+- **Browse never creates topics**: the consumer sets `allow.auto.create.topics=false`.
+
 These refine the contract above; the agent and `AgentClient` implement them.
 
 - **Info.** Anonymous callers get `200 { mode: "agent", version, auth: true, signedIn: false }`. The web app treats `signedIn: false` (and any 401) as "go to sign-in".

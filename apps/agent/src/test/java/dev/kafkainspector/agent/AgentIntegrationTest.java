@@ -175,6 +175,50 @@ class AgentIntegrationTest {
         assertTrue(get("/api/alerts/rules").findValuesAsString("id").stream().noneMatch(id::equals));
     }
 
+    @Test
+    @Order(15)
+    void browsingAMisspelledTopicIs404AndNeverCreatesIt() throws Exception {
+        signIn();
+        assertEquals(404, send("GET", "/api/clusters/local/topics/ordrs-typo/messages?limit=5", null).statusCode());
+        // also through the consumer directly (bypassing the API check), as the live tail does
+        try (var c = kafka.consumer("local", 5)) {
+            c.partitionsFor("ordrs-typo-2", Duration.ofSeconds(5));
+        } catch (Exception ignored) {
+            // unknown topic: fine
+        }
+        Thread.sleep(1000);
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            var names = admin.listTopics().names().get(10, TimeUnit.SECONDS);
+            assertFalse(names.contains("ordrs-typo"), names::toString);
+            assertFalse(names.contains("ordrs-typo-2"), names::toString);
+        }
+    }
+
+    @Test
+    @Order(16)
+    void malformedRequestsGet4xxInTheApiErrorShapeNever500() throws Exception {
+        signIn();
+        java.util.function.BiConsumer<HttpResponse<String>, Integer> expect = (r, status) -> {
+            assertEquals(status, r.statusCode(), r::body);
+            if (r.uri().getPath().startsWith("/api/")) assertFalse(JSON.readTree(r.body()).path("error").path("code").asString("").isEmpty(), r::body);
+        };
+        expect.accept(send("POST", "/api/auth/login", null), 400);
+        expect.accept(send("GET", "/api/clusters/local/topics?page=abc", null), 400);
+        assertEquals(200, send("GET", "/api/clusters/local/topics?page=2147483647", null).statusCode());
+        expect.accept(send("POST", "/api/alerts/events/nope/mute", "{}"), 400);
+        expect.accept(send("POST", "/api/alerts/events/nope/mute", "{\"until\":\"2030-01-01T00:00:00Z\"}"), 404);
+        expect.accept(send("POST", "/api/alerts/events/nope/ack", null), 404);
+        expect.accept(send("POST", "/api/alerts/rules", "{\"name\":\"a\",\"metric\":\"lag\"}"), 400);
+        expect.accept(send("GET", "/api/clusters/local/history?metric=bytesOut&scope=topic&key=orders", null), 400);
+        expect.accept(send("GET", "/api/clusters/local/history?metric=lag&scope=group&key=x&range=2y", null), 400);
+        expect.accept(send("GET", "/api/clusters/local/brokers/999/config", null), 404);
+        HttpResponse<String> page = send("GET", "/nope.js", null);
+        assertEquals(404, page.statusCode());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    dev.kafkainspector.agent.kafka.KafkaService kafka;
+
     @org.springframework.beans.factory.annotation.Autowired
     dev.kafkainspector.agent.history.HistoryRepository history;
 

@@ -2,7 +2,6 @@ package dev.kafkainspector.agent.web;
 
 import java.io.IOException;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
@@ -11,7 +10,7 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 
 /**
  * Serves the web app's static export (D-05, D-06): "/" → "/app/", "/app/topics/view/" → its index.html,
- * unknown paths → 404.html. Query-param detail routes need no server-side rendering.
+ * unknown paths → 404 with 404.html (ErrorHandler). Query-param detail routes need no server-side rendering.
  */
 @Configuration
 public class StaticConfig implements WebMvcConfigurer {
@@ -31,9 +30,9 @@ public class StaticConfig implements WebMvcConfigurer {
                 String dir = path.isEmpty() || path.endsWith("/") ? path : path + "/";
                 Resource index = location.createRelative(dir + "index.html");
                 if (index.exists() && index.isReadable()) return index;
-                if (path.startsWith("api/")) return null;
-                Resource notFound = new ClassPathResource("static/404.html");
-                return notFound.exists() ? notFound : null;
+                // unknown: nothing (so the resource cache never stores one entry per random URL);
+                // ErrorHandler answers 404 with the app's 404 page for browsers, JSON for /api
+                return null;
             }
         });
     }

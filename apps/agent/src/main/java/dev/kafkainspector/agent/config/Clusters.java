@@ -37,6 +37,13 @@ public class Clusters {
         for (KiProperties.Cluster c : list) {
             if (c.bootstrap() == null || c.bootstrap().isBlank()) throw new IllegalStateException("Cluster " + c.name() + " has no bootstrap servers (KI_CLUSTERS_n_BOOTSTRAP).");
             String id = c.name() == null ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
+            // fail fast on settings that would otherwise fail every request (or silently replace a cluster)
+            if (byId.containsKey(id))
+                throw new IllegalStateException("Two clusters resolve to the id \"" + id + "\" (" + byId.get(id).name() + ", " + c.name() + "). Give each cluster a distinct KI_CLUSTERS_n_NAME.");
+            if (!List.of("PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL").contains(c.security()))
+                throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " is not one of PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL (upper case).");
+            if (c.saslMechanism() != null && !c.saslMechanism().isBlank() && !List.of("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER").contains(c.saslMechanism()))
+                throw new IllegalStateException("Cluster " + c.name() + ": SASL mechanism " + c.saslMechanism() + " is not one of PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, OAUTHBEARER.");
             byId.put(id, c);
         }
         // startup log lists clusters and security protocol only (AGENT_API security checklist)

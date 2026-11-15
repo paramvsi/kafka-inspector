@@ -93,7 +93,8 @@ export function GuidedTour() {
   };
 
   useEffect(() => {
-    if (step && !location.pathname.startsWith(STEPS[step - 1]!.path.split('?')[0]!))
+    // exact page match: every app page starts with "/app/", so a prefix test kept step 1 off the Overview
+    if (step && location.pathname !== STEPS[step - 1]!.path.split('?')[0]!)
       router.push(STEPS[step - 1]!.path);
   }, [step, router]);
 

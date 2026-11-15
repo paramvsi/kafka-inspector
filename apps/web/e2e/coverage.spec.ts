@@ -622,3 +622,59 @@ test('after Reset demo, live data keeps flowing (no reload needed)', async ({ pa
   const first = await lag.innerText();
   await expect.poll(() => lag.innerText(), { timeout: 8000 }).not.toBe(first);
 });
+
+test('F-07: keyboard focus shows the focus ring', async ({ page }) => {
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('link', { name: 'orders' })).toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press('Tab'); // skip link
+  await page.keyboard.press('Tab');
+  const style = await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement;
+    const s = getComputedStyle(el);
+    return { tag: el.tagName, outline: s.outlineStyle, width: s.outlineWidth };
+  });
+  expect(style.outline).toBe('solid');
+  expect(style.width).toBe('2px');
+});
+
+test('F-08: dialogs transition in, the tour spotlight tracks its target, landing sections reveal', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await page.getByRole('button', { name: 'Create topic' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create topic' });
+  const d = await dialog.evaluate((e) => getComputedStyle(e).transitionDuration);
+  expect(d.split(',').some((x) => parseFloat(x) > 0)).toBe(true);
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.goto('/');
+  const reveal = page.locator('.ki-reveal-once').last();
+  await reveal.scrollIntoViewIfNeeded();
+  await expect(reveal).toHaveAttribute('data-reveal', 'shown');
+  await expect.poll(() => reveal.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+});
+
+test.describe('reduced motion, overlays', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+  test('dialogs and landing reveals appear without animation', async ({ page }) => {
+    await page.goto('/');
+    const reveal = page.locator('.ki-reveal-once').last();
+    expect(await reveal.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+    await page.goto('/app/topics/');
+    await page.getByRole('button', { name: 'Create topic' }).click();
+    const d = await page
+      .getByRole('dialog', { name: 'Create topic' })
+      .evaluate((e) => getComputedStyle(e).transitionDuration);
+    // MOTION.md: no movement under reduced motion — fades of at most 120 ms, everything else ~instant
+    expect(d.split(',').every((x) => parseFloat(x) <= 0.12)).toBe(true);
+  });
+});
+
+test('F-08: the tour spotlight frames its target', async ({ page }) => {
+  await page.goto('/app/chaos/');
+  await page.getByRole('button', { name: 'Start guided tour' }).click();
+  await expect(page.getByRole('dialog', { name: /of 5/ })).toBeVisible({ timeout: 15_000 });
+  const spot = page.locator('.ki-spotlight');
+  await expect(spot).toBeVisible({ timeout: 15_000 });
+  expect((await spot.boundingBox())!.width).toBeGreaterThan(20);
+});

@@ -474,4 +474,3 @@ test('controller follows the lowest online broker; produce to a leaderless parti
     a.sim.produce({ topic: 'one', partition: dead.partition, value: '{}' }),
   ).rejects.toThrow('has no leader');
 });
-

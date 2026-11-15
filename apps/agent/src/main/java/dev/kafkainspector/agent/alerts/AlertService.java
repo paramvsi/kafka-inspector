@@ -32,7 +32,7 @@ public class AlertService {
     public record Event(String id, String ruleId, String severity, String title, String evidence, String target, String href, String state, String firedAt, String resolvedAt, String mutedUntil, Boolean acknowledged) {}
 
     public List<Rule> rules() {
-        return jdbc.query("SELECT * FROM alert_rule WHERE deleted = FALSE ORDER BY id", (rs, i) -> new Rule(rs.getString("id"), rs.getString("name"), rs.getString("metric"), new Scope(rs.getString("scope_kind"), rs.getString("scope_target")),
+        return jdbc.query("SELECT * FROM alert_rule WHERE deleted = FALSE ORDER BY name, id", (rs, i) -> new Rule(rs.getString("id"), rs.getString("name"), rs.getString("metric"), new Scope(rs.getString("scope_kind"), rs.getString("scope_target")),
                 rs.getObject("threshold") == null ? null : rs.getDouble("threshold"), rs.getInt("duration_sec"), rs.getString("severity"), List.of(rs.getString("channels").split(",")), rs.getBoolean("enabled"), rs.getBoolean("muted"), stateOf(rs.getString("id"))));
     }
 
@@ -46,6 +46,10 @@ public class AlertService {
         if (r.name() == null || r.name().isBlank()) throw new IllegalArgumentException("Give the rule a name.");
         if (!METRICS.contains(r.metric())) throw new IllegalArgumentException("Unknown metric " + r.metric() + ". Use one of " + METRICS + ".");
         if (r.durationSec() < 0) throw new IllegalArgumentException("Duration can't be negative.");
+        if (r.name().length() > 200) throw new IllegalArgumentException("Rule names are limited to 200 characters.");
+        if (!List.of("info", "warn", "crit").contains(r.severity())) throw new IllegalArgumentException("Severity must be info, warn or crit.");
+        if (r.scope() != null && !List.of("any", "specific").contains(r.scope().kind())) throw new IllegalArgumentException("Scope kind must be any or specific.");
+        if (r.channels() != null && String.join(",", r.channels()).length() > 100) throw new IllegalArgumentException("Too many channels.");
         boolean create = r.id() == null || r.id().isBlank();
         String id = create ? "r_" + java.util.UUID.randomUUID().toString().substring(0, 12) : r.id();
         String scopeKind = r.scope() == null ? "any" : r.scope().kind();
@@ -75,11 +79,16 @@ public class AlertService {
     }
 
     public void mute(String id, String until) {
-        jdbc.update("UPDATE alert_event SET muted_until = ? WHERE id = ?", Instant.parse(until).toEpochMilli(), id);
+        if (until == null) throw new IllegalArgumentException("Give \"until\" as an ISO 8601 time.");
+        if (jdbc.update("UPDATE alert_event SET muted_until = ? WHERE id = ?", Instant.parse(until).toEpochMilli(), id) == 0) throw notFound(id);
     }
 
     public void acknowledge(String id) {
-        jdbc.update("UPDATE alert_event SET acknowledged = TRUE WHERE id = ?", id);
+        if (jdbc.update("UPDATE alert_event SET acknowledged = TRUE WHERE id = ?", id) == 0) throw notFound(id);
+    }
+
+    private static RuntimeException notFound(String id) {
+        return new dev.kafkainspector.agent.config.Clusters.NotFound("ALERT_NOT_FOUND", "Alert " + id + " doesn't exist.");
     }
 
     public int firingCount() {

@@ -143,6 +143,8 @@ public class ApiController {
 
     @GetMapping("/clusters/{c}/brokers/{id}/config")
     public List<Dto.ConfigEntry> brokerConfig(@PathVariable String c, @PathVariable int id) throws Exception {
+        ClusterState s = state(c);
+        if (s.ts > 0 && s.brokers.stream().noneMatch(b -> b.id() == id)) throw new Clusters.NotFound("BROKER_NOT_FOUND", "Broker " + id + " isn't part of " + c + ".");
         return configs(c, new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(id)));
     }
 
@@ -175,7 +177,8 @@ public class ApiController {
         };
         items.sort(cmp);
         int sz = Math.max(1, Math.min(size, 500)), pg = Math.max(1, page);
-        return new Dto.Page<>(items.subList(Math.min(items.size(), (pg - 1) * sz), Math.min(items.size(), pg * sz)), items.size(), pg, sz);
+        long from = (long) (pg - 1) * sz, to = (long) pg * sz; // long: page=2147483647 must not overflow
+        return new Dto.Page<>(items.subList((int) Math.min(items.size(), from), (int) Math.min(items.size(), to)), items.size(), pg, sz);
     }
 
     private ClusterState.TopicSnap topicSnap(ClusterState s, String name) {
@@ -199,6 +202,8 @@ public class ApiController {
     @GetMapping("/clusters/{c}/topics/{name}/messages")
     public Dto.RawMessagePage browse(@PathVariable String c, @PathVariable String name, @RequestParam(defaultValue = "all") String partition, @RequestParam(defaultValue = "newest") String from, @RequestParam(required = false) Long offset,
             @RequestParam(required = false) String timestamp, @RequestParam(required = false) String group, @RequestParam(defaultValue = "100") int limit, @RequestParam(required = false) String cursor) {
+        ClusterState st = state(c);
+        if (st.ts > 0 && !st.topics.containsKey(name)) throw new Clusters.NotFound("TOPIC_NOT_FOUND", "Topic " + name + " doesn't exist on " + c + ".");
         Map<Integer, Long> groupOffsets = new HashMap<>();
         if ("group".equals(from) && group != null) {
             ClusterState.GroupSnap g = state(c).groups.get(group);
@@ -232,14 +237,23 @@ public class ApiController {
 
     // ── history ──
 
+    private static final Map<String, Set<String>> SAMPLED = Map.of(
+            "cluster", Set.of("messagesIn", "messagesOut", "bytesIn", "lag", "underReplicated"),
+            "topic", Set.of("messagesIn"),
+            "partition", Set.of("endOffset"),
+            "group", Set.of("lag"));
     private static final Map<String, Long> RANGES = Map.of("15m", 900_000L, "1h", 3_600_000L, "24h", 86_400_000L, "7d", 604_800_000L);
 
     @GetMapping("/clusters/{c}/history")
     public List<Dto.Series> history(@PathVariable String c, @RequestParam String metric, @RequestParam String scope, @RequestParam(required = false) String key, @RequestParam(defaultValue = "1h") String range) {
         clusters.get(c);
-        long from = System.currentTimeMillis() - RANGES.getOrDefault(range, 3_600_000L);
+        if (!RANGES.containsKey(range)) throw new IllegalArgumentException("Range must be one of 15m, 1h, 24h, 7d.");
+        // only what the sampler records (Sampler.record): anything else would be an empty or mislabelled series
+        Set<String> recorded = SAMPLED.get(scope);
+        if (recorded == null || !recorded.contains(metric))
+            throw new IllegalArgumentException("The agent doesn't record " + metric + " for scope " + scope + ". Recorded: " + SAMPLED + ".");
+        long from = System.currentTimeMillis() - RANGES.get(range);
         String dbScope = scope, dbKey = key == null ? "" : key, dbMetric = metric;
-        if ("partition".equals(scope)) dbMetric = "endOffset";
         if ("cluster".equals(scope)) dbKey = "";
         return List.of(new Dto.Series(key == null ? scope : key, history.series(c, dbScope, dbKey, dbMetric, from, 240)));
     }
