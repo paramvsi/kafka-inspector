@@ -32,8 +32,11 @@ export function Tooltip({
     return () => document.removeEventListener('keydown', onKey);
   }, [dismissed]);
   // the description belongs on the control itself, so it is read when the control is reached
+  // merged, so a control's own hint/error description is kept
   const trigger = isValidElement<{ 'aria-describedby'?: string }>(children)
-    ? cloneElement(children, { 'aria-describedby': id })
+    ? cloneElement(children, {
+        'aria-describedby': `${children.props['aria-describedby'] ?? ''} ${id}`.trim(),
+      })
     : children;
   return (
     <span
@@ -178,7 +181,10 @@ function Toast({
 }) {
   // `dismiss` is stable: other toasts arriving don't restart this one's timer.
   // Hover or keyboard focus holds it open (WCAG 2.2.1), and the 6 s restart when the pointer/focus leaves.
-  const [held, setHeld] = useState(false);
+  // hover and keyboard focus hold it independently: leaving with the pointer must not drop a focused toast
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const held = hovered || focused;
   const onDismiss = () => dismiss(item.id);
   useEffect(() => {
     if (held || item.leaving) return;
@@ -187,11 +193,11 @@ function Toast({
   }, [held, item.leaving, item.id, dismiss]);
   return (
     <div
-      onMouseEnter={() => setHeld(true)}
-      onMouseLeave={() => setHeld(false)}
-      onFocus={() => setHeld(true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeld(false);
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
       }}
       className={cx(
         'ki-toast pointer-events-auto flex gap-3 rounded-lg border border-line bg-surface p-3 text-[13px] [box-shadow:var(--shadow-popover)]',

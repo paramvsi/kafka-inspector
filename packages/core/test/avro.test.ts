@@ -191,3 +191,20 @@ test('float32 reads show the shortest equal decimal; fixed sizes are checked; by
   );
   expect(rec.decode(rec.encode({}))).toEqual({ b: Uint8Array.of(1, 2) });
 });
+
+test('a numeric-looking string in a union stays a string', () => {
+  for (const u of ['["int","string"]', '["null","long","string"]']) {
+    const t = AvroType.parse(u);
+    expect(t.decode(t.encode('42'))).toBe('42');
+    expect(t.decode(t.encode(42))).toBe(42);
+  }
+  const big = AvroType.parse('["null","long","string"]');
+  expect(big.decode(big.encode('9223372036854775807'))).toBe('9223372036854775807');
+});
+
+test('a map key named __proto__ survives decoding', () => {
+  const t = AvroType.parse('{"type":"map","values":"int"}');
+  const bytes = t.encode(JSON.parse('{"__proto__": 1, "a": 2}'));
+  const v = t.decode(bytes) as Record<string, number>;
+  expect(Object.keys(v).sort()).toEqual(['__proto__', 'a']);
+});

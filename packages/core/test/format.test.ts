@@ -55,3 +55,8 @@ test('invalid durations and times show a dash, not NaN', () => {
   expect(formatDuration(Number.NaN)).toBe('—');
   expect(formatRelative('not a date')).toBe('—');
 });
+
+test('formatCount shows a dash for NaN and Infinity', () => {
+  expect(formatCount(Number.NaN)).toBe('—');
+  expect(formatCount(Number.POSITIVE_INFINITY)).toBe('—');
+});

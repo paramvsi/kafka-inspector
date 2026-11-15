@@ -118,6 +118,8 @@ export function Select({
     <select
       id={id}
       aria-label={hideLabel && typeof label === 'string' ? label : undefined}
+      aria-invalid={!!error}
+      aria-describedby={(!hideLabel && hint) || error ? `${id}-msg` : undefined}
       className={cx(control, 'cursor-pointer pr-8', className)}
       {...rest}
     >
@@ -128,8 +130,18 @@ export function Select({
       ))}
     </select>
   );
+  // hideLabel still shows an error (it must never disappear), linked to the control
   return hideLabel ? (
-    select
+    error ? (
+      <span className="flex flex-col gap-1">
+        {select}
+        <span id={`${id}-msg`} className="text-[12px] text-crit-text">
+          {error}
+        </span>
+      </span>
+    ) : (
+      select
+    )
   ) : (
     <Field label={label} hint={hint} error={error} id={id}>
       {select}

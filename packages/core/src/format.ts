@@ -6,6 +6,7 @@ export const formatInt = (n: number) => int.format(Math.round(n) || 0); // || 0:
 
 /** 1.2M · 950 · 12.4k */
 export function formatCount(n: number): string {
+  if (!Number.isFinite(n)) return '—';
   const a = Math.abs(n);
   if (Math.round(a) < 1e4) return formatInt(n);
   const steps: Array<[number, string]> = [

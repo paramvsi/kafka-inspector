@@ -51,3 +51,19 @@ test('hover holds a toast open; leaving restarts its 6 s', () => {
   act(() => vi.advanceTimersByTime(6500));
   expect(queryByText('held')).toBeNull();
 });
+
+test('a focused toast stays when the pointer leaves', () => {
+  vi.useFakeTimers();
+  const { getByText, queryByText } = render(
+    <ToastProvider>
+      <Pusher at={[[0, 'kept']]} />
+    </ToastProvider>,
+  );
+  act(() => vi.advanceTimersByTime(10));
+  const t = getByText('kept').closest('.ki-toast')!;
+  fireEvent.focus(t);
+  fireEvent.mouseEnter(t);
+  fireEvent.mouseLeave(t);
+  act(() => vi.advanceTimersByTime(20_000));
+  expect(queryByText('kept')).not.toBeNull();
+});

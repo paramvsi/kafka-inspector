@@ -129,7 +129,7 @@ describe('messages', () => {
     const c = make(undefined, 'other-seed');
     await c.init();
     expect(read(c.sim).slice(0, 5)).not.toEqual(read(a.sim).slice(0, 5));
-  });
+  }, 15_000); // ~0.7 s alone; two back-fills + 1,000 decodes can be slow on a busy machine
 
   test('Avro messages round-trip through avsc with the registry schema (Confluent wire format)', async () => {
     const h = make();

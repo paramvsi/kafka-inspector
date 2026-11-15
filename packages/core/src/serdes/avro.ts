@@ -259,7 +259,7 @@ export class AvroType {
         return a;
       }
       case 'map': {
-        const m: Record<string, Value> = {};
+        const m: Record<string, Value> = Object.create(null); // a "__proto__" key is data, not a prototype
         for (let n = readBlock(r); n !== 0; n = readBlock(r))
           for (let i = 0; i < n; i++) {
             const k = this.read('string', r);
@@ -300,8 +300,10 @@ const LONG_MAX = 2n ** 63n - 1n;
 function isLong(v: unknown): v is number | string {
   if (typeof v === 'number') return Number.isSafeInteger(v);
   if (typeof v !== 'string' || !/^-?\d+$/.test(v)) return false;
+  // only the form the decoder produces: beyond 2^53. "42" is a string, so ["int","string"] keeps it one
   const b = BigInt(v);
-  return b >= LONG_MIN && b <= LONG_MAX;
+  const safe = BigInt(Number.MAX_SAFE_INTEGER);
+  return (b > safe || b < -safe) && b >= LONG_MIN && b <= LONG_MAX;
 }
 
 /** zig-zag varint, exact for the whole 64-bit range */
