@@ -31,7 +31,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## Messages (raw bytes; browser decodes)
 
-- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`
+- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100&cursor=` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`. Pass `nextCursor` back as `cursor` for the next page; it is absent when nothing is left. Per partition a page keeps only the unbroken run of offsets from where reading started (records cut by the timestamp sort, or a range the 4 s read budget didn't finish, come on a later page), so paging reaches every record exactly once
   - `RawMessageDto`: `{ topic, partition, offset, timestamp, key: base64|null, value: base64|null, headers: [{key, value: base64}], sizeBytes }`
   - Max `limit` 500. The agent uses a dedicated consumer per request with `enable.auto.commit=false`, no `group.id` (assign + seek); it **never commits offsets**.
 - `POST /api/clusters/{c}/messages/search` `{ topicRegex, from, limit, sample: boolean }` → `RawMessagePage` (multi-topic)
@@ -107,7 +107,7 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 
 ## Notes from the build (phase 4)
 
-- **Errors.** Every error uses `{ "error": { "code", "message", "details" } }`: 400 `BAD_REQUEST` / `INVALID_DATA`, 404 `NOT_FOUND` / `CLUSTER_NOT_FOUND` / `TOPIC_NOT_FOUND` / `GROUP_NOT_FOUND` / `BROKER_NOT_FOUND` / `RULE_NOT_FOUND` / `ALERT_NOT_FOUND` / `SCHEMA_NOT_FOUND` / `NO_SCHEMA_REGISTRY`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED`, 502 `KAFKA_UNAVAILABLE`, 503 `UNAVAILABLE`, 500 `INTERNAL` (no internals; see the agent log).
+- **Errors.** Every error uses `{ "error": { "code", "message", "details" } }`: 400 `BAD_REQUEST` (also Spring's own client errors, which keep their status: 415 wrong content type, 406, missing header) / `INVALID_DATA` (a value the database rejects as missing or too long), 404 `NOT_FOUND` / `CLUSTER_NOT_FOUND` / `TOPIC_NOT_FOUND` / `GROUP_NOT_FOUND` / `BROKER_NOT_FOUND` / `RULE_NOT_FOUND` / `ALERT_NOT_FOUND` / `SCHEMA_NOT_FOUND` / `NO_SCHEMA_REGISTRY`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED`, 502 `KAFKA_UNAVAILABLE`, 503 `UNAVAILABLE` / `STORAGE_UNAVAILABLE` (the agent's database failed), 500 `INTERNAL` (no internals; see the agent log).
 - **History** accepts only what the sampler records: cluster `messagesIn`, `messagesOut`, `bytesIn`, `lag`, `underReplicated`; topic `messagesIn`; partition `endOffset`; group `lag`. Ranges `15m`, `1h`, `24h`, `7d`; anything else is 400.
 - **Browse never creates topics**: the consumer sets `allow.auto.create.topics=false`.
 
@@ -123,4 +123,4 @@ These refine the contract above; the agent and `AgentClient` implement them.
 - **Schemas.** Without a configured registry every schema route answers `404 NO_SCHEMA_REGISTRY` with the variable to set.
 - **Alert rules.** `DELETE /api/alerts/rules/{id}` is a soft delete (the rule disappears; its firing alerts resolve).
 - **History retention** (`KI_HISTORY_RETENTION`, default 7 d) runs every 10 min: samples older than 1 h are thinned to 1 per minute, older than 24 h to 1 per 10 min; resolved alert events are removed after 7 days. Queries bucket-average, so a thinned range reads the same.
-- **Errors.** `404 *_NOT_FOUND`, `400 BAD_REQUEST`, `502 KAFKA_UNAVAILABLE` (brokers unreachable), `503 UNAVAILABLE` (still connecting on first start).
+- **Errors.** See "Errors" above: `400`, `404 *_NOT_FOUND`, `405`, `429`, `502 KAFKA_UNAVAILABLE` (brokers unreachable), `503 UNAVAILABLE` (still connecting) / `STORAGE_UNAVAILABLE` (agent database), `500 INTERNAL`.
