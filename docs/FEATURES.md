@@ -14,7 +14,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 | Overview | F-10 … F-15 | ✅ |
 | Brokers | F-20, F-21, F-22 | ✅ (config edit is v2) |
 | Topics | F-30, F-31, F-32, F-33, F-34, F-35, F-37, F-38, F-39 | ✅ F-30 paginates (25/page) instead of virtualising |
-| Topic config | F-36 | ⚠️ read-only in both modes; editing in the demo is not built |
+| Topic config | F-36 | ✅ edit and reset-to-default in the demo (logged in Recent events, persisted); read-only on real clusters |
 | Message browser | F-40 … F-49 | ✅ |
 | Produce | F-50, F-51 | ✅ (demo) |
 | Consumer groups | F-60 … F-64 | ✅ (reset/delete in demo) |

@@ -70,6 +70,28 @@ test.describe('theme (F-05)', () => {
   });
 });
 
+test('a menu opened while the cluster boots stays open when live data arrives', async ({
+  page,
+}) => {
+  // hold the agent probe so the boot frame is on screen long enough to open a menu
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  await page.route('**/api/info', async (r) => {
+    await held;
+    await r.fulfill({ status: 404, body: '' });
+  });
+  await page.goto('/app/');
+  await expect(page.getByText('Checking for a Kafka Inspector agent…')).toBeVisible();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const theme = page.getByRole('group', { name: 'Theme' });
+  await expect(theme).toBeVisible();
+  release();
+  await expect(page.getByRole('link', { name: /^Consumer groups/ })).toContainText(/\d/, {
+    timeout: 15_000,
+  });
+  await expect(theme).toBeVisible();
+});
+
 test('theme choice persists and applies before any app JavaScript runs (no flash)', async ({
   browser,
 }) => {

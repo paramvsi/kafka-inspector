@@ -136,6 +136,7 @@ export interface KafkaClient {
   writes?: {
     createTopic(clusterId: string, spec: NewTopic): Promise<void>;
     deleteTopic(clusterId: string, name: string): Promise<void>;
+    updateTopicConfig(clusterId: string, name: string, changes: Record<string, string | null>): Promise<void>; // null = reset to default
     produce(clusterId: string, req: ProduceRequest): Promise<ProduceResult>;
     resetOffsets(clusterId: string, req: ResetOffsetsRequest, dryRun: boolean): Promise<ResetPreview>;
     deleteGroup(clusterId: string, groupId: string): Promise<void>;

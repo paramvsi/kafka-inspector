@@ -526,6 +526,12 @@ export interface KafkaClient {
   writes?: {
     createTopic(clusterId: string, spec: NewTopic): Promise<void>;
     deleteTopic(clusterId: string, name: string): Promise<void>;
+    /** Set overrides; a null value removes the override (back to the default). */
+    updateTopicConfig(
+      clusterId: string,
+      name: string,
+      changes: Record<string, string | null>,
+    ): Promise<void>;
     produce(clusterId: string, req: ProduceRequest): Promise<ProduceResult>;
     resetOffsets(
       clusterId: string,

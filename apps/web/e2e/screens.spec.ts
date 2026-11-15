@@ -74,6 +74,32 @@ test('topics: no-results state offers clear filter, include internal and create'
   await expect(page.getByRole('link', { name: 'clickstream' })).toBeVisible();
 });
 
+test('topic config: edit an override, see it highlighted, reset it to default (F-36)', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=config');
+  const row = page.getByRole('row', { name: /^segment\.ms/ });
+  await expect(row.getByText('default')).toBeVisible({ timeout: 15_000 });
+  await row.getByRole('button', { name: 'Edit segment.ms' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit config' });
+  await dialog.getByLabel('segment.ms').fill('soon');
+  await dialog.getByRole('button', { name: 'Save config' }).click();
+  await expect(dialog.getByText('segment.ms must be a whole number.')).toBeVisible();
+  await dialog.getByLabel('segment.ms').fill('3600000');
+  await dialog.getByRole('button', { name: 'Save config' }).click();
+  await expect(dialog).toBeHidden();
+  const edited = page.getByRole('row', { name: /^segment\.ms/ });
+  await expect(edited.getByText('override')).toBeVisible();
+  await expect(edited.getByText('3600000')).toBeVisible();
+  await edited.getByRole('button', { name: 'Edit segment.ms' }).click();
+  await dialog.getByRole('button', { name: 'Reset to default' }).click();
+  await expect(page.getByRole('row', { name: /^segment\.ms/ }).getByText('default')).toBeVisible();
+  // read-only: no edit buttons
+  await page.goto('/app/topics/view/?name=orders&tab=config&preview=readonly');
+  await expect(page.getByText(/overrides · editing topic config/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /^Edit [a-z]+\./ })).toHaveCount(0);
+});
+
 test('read-only preview: banner, disabled writes with the hint, self-hosted chrome', async ({
   page,
 }) => {

@@ -5,6 +5,7 @@ import {
   formatInt,
   formatPct,
   formatRelative,
+  type ConfigEntry,
   type PartitionInfo,
   type TopicDetail as Detail,
 } from '@ki/core';
@@ -13,18 +14,23 @@ import {
   Card,
   CopyButton,
   DataTable,
+  Dialog,
   EmptyState,
   KpiCard,
   StatusBadge,
   Tabs,
+  TextField,
+  useToast,
 } from '@ki/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { TimeSeriesChart } from '../Chart';
 import Link from 'next/link';
 import { useApp } from '../../lib/app';
-import { useKafkaQuery } from '../../lib/kafka';
+import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { useUrl } from '../../lib/url';
-import { PageHeader, WriteButton } from '../Page';
+import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
 import { healthBadge } from './Topics';
@@ -405,50 +411,177 @@ function ConsumersTab({ d }: { d: Detail }) {
 
 function ConfigTab({ name }: { name: string }) {
   const cfg = useKafkaQuery(['topic-config', name], (c, id) => c.getTopicConfig(id, name));
+  const writes = useWrites();
+  const [editing, setEditing] = useState<ConfigEntry>();
   const rows = [...(cfg.data ?? [])].sort(
     (a, b) => Number(a.isDefault) - Number(b.isDefault) || a.name.localeCompare(b.name),
   );
+  const overrides = rows.filter((r) => !r.isDefault).length;
   return (
-    <DataTable
-      caption="Topic configuration"
-      rows={rows}
-      rowKey={(c) => c.name}
-      footer={`${rows.filter((r) => !r.isDefault).length} overrides · editing topic config arrives with write support on real clusters (v2)`}
-      columns={[
-        {
-          key: 'n',
-          header: 'Config',
-          kind: 'id',
-          cell: (c) => (
-            <span className={c.isDefault ? 'text-ink-muted' : 'font-medium text-ink'}>
-              {c.name}
-            </span>
-          ),
-        },
-        {
-          key: 'v',
-          header: 'Value',
-          kind: 'id',
-          cell: (c) => (
-            <span className={c.isDefault ? 'text-ink-muted' : 'text-copper'}>
-              {c.isSensitive ? '******' : c.value}
-            </span>
-          ),
-        },
-        {
-          key: 's',
-          header: 'Source',
-          cell: (c) =>
-            c.isDefault ? (
-              <span className="text-ink-muted">default</span>
-            ) : (
-              <StatusBadge status="info" dot={false}>
-                override
-              </StatusBadge>
+    <>
+      <DataTable
+        caption="Topic configuration"
+        rows={rows}
+        rowKey={(c) => c.name}
+        footer={
+          writes
+            ? `${overrides} overrides`
+            : `${overrides} overrides · editing topic config arrives with write support on real clusters (v2)`
+        }
+        columns={[
+          {
+            key: 'n',
+            header: 'Config',
+            kind: 'id',
+            cell: (c) => (
+              <span className={c.isDefault ? 'text-ink-muted' : 'font-medium text-ink'}>
+                {c.name}
+              </span>
             ),
-        },
-      ]}
-    />
+          },
+          {
+            key: 'v',
+            header: 'Value',
+            kind: 'id',
+            cell: (c) => (
+              <span className={c.isDefault ? 'text-ink-muted' : 'text-copper'}>
+                {c.isSensitive ? '******' : c.value}
+              </span>
+            ),
+          },
+          {
+            key: 's',
+            header: 'Source',
+            cell: (c) =>
+              c.isDefault ? (
+                <span className="text-ink-muted">default</span>
+              ) : (
+                <StatusBadge status="info" dot={false}>
+                  override
+                </StatusBadge>
+              ),
+          },
+          ...(writes
+            ? [
+                {
+                  key: 'e',
+                  header: <span className="sr-only">Actions</span>,
+                  cell: (c: ConfigEntry) =>
+                    c.readOnly || c.isSensitive ? null : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Edit ${c.name}`}
+                        onClick={() => setEditing(c)}
+                      >
+                        Edit
+                      </Button>
+                    ),
+                },
+              ]
+            : []),
+        ]}
+      />
+      <EditConfigDialog topic={name} entry={editing} onClose={() => setEditing(undefined)} />
+    </>
+  );
+}
+
+function EditConfigDialog({
+  topic,
+  entry,
+  onClose,
+}: {
+  topic: string;
+  entry?: ConfigEntry;
+  onClose: () => void;
+}) {
+  const { clusterId } = useKafka();
+  const writes = useWrites();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState<string>();
+  // reset the field each time a different entry opens
+  if (entry && shown !== entry.name) {
+    setShown(entry.name);
+    setValue(entry.value ?? '');
+    setError(undefined);
+  }
+  const close = () => {
+    setShown(undefined);
+    onClose();
+  };
+  const save = async (next: string | null) => {
+    if (!writes || !entry) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await writes.updateTopicConfig(clusterId, topic, { [entry.name]: next });
+      await qc.invalidateQueries({ queryKey: [clusterId, 'topic-config', topic] });
+      toast({
+        tone: 'ok',
+        title: `Config changed on ${topic}`,
+        body: `${entry.name} = ${next ?? 'default'}`,
+      });
+      close();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      open={!!entry}
+      onClose={close}
+      title="Edit config"
+      description={entry ? `${entry.name} on ${topic}` : undefined}
+      footer={
+        <>
+          {entry && !entry.isDefault && (
+            <Button variant="ghost" disabled={busy} onClick={() => void save(null)}>
+              Reset to default
+            </Button>
+          )}
+          <span className="grow" />
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            disabled={busy || !value.trim() || value === entry?.value}
+            onClick={() => void save(value.trim())}
+          >
+            {busy ? 'Saving…' : 'Save config'}
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (value.trim() && value !== entry?.value) void save(value.trim());
+        }}
+      >
+        <TextField
+          label={entry?.name ?? 'Value'}
+          mono
+          data-autofocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          error={error}
+          hint="Applies on the simulated cluster immediately and shows in Recent events."
+        />
+        <p className="m-0 font-mono text-[12px] text-ink-muted">
+          kafka-configs.sh --alter --entity-type topics --entity-name {topic} --add-config{' '}
+          {entry?.name}={value || '<value>'}
+        </p>
+      </form>
+    </Dialog>
   );
 }
 

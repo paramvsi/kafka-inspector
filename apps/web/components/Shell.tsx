@@ -18,7 +18,7 @@ import { CommandPalette } from './CommandPalette';
 import { ShortcutSheet, useShortcuts } from './Shortcuts';
 import { useSavedClusters } from '../lib/clusters';
 import { AppStateProvider, useApp } from '../lib/app';
-import { KafkaProvider, useBoot, useKafka, useStream } from '../lib/kafka';
+import { KafkaProvider, useBoot, useKafkaMaybe, useStream, type Boot } from '../lib/kafka';
 import { locate, navFor, type Mode } from '../lib/nav';
 import { DisconnectedBanner } from './Disconnected';
 import { SettingsMenu } from './SettingsMenu';
@@ -35,27 +35,14 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 }
 
+// One tree before and after boot: Frame (sidebar, top bar, settings menu) keeps its identity, so a menu
+// opened while the cluster starts stays open when the live data arrives.
 function Booted({ children }: { children: ReactNode }) {
   const boot = useBoot();
-  if (boot.state === 'ready') {
-    return (
-      <KafkaProvider ctx={boot.ctx}>
-        <Chrome>{children}</Chrome>
-      </KafkaProvider>
-    );
-  }
   return (
-    <Frame mode="demo" cluster={{ name: 'prod-eu-1', status: 'connected' }}>
-      <BootStatus
-        text={
-          boot.state === 'failed'
-            ? `Couldn't start: ${boot.error}. Reload the page to try again.`
-            : `${boot.step}…`
-        }
-        failed={boot.state === 'failed'}
-      />
-      <PageSkeleton />
-    </Frame>
+    <KafkaProvider ctx={boot.state === 'ready' ? boot.ctx : null}>
+      <Chrome boot={boot}>{children}</Chrome>
+    </KafkaProvider>
   );
 }
 
@@ -122,30 +109,20 @@ export function useConnection(): ConnectionState {
     : real;
 }
 
-function Chrome({ children }: { children: ReactNode }) {
-  const { info, client } = useKafka();
-  const { preview } = useApp();
+function Chrome({ children, boot }: { children: ReactNode; boot: Boot }) {
+  const client = useKafkaMaybe()?.client;
   const [real, setReal] = useState<ConnectionState>({ state: 'connected' });
-  useEffect(() => client.onConnection?.(setReal), [client]);
+  useEffect(() => client?.onConnection?.(setReal), [client]);
   return (
     <ConnectionCtx.Provider value={real}>
-      <ChromeInner info={info} preview={preview}>
-        {children}
-      </ChromeInner>
+      <ChromeInner boot={boot}>{children}</ChromeInner>
     </ConnectionCtx.Provider>
   );
 }
 
-function ChromeInner({
-  children,
-  info,
-  preview,
-}: {
-  children: ReactNode;
-  info: ReturnType<typeof useKafka>['info'];
-  preview: ReturnType<typeof useApp>['preview'];
-}) {
-  const { client } = useKafka();
+function ChromeInner({ children, boot }: { children: ReactNode; boot: Boot }) {
+  const k = useKafkaMaybe();
+  const { preview } = useApp();
   const connection = useConnection();
   const lost = connection.state === 'reconnecting';
   const overview = useStream<Overview>('metrics');
@@ -153,6 +130,24 @@ function ChromeInner({
   const openPalette = useCallback((initial?: string) => setPalette({ open: true, initial }), []);
   const { sheet, closeSheet } = useShortcuts(openPalette);
   const [saved] = useSavedClusters();
+  if (!k || boot.state !== 'ready') {
+    return (
+      <Frame mode="demo" cluster={{ name: 'prod-eu-1', status: 'connected' }}>
+        <BootStatus
+          text={
+            boot.state === 'failed'
+              ? `Couldn't start: ${boot.error}. Reload the page to try again.`
+              : boot.state === 'connecting'
+                ? `${boot.step}…`
+                : 'Starting…'
+          }
+          failed={boot.state === 'failed'}
+        />
+        <PageSkeleton />
+      </Frame>
+    );
+  }
+  const { info, client } = k;
   // ?preview=readonly shows the self-hosted chrome (Read-only badge, no demo-only pages)
   const mode: Mode = info.mode === 'demo' && preview !== 'readonly' ? 'demo' : 'self';
   const cluster = overview?.cluster ?? info.clusters[0]!;

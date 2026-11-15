@@ -1137,7 +1137,7 @@ export class Simulator {
 
   getTopicConfig(name: string): ConfigEntry[] {
     const def = this.topicParts(name)[0]!.def;
-    const overrides: Record<string, string> = {
+    const merged: Record<string, string | null> = {
       ...(def.retentionMs !== undefined ? { 'retention.ms': String(def.retentionMs) } : {}),
       ...(def.cleanup === 'compact' ? { 'cleanup.policy': 'compact' } : {}),
       ...(def.name === 'clickstream'
@@ -1145,7 +1145,12 @@ export class Simulator {
         : {}),
       ...(def.name === 'orders' ? { 'max.message.bytes': '2097152' } : {}),
       ...(def.name === 'audit-log' ? { 'min.insync.replicas': '1' } : {}),
+      ...def.configs,
     };
+    // null marks an override the user reset to the default
+    const overrides = Object.fromEntries(
+      Object.entries(merged).filter((e): e is [string, string] => e[1] !== null),
+    );
     return TOPIC_DEFAULTS.map(([n, v]) => ({
       name: n,
       value: overrides[n] ?? v,
@@ -1699,6 +1704,12 @@ export class Simulator {
           endAtLoad: 0,
           retentionMs: spec.retentionMs,
           cleanup: spec.cleanupPolicy === 'compact' ? 'compact' : 'delete',
+          configs: {
+            ...spec.configs,
+            ...(spec.cleanupPolicy && spec.cleanupPolicy !== 'delete'
+              ? { 'cleanup.policy': spec.cleanupPolicy }
+              : {}),
+          },
         };
         this.addTopic(def, this.topics.size, a.t);
         this.pushEvent({
@@ -1719,6 +1730,26 @@ export class Simulator {
           kind: 'topic-deleted',
           severity: 'warn',
           title: `Topic ${name} deleted`,
+        });
+        break;
+      }
+      case 'update-config': {
+        const { name, changes } = a.payload as {
+          name: string;
+          changes: Record<string, string | null>;
+        };
+        const def = this.topics.get(name);
+        if (!def) break;
+        // null is kept as a marker so built-in overrides reset too
+        def.configs = { ...def.configs, ...changes };
+        this.pushEvent({
+          ts: new Date(a.t).toISOString(),
+          kind: 'config',
+          severity: 'info',
+          title: `Config changed on ${name}`,
+          detail: Object.entries(changes)
+            .map(([k, v]) => `${k} = ${v ?? 'default'}`)
+            .join(' · '),
         });
         break;
       }
@@ -1753,6 +1784,23 @@ export class Simulator {
     if (spec.replicationFactor < 1 || spec.replicationFactor > online)
       throw new Error(`Replication factor must be between 1 and ${online} (brokers online).`);
     await this.log('create-topic', spec);
+  }
+
+  async updateTopicConfig(name: string, changes: Record<string, string | null>): Promise<void> {
+    const def = this.topics.get(name);
+    if (!def) throw new Error(`Topic ${name} not found.`);
+    if (def.internal) throw new Error('Internal topic configs cannot be changed here.');
+    const known = new Map(TOPIC_DEFAULTS);
+    for (const [k, v] of Object.entries(changes)) {
+      if (!known.has(k)) throw new Error(`Unknown topic config ${k}.`);
+      if (v === null) continue;
+      const def0 = known.get(k)!;
+      if (/^-?\d+$/.test(def0) && !/^-?\d+$/.test(v))
+        throw new Error(`${k} must be a whole number.`);
+      if ((def0 === 'true' || def0 === 'false') && v !== 'true' && v !== 'false')
+        throw new Error(`${k} must be true or false.`);
+    }
+    if (Object.keys(changes).length) await this.log('update-config', { name, changes });
   }
 
   async deleteTopic(name: string): Promise<void> {

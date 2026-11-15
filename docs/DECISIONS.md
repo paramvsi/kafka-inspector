@@ -71,8 +71,9 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Recharts loads lazily (`@ki/ui/chart` + `next/dynamic`): initial JS on `/app` is 212 kB gzip (budget 250) | Performance budget; chart is below the fold of the first paint |
 | 2026-11-15 | Lighthouse is reported with the desktop preset (`/app` 99/100/100/100, `/` 100); the mobile-throttled preset gives 87 performance on `/app` (LCP waits for the worker back-fill) | A 1280-px dashboard; both numbers kept so nothing is hidden |
 | 2026-11-15 | README uses screenshots, not GIFs | No ffmpeg on this machine; Playwright can record video once `brew install ffmpeg` is available |
-| 2026-11-15 | Known minor: a menu opened during the first second of a page load closes when the boot frame is swapped for the live one | Low impact; noted rather than restructuring the shell |
+| 2026-11-15 | The shell renders one tree before and after boot (`KafkaProvider ctx` is null while booting), so menus opened during boot stay open (was a known minor issue and a flaky e2e) | Guard test in `e2e/shell.spec.ts` |
 | 2026-11-15 | Nightly workflow runs Playwright on Chromium, Firefox and WebKit; CI on push runs Chromium + reduced motion | prompts/08 |
+| 2026-11-15 | F-36 demo config edit: `writes.updateTopicConfig(changes)` where `null` resets to the default (also for the simulator's built-in overrides); only known topic configs, numeric/boolean values validated; logged as a `config` event and replayed from IndexedDB. Create-topic `configs` now show as overrides (they were dropped before) | F-36 "Edit in Demo"; keeps the change inside `KafkaClient.writes` |
 
 ## DECISION-PENDING (needs the owner's go-ahead)
 

@@ -256,3 +256,49 @@ describe('writes and persistence', () => {
     expect(new TextDecoder().decode(page.messages[0]!.value!)).toBe('{"hello":"world"}');
   });
 });
+
+describe('topic config edits (F-36)', () => {
+  test('overrides apply, reset to default, survive a reload, and are validated', async () => {
+    const store = new MemoryStore();
+    const a = make(store);
+    await a.init();
+    const value = (sim: typeof a.sim, n: string) =>
+      sim.getTopicConfig('orders').find((c) => c.name === n)!;
+    await a.sim.updateTopicConfig('orders', { 'retention.ms': '3600000' });
+    expect(value(a.sim, 'retention.ms')).toMatchObject({ value: '3600000', isDefault: false });
+    await a.sim.updateTopicConfig('orders', { 'retention.ms': null });
+    expect(value(a.sim, 'retention.ms')).toMatchObject({ value: '604800000', isDefault: true });
+    await a.sim.updateTopicConfig('orders', { 'segment.ms': '1000' });
+    await expect(a.sim.updateTopicConfig('orders', { 'segment.ms': 'soon' })).rejects.toThrow(
+      'whole number',
+    );
+    await expect(a.sim.updateTopicConfig('orders', { 'no.such': '1' })).rejects.toThrow(
+      'Unknown topic config',
+    );
+    const b = make(store);
+    await b.init();
+    expect(value(b.sim, 'segment.ms')).toMatchObject({ value: '1000', isDefault: false });
+  });
+
+  test('create-topic configs show as overrides', async () => {
+    const a = make(new MemoryStore());
+    await a.init();
+    await a.sim.createTopic({
+      name: 'shipments',
+      partitions: 3,
+      replicationFactor: 3,
+      configs: { 'compression.type': 'zstd' },
+    });
+    const c = a.sim.getTopicConfig('shipments').find((x) => x.name === 'compression.type')!;
+    expect(c).toMatchObject({ value: 'zstd', isDefault: false });
+  });
+});
+
+test('resetting a built-in override returns it to the default', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  const get = () => a.sim.getTopicConfig('orders').find((c) => c.name === 'max.message.bytes')!;
+  expect(get().isDefault).toBe(false);
+  await a.sim.updateTopicConfig('orders', { 'max.message.bytes': null });
+  expect(get()).toMatchObject({ value: '1048588', isDefault: true });
+});

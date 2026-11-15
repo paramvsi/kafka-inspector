@@ -4,7 +4,13 @@ import type { AlertRule, SimSettings } from '@ki/core';
 
 export interface Action {
   t: number;
-  kind: 'create-topic' | 'delete-topic' | 'produce' | 'reset-offsets' | 'delete-group';
+  kind:
+    | 'create-topic'
+    | 'delete-topic'
+    | 'update-config'
+    | 'produce'
+    | 'reset-offsets'
+    | 'delete-group';
   payload: unknown;
 }
 

@@ -61,12 +61,18 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false, retry: 1 } },
 });
 
-export function KafkaProvider({ ctx, children }: { ctx: Ctx; children: ReactNode }) {
+/** `ctx` is null while booting, so the shell can render one stable tree before and after boot. */
+export function KafkaProvider({ ctx, children }: { ctx: Ctx | null; children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <KafkaContext.Provider value={ctx}>{children}</KafkaContext.Provider>
     </QueryClientProvider>
   );
+}
+
+/** Null while booting (shell only); views use useKafka(). */
+export function useKafkaMaybe(): Ctx | null {
+  return useContext(KafkaContext);
 }
 
 export function useKafka(): Ctx {
@@ -92,7 +98,9 @@ export function useKafkaQuery<T>(
 
 /** Live stream channel → latest payload (batched to 1/s by the client). */
 export function useStream<T>(channel: StreamChannel): T | undefined {
-  const { client, clusterId } = useKafka();
+  const k = useKafkaMaybe();
+  const client = k?.client;
+  const clusterId = k?.clusterId ?? '';
   const { live } = useApp();
   const qc = useQueryClient();
   const [data, setData] = useState<T | undefined>(() =>
@@ -100,7 +108,7 @@ export function useStream<T>(channel: StreamChannel): T | undefined {
   );
   useEffect(() => {
     // Paused (Live indicator off): keep showing the last values.
-    if (!live) return;
+    if (!live || !client) return;
     return client.subscribe(clusterId, channel, (e: StreamEvent) => {
       qc.setQueryData([clusterId, 'stream', channel], e.data);
       setData(e.data as T);

@@ -70,6 +70,7 @@ export function createSimulatedClient(): KafkaClient {
     writes: {
       createTopic: (_c, spec) => call('createTopic', spec),
       deleteTopic: (_c, name) => call('deleteTopic', name),
+      updateTopicConfig: (_c, name, changes) => call('updateTopicConfig', name, changes),
       produce: (_c, req) => call('produce', req),
       resetOffsets: (_c, req, dryRun) => call('resetOffsets', req, dryRun),
       deleteGroup: (_c, id) => call('deleteGroup', id),

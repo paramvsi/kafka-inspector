@@ -37,6 +37,8 @@ export interface TopicDef {
   /** partition → share override (0..1), e.g. clickstream p3 hot */
   skew?: Record<number, number>;
   cleanup?: 'delete' | 'compact';
+  /** user overrides (demo writes): create-topic configs and config edits */
+  configs?: Record<string, string | null>;
 }
 
 const GB = 1e9;
