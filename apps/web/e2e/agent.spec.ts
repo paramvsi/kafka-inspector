@@ -67,3 +67,17 @@ test('self-hosted: sign in, read-only chrome, real topics, groups and decoded me
   const res = await page.request.get('/api/clusters');
   expect(res.status()).toBe(401);
 });
+
+test('a password typed before the sign-in page hydrates is kept and signs in', async ({ page }) => {
+  await page.route('**/_next/static/chunks/**/*.js', async (r) => {
+    await new Promise((res) => setTimeout(res, 800));
+    await r.continue();
+  });
+  await page.goto('/app/sign-in/', { waitUntil: 'commit' });
+  await page
+    .locator('input[autocomplete="current-password"]')
+    .fill(process.env.AGENT_PASSWORD ?? 'dev-password');
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/app\/$/, { timeout: 15_000 });
+});

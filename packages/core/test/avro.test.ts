@@ -179,3 +179,15 @@ test('corrupt lengths and block counts fail fast', () => {
     'exceeds the data',
   );
 });
+
+test('float32 reads show the shortest equal decimal; fixed sizes are checked; bytes defaults encode', () => {
+  const f = AvroType.parse('"float"');
+  expect(f.decode(f.encode(0.1))).toBe(0.1);
+  expect(f.decode(f.encode(3.14159))).toBe(3.14159);
+  const fx = AvroType.parse('{"type":"fixed","name":"H","size":2}');
+  expect(() => fx.encode(Uint8Array.of(1, 2, 3))).toThrow(AvroError);
+  const rec = AvroType.parse(
+    '{"type":"record","name":"R","fields":[{"name":"b","type":"bytes","default":"\\u0001\\u0002"}]}',
+  );
+  expect(rec.decode(rec.encode({}))).toEqual({ b: Uint8Array.of(1, 2) });
+});

@@ -58,8 +58,8 @@ function preview(
     text:
       v === null
         ? 'null'
-        : typeof v === 'string'
-          ? v
+        : typeof v === 'string' || typeof v === 'number'
+          ? String(v) // NaN / Infinity stay visible
           : (JSON.stringify(v) ?? String(raw.sizeBytes)),
   };
 }

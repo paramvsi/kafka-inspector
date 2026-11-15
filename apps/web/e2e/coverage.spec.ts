@@ -384,3 +384,116 @@ test.describe('touch layout', () => {
     expect(small).toEqual([]);
   });
 });
+
+test('F-47: a masking rule hides a field and the drawer names the rule; F-44 Copy JSON', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/app/topics/view/?name=payments&tab=messages');
+  await page.getByRole('button', { name: /^Masking/ }).click();
+  const dialog = page.getByRole('dialog', { name: /Masking/ });
+  await dialog.getByLabel('Name').fill('hide merchant');
+  await dialog.getByLabel('Topics').fill('payments');
+  await dialog.getByLabel('JSON path').fill('$.merchantId');
+  await dialog.getByRole('button', { name: 'Add rule' }).click();
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  const table = page.getByRole('table', { name: 'Messages in payments' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  const drawer = page.getByRole('dialog', { name: 'Message' });
+  await expect(drawer.getByText(/hide merchant/)).toBeVisible();
+  await drawer.getByRole('button', { name: 'Copy JSON' }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(JSON.parse(copied)).toHaveProperty('paymentId');
+  expect(copied).not.toMatch(/merc_\d+/);
+});
+
+test('F-46: an undecodable message offers other ways to read it', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages&p=7&from=group&group=fraud-scorer');
+  const table = page.getByRole('table', { name: 'Messages in payments' });
+  await expect(table.getByText('Decode failed').first()).toBeVisible({ timeout: 15_000 });
+  await table.getByText('Decode failed').first().click();
+  const drawer = page.getByRole('dialog', { name: 'Message' });
+  await expect(drawer.getByText('Try another way')).toBeVisible();
+  await drawer.getByRole('button', { name: 'Show as hex' }).click();
+  await expect(page).toHaveURL(/dv=hex/);
+});
+
+test('F-60/F-61/F-64: group filter, members tab and share group fields', async ({ page }) => {
+  await page.goto('/app/groups/');
+  await page.getByLabel('Filter groups').fill('fraud');
+  await expect(page.getByRole('row', { name: /fraud-scorer/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('row', { name: /order-service/ })).toHaveCount(0);
+  await page.goto('/app/groups/view/?id=order-service');
+  await page.getByRole('link', { name: /^Members · \d+/ }).click();
+  await expect(
+    page
+      .getByRole('table')
+      .getByText(/order-service-\d/)
+      .first(),
+  ).toBeVisible();
+  await page.goto('/app/groups/view/?id=notify-workers');
+  const share = page.getByText('Share group (KIP-932)');
+  await expect(share).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Records in flight')).toBeVisible();
+  await expect(page.getByText('Acquisition lock')).toBeVisible();
+});
+
+test('F-85: topology zoom and fit to screen', async ({ page }) => {
+  await page.goto('/app/topology/');
+  await expect(page.getByRole('button', { name: 'Fit to screen' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.getByRole('button', { name: 'Fit to screen' }).click();
+  await expect(page.getByText(/fraud-scorer/).first()).toBeVisible();
+});
+
+test('F-88/F-89: pick versions to diff; check a candidate schema', async ({ page }) => {
+  await page.goto('/app/schemas/?subject=orders-value');
+  await page.getByLabel('From version').selectOption('3');
+  await page.getByLabel('To version').selectOption('4');
+  await expect(page).toHaveURL(/from=3/);
+  await page.getByRole('button', { name: 'Check a new version' }).click();
+  const dialog = page.getByRole('dialog', { name: /Check a new version/ });
+  await dialog.getByRole('button', { name: 'Start from the latest version' }).click();
+  await dialog.getByRole('button', { name: 'Check compatibility' }).click();
+  await expect(dialog.getByText(/compatible/i).first()).toBeVisible();
+});
+
+test('F-95: add a local agent cluster that does not answer, then save without connecting', async ({
+  page,
+}) => {
+  await page.goto('/app/clusters/');
+  await page.getByRole('button', { name: 'Add cluster' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add cluster' });
+  await dialog.getByLabel('Name').fill('staging');
+  await dialog.getByLabel('Agent URL').fill('http://127.0.0.1:9');
+  await dialog.getByRole('button', { name: 'Save without connecting' }).click();
+  await expect(page.getByRole('row', { name: /staging/ })).toBeVisible();
+});
+
+test('F-72: 1h, 24h and 7d ranges load history', async ({ page }) => {
+  for (const r of ['1h', '24h', '7d']) {
+    await page.goto(`/app/?range=${r}`);
+    await expect(page.getByRole('button', { name: r, pressed: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('.recharts-surface').first()).toBeVisible({ timeout: 15_000 });
+  }
+});
+
+test('F-01/F-14: sidebar sections, firing-alert chip and the recent events feed', async ({
+  page,
+}) => {
+  await page.goto('/app/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  for (const s of ['Monitor', 'Data', 'Operate'])
+    await expect(nav.getByText(s, { exact: true })).toBeVisible();
+  await expect(page.getByText('Recent events')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Poison message on payments-7/).first()).toBeVisible();
+  await expect(nav.getByRole('link', { name: /^Alerts [1-9]\d*$/ })).toBeVisible({
+    timeout: 45_000,
+  });
+});

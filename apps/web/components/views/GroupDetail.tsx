@@ -89,8 +89,9 @@ export function GroupDetailView() {
               <dd className="m-0 font-mono">{formatInt(d.share.inFlight)}</dd>
             </div>
             <div>
-              <dt className="text-ink-muted">Delivery count limit</dt>
-              <dd className="m-0 font-mono">5</dd>
+              {/* from the group's data, not an assumed default */}
+              <dt className="text-ink-muted">Delivery count</dt>
+              <dd className="m-0 font-mono">{formatInt(d.share.deliveryCount)}</dd>
             </div>
             <div>
               <dt className="text-ink-muted">Acquisition lock</dt>

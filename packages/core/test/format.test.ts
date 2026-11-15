@@ -42,3 +42,18 @@ test('more formatters', () => {
   expect(formatPct(41.2)).toBe('41%');
   expect(formatClock(new Date(2026, 0, 1, 9, 5).getTime())).toBe('09:05');
 });
+
+test('rounding never shows 1000 of a unit, -0 or NaN', () => {
+  expect(formatCount(999_999)).toBe('1M');
+  expect(formatCount(999_999_999)).toBe('1B');
+  expect(formatCount(9_999.6)).toBe('10k');
+  expect(formatBytes(999_999)).toBe('1 MB');
+  expect(formatBytes(999_400)).toBe('999 kB');
+  expect(formatInt(-0.4)).toBe('0');
+  expect(formatInt(Number.NaN)).toBe('0');
+});
+
+test('invalid durations and times show a dash, not NaN', () => {
+  expect(formatDuration(Number.NaN)).toBe('—');
+  expect(formatRelative('not a date')).toBe('—');
+});

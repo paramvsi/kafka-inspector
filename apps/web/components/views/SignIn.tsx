@@ -6,6 +6,13 @@ import { agentInfo, ApiError, signIn } from '../../lib/client/agent';
 /** Sign in (18, F-91): admin + KI_ADMIN_PASSWORD; errors for wrong password, rate limit and an unreachable agent. */
 export function SignInView() {
   const [password, setPassword] = useState('');
+  // a password typed (or autofilled) before hydration is in the field but not in state: pick it up
+  useEffect(() => {
+    const typed = document.querySelector<HTMLInputElement>(
+      'input[autocomplete="current-password"]',
+    )?.value;
+    if (typed) setPassword(typed);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [meta, setMeta] = useState<{ version: string; clusters?: number } | null>(null);

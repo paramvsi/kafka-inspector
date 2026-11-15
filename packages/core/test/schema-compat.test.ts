@@ -148,3 +148,27 @@ test('recursive schemas terminate; fixed size changes are incompatible', () => {
     });
   expect(checkCompatibility('AVRO', fx(16), fx(8), 'BACKWARD').compatible).toBe(false);
 });
+
+test('JSON Schema type arrays compare by value, not by reference', () => {
+  const s = (t: unknown) => JSON.stringify({ type: 'object', properties: { x: { type: t } } });
+  expect(
+    checkCompatibility('JSON', s(['string', 'null']), s(['null', 'string']), 'BACKWARD').compatible,
+  ).toBe(true);
+  expect(diffFields('JSON', s(['string', 'null']), s(['string', 'null']))[0]!.change).toBe('same');
+  expect(checkCompatibility('JSON', s('string'), s('integer'), 'BACKWARD').compatible).toBe(false);
+});
+
+test('renamed records are incompatible unless the reader has an alias', () => {
+  const rec = (name: string, extra = {}) =>
+    JSON.stringify({ type: 'record', name, ...extra, fields: [{ name: 'id', type: 'string' }] });
+  expect(checkCompatibility('AVRO', rec('User'), rec('Account'), 'BACKWARD').compatible).toBe(
+    false,
+  );
+  expect(
+    checkCompatibility('AVRO', rec('User'), rec('Account', { aliases: ['User'] }), 'BACKWARD')
+      .compatible,
+  ).toBe(true);
+  expect(
+    checkCompatibility('AVRO', rec('com.a.User'), rec('com.b.User'), 'BACKWARD').compatible,
+  ).toBe(true);
+});

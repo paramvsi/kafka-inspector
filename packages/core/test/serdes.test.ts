@@ -8,7 +8,7 @@ import {
   toBase64,
   type SchemaLookup,
 } from '../src/serdes/decode';
-import { applyMasks, MASKED, topicMatches } from '../src/serdes/mask';
+import { applyMasks, isValidMaskPath, MASKED, topicMatches } from '../src/serdes/mask';
 import type { SchemaVersion } from '../src/types';
 
 const enc = new TextEncoder();
@@ -229,4 +229,90 @@ test('masking: mask, replace, remove, wildcards, topic globs', () => {
   expect(topicMatches('orders.*', 'orders.eu')).toBe(true);
   expect(topicMatches('orders.*', 'orders')).toBe(true);
   expect(topicMatches('orders.*', 'ordersx')).toBe(false);
+});
+
+test('logical types inside unions, maps and named references are shown too', async () => {
+  const schema = JSON.stringify({
+    type: 'record',
+    name: 'Evt',
+    namespace: 'com.acme',
+    fields: [
+      { name: 'at', type: ['null', { type: 'long', logicalType: 'timestamp-millis' }] },
+      { name: 'blob', type: ['null', 'bytes'] },
+      {
+        name: 'times',
+        type: { type: 'map', values: { type: 'long', logicalType: 'timestamp-millis' } },
+      },
+      {
+        name: 'first',
+        type: {
+          type: 'record',
+          name: 'Stamp',
+          fields: [{ name: 't', type: { type: 'long', logicalType: 'timestamp-millis' } }],
+        },
+      },
+      { name: 'second', type: 'com.acme.Stamp' },
+    ],
+  });
+  const t = AvroType.parse(schema);
+  const ms = Date.parse('2026-11-16T01:02:03Z');
+  const payload = t.encode({
+    at: ms,
+    blob: Uint8Array.of(1, 2, 3),
+    times: { a: ms },
+    first: { t: ms },
+    second: { t: ms },
+  });
+  const reg: SchemaLookup = async () => ({ subject: 'e', version: 1, id: 9, type: 'AVRO', schema });
+  const r = await decode(frame(9, payload), 'auto', reg);
+  expect(r.ok && r.value).toEqual({
+    at: '2026-11-16T01:02:03Z',
+    blob: toBase64(Uint8Array.of(1, 2, 3)),
+    times: { a: '2026-11-16T01:02:03Z' },
+    first: { t: '2026-11-16T01:02:03Z' },
+    second: { t: '2026-11-16T01:02:03Z' },
+  });
+});
+
+test('without a Schema Registry a leading 0x00 is plain data, and registry formats say why they fail', async () => {
+  const int64Key = Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 5);
+  const auto = await decode(int64Key, 'auto', undefined);
+  expect(auto.ok).toBe(true);
+  const avro = await decode(int64Key, 'avro', undefined);
+  expect(avro.ok).toBe(false);
+  if (!avro.ok) expect(avro.reason).toBe('No Schema Registry configured');
+});
+
+test('mask paths: indices and quoted keys work, invalid paths are rejected, arrays close up, own keys only', () => {
+  const rule = (path: string, action: 'mask' | 'remove' = 'mask') => ({
+    id: 'r',
+    name: 'r',
+    topics: '*',
+    path,
+    action,
+  });
+  const v = { items: [{ sku: 'a' }, { sku: 'b' }], 'a.b': 1, tags: ['x', 'y'] };
+  expect((applyMasks(v, 't', [rule('$.items[0].sku')]).value as typeof v).items).toEqual([
+    { sku: MASKED },
+    { sku: 'b' },
+  ]);
+  expect((applyMasks(v, 't', [rule("$['a.b']")]).value as Record<string, unknown>)['a.b']).toBe(
+    MASKED,
+  );
+  expect((applyMasks(v, 't', [rule('$.tags[*]', 'remove')]).value as typeof v).tags).toEqual([]);
+  expect(() => applyMasks(v, 't', [rule('$.tags.length')])).not.toThrow();
+  expect((applyMasks(v, 't', [rule('$.tags.length')]).value as typeof v).tags).toEqual(['x', 'y']);
+  expect(isValidMaskPath('$.items[0].sku')).toBe(true);
+  expect(isValidMaskPath('$.items[')).toBe(false);
+  expect(isValidMaskPath('$..x')).toBe(false);
+});
+
+test('a NaN or Infinity double previews as itself, not "null"', async () => {
+  const b = new Uint8Array(8);
+  new DataView(b.buffer).setFloat64(0, Number.NaN);
+  const r = await decode(b, 'double', undefined);
+  expect(r.ok && r.text).toBe('NaN');
+  new DataView(b.buffer).setFloat64(0, Number.NEGATIVE_INFINITY);
+  const r2 = await decode(b, 'double', undefined);
+  expect(r2.ok && r2.text).toBe('-Infinity');
 });

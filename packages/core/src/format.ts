@@ -2,15 +2,22 @@
 const int = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /** 48,213 */
-export const formatInt = (n: number) => int.format(Math.round(n));
+export const formatInt = (n: number) => int.format(Math.round(n) || 0); // || 0: never "-0" or "NaN"
 
 /** 1.2M · 950 · 12.4k */
 export function formatCount(n: number): string {
   const a = Math.abs(n);
-  if (a >= 1e9) return `${trim(n / 1e9)}B`;
-  if (a >= 1e6) return `${trim(n / 1e6)}M`;
-  if (a >= 1e4) return `${trim(n / 1e3)}k`;
-  return formatInt(n);
+  if (Math.round(a) < 1e4) return formatInt(n);
+  const steps: Array<[number, string]> = [
+    [1e3, 'k'],
+    [1e6, 'M'],
+    [1e9, 'B'],
+  ];
+  let k = 0;
+  while (k < steps.length - 1 && a >= steps[k + 1]![0]) k++;
+  // decide on the rounded value: 999,999 is "1M", not "1000k"
+  if (k < steps.length - 1 && Math.abs(Number(trim(n / steps[k]![0]))) >= 1000) k++;
+  return `${trim(n / steps[k]![0])}${steps[k]![1]}`;
 }
 const trim = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1).replace(/\.0$/, ''));
 
@@ -23,6 +30,11 @@ export function formatBytes(n: number): string {
     v /= 1000;
     i++;
   }
+  // 999,999 B rounds to 1,000 kB: promote it to 1 MB
+  if (i > 0 && i < units.length - 1 && Math.round(Math.abs(v)) >= 1000) {
+    v /= 1000;
+    i++;
+  }
   return `${i === 0 || Math.abs(v) >= 100 ? formatInt(v) : v.toFixed(1).replace(/\.0$/, '')} ${units[i]}`;
 }
 
@@ -32,6 +44,7 @@ export const formatRate = (perSec: number) =>
 
 /** 6m 12s · 45s · 2h 5m · 3d 4h */
 export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms)) return '—';
   const s = Math.max(0, Math.round(ms / 1000));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
@@ -45,6 +58,7 @@ export function formatDuration(ms: number): string {
 export function formatRelative(iso: string | number | undefined, now = Date.now()): string {
   if (iso === undefined) return '—';
   const t = typeof iso === 'number' ? iso : Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
   const s = Math.round((now - t) / 1000);
   if (s < 5) return 'just now';
   if (s < 60) return `${s}s ago`;

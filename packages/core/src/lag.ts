@@ -117,7 +117,7 @@ export function forecast(samples: LagSample[]): Forecast {
   return { kind: 'never', consumeRate, produceRate };
 }
 
-/** Combine per-partition forecasts into a group forecast: summed rates over summed lag. */
+/** Group forecast: rates are summed for display, the ETA is the slowest partition's (a group is caught up when its last partition is); a partition that is `never` with lag > 0 makes the group `never`; `unknown` partitions are ignored. */
 export function combineForecasts(parts: Array<{ lag: number; forecast: Forecast }>): Forecast {
   const known = parts.filter((p) => p.forecast.kind !== 'unknown');
   if (known.length === 0) return { kind: 'unknown' };

@@ -38,6 +38,16 @@ export class AvroType {
     return new AvroType(JSON.parse(json));
   }
 
+  /** Spec: bytes/fixed defaults are JSON strings of code points 0–255; a union default is for its first branch. */
+  private defaultOf(type: AvroSchema, d: unknown): unknown {
+    const t = this.resolve(type);
+    const first = Array.isArray(t) ? this.resolve(t[0]) : t;
+    const kind = typeof first === 'string' ? first : first?.type;
+    if (typeof d === 'string' && (kind === 'bytes' || kind === 'fixed'))
+      return Uint8Array.from(d, (c) => c.charCodeAt(0) & 0xff);
+    return d;
+  }
+
   private resolve(s: AvroSchema): AvroSchema {
     if (typeof s === 'string' && this.named.has(s)) return this.named.get(s);
     if (s && typeof s === 'object' && !Array.isArray(s) && typeof s.type === 'object')
@@ -102,7 +112,11 @@ export class AvroType {
       case 'record':
       case 'error':
         for (const f of s.fields)
-          this.write(f.type, v[f.name] === undefined ? f.default : v[f.name], out);
+          this.write(
+            f.type,
+            v[f.name] === undefined ? this.defaultOf(f.type, f.default) : v[f.name],
+            out,
+          );
         return;
       case 'enum': {
         const i = s.symbols.indexOf(v);
@@ -110,6 +124,8 @@ export class AvroType {
         return writeLong(i, out);
       }
       case 'fixed':
+        if (!(v instanceof Uint8Array) || v.length !== s.size)
+          throw new AvroError(`invalid fixed ${s.name}: expected ${s.size} bytes`);
         return pushBytes(out, v);
       case 'array':
         if (v.length) {
@@ -194,7 +210,7 @@ export class AvroType {
         case 'float':
           need(r, 4);
           r.p += 4;
-          return r.dv.getFloat32(r.p - 4, true);
+          return shortFloat32(r.dv.getFloat32(r.p - 4, true));
         case 'double':
           need(r, 8);
           r.p += 8;
@@ -260,6 +276,16 @@ interface Reader {
   b: Uint8Array;
   p: number;
   dv: DataView;
+}
+
+/** float32 read as the shortest decimal that is the same float32 (0.1, not 0.10000000149011612). */
+function shortFloat32(f: number): number {
+  if (!Number.isFinite(f)) return f;
+  for (let p = 6; p <= 9; p++) {
+    const x = Number(f.toPrecision(p));
+    if (Math.fround(x) === f) return x;
+  }
+  return f;
 }
 
 function need(r: Reader, n: number): void {

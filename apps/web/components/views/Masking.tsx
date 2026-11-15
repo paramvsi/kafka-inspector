@@ -1,5 +1,5 @@
 'use client';
-import type { MaskRule } from '@ki/core';
+import { isValidMaskPath, type MaskRule } from '@ki/core';
 import { Button, Dialog, Select, TextField } from '@ki/ui';
 import { useState } from 'react';
 
@@ -22,7 +22,8 @@ export function MaskingDialog({
     path: '$.',
     action: 'mask',
   });
-  const valid = draft.name.trim() && draft.topics.trim() && /^\$\.[\w.[\]*]+$/.test(draft.path);
+  const pathOk = isValidMaskPath(draft.path);
+  const valid = draft.name.trim() && draft.topics.trim() && pathOk;
   return (
     <Dialog
       open={open}
@@ -90,7 +91,12 @@ export function MaskingDialog({
           mono
           value={draft.path}
           onChange={(e) => setDraft({ ...draft, path: e.target.value })}
-          hint="$.email · $.card.number · $.items[*].sku"
+          hint="$.email · $.card.number · $.items[*].sku · $.items[0] · $['a.b']"
+          error={
+            draft.path && !pathOk
+              ? "Use $.field, $.a.b, [0], [*] or ['key']. This path can't be read."
+              : undefined
+          }
         />
         <Select
           label="Action"

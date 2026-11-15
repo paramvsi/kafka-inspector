@@ -16,17 +16,24 @@ import { useLocal } from './local';
 
 const lookups = new WeakMap<object, SchemaLookup>();
 
-/** Registry lookups by id, cached per client (ARCHITECTURE: schemas are fetched by id and cached). */
-export function useSchemaLookup(): SchemaLookup {
-  const { client, clusterId } = useKafka();
+/**
+ * Registry lookups by id, cached per client (ARCHITECTURE: schemas are fetched by id and cached).
+ * Undefined when this cluster has no Schema Registry: a leading 0x00 is then plain data.
+ */
+export function useSchemaLookup(): SchemaLookup | undefined {
+  const { client, clusterId, info } = useKafka();
+  const hasRegistry =
+    info.clusters.find((c) => c.id === clusterId)?.schemaRegistry ??
+    info.capabilities.schemaRegistry;
   return useMemo(() => {
+    if (!hasRegistry) return undefined;
     if (!lookups.has(client))
       lookups.set(
         client,
         cachedLookup((id) => client.getSchemaById(clusterId, id)),
       );
     return lookups.get(client)!;
-  }, [client, clusterId]);
+  }, [client, clusterId, hasRegistry]);
 }
 
 export function useMaskRules(): [MaskRule[], (r: MaskRule[]) => void] {
@@ -51,7 +58,7 @@ export async function decodeMessage(
   m: RawMessage,
   valueAs: DecodeAs,
   keyAs: DecodeAs,
-  lookup: SchemaLookup,
+  lookup: SchemaLookup | undefined,
   rules: MaskRule[],
 ): Promise<DecodedMessage> {
   const [key, value] = await Promise.all([

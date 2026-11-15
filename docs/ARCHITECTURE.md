@@ -194,6 +194,7 @@ Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; el
 - lag = 0 → `caught-up`
 - consumeRate > produceRate → `eta`, seconds = lag / (consumeRate − produceRate)
 - else → `never` ("won't catch up at current rates")
+- **Group** (`combineForecasts`): ETA = the slowest partition's (a group is caught up when its last partition is); any partition that is `never` with lag > 0 makes the group `never`; rates are summed for display
 
 Format: < 60 s "under a minute"; < 120 min "~N min"; else "~N h".
 

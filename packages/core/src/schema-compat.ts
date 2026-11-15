@@ -109,6 +109,17 @@ function check(
     out.push(`${path}: ${wt} can't be read as ${rt}`);
     return false;
   }
+  // named types must match by unqualified name, or a reader alias (spec "Schema Resolution")
+  if (['record', 'error', 'enum', 'fixed'].includes(rt)) {
+    const bare = (n: unknown) => String(n ?? '').slice(String(n ?? '').lastIndexOf('.') + 1);
+    const rName = bare((r as { name?: string }).name),
+      wName = bare((w as { name?: string }).name);
+    const aliases = ((r as { aliases?: string[] }).aliases ?? []).map(bare);
+    if (rName && wName && rName !== wName && !aliases.includes(wName)) {
+      out.push(`${path || 'record'}: ${wName} can't be read as ${rName} (names differ, no alias)`);
+      return false;
+    }
+  }
   if (rt === 'record') {
     const rf =
       (r as { fields: Array<{ name: string; type: Avro; default?: unknown }> }).fields ?? [];
@@ -164,6 +175,10 @@ function check(
   return true;
 }
 
+/** JSON Schema `type` as a comparable string: ["string","null"] and ["null","string"] are the same type. */
+const jtype = (t: unknown): string =>
+  t === undefined ? 'any' : Array.isArray(t) ? [...t].sort().join(' | ') : String(t);
+
 function avroCheck(
   oldSchema: string,
   newSchema: string,
@@ -217,8 +232,8 @@ function jsonCheck(
   const op = o.properties ?? {},
     np = n.properties ?? {};
   for (const [k, v] of Object.entries(np)) {
-    if (op[k] && op[k].type !== v.type)
-      messages.push(`${k} changed type from ${op[k].type} to ${v.type}.`);
+    if (op[k] && jtype(op[k].type) !== jtype(v.type))
+      messages.push(`${k} changed type from ${jtype(op[k].type)} to ${jtype(v.type)}.`);
   }
   if (backward)
     for (const r of n.required ?? [])
@@ -271,10 +286,10 @@ export function diffFields(
         (f) => ({ name: f.name, type: describe(f.type, named), hasDefault: 'default' in f }),
       );
     }
-    return Object.entries((j.properties ?? {}) as Record<string, { type?: string }>).map(
+    return Object.entries((j.properties ?? {}) as Record<string, { type?: unknown }>).map(
       ([name, v]) => ({
         name,
-        type: v.type ?? 'any',
+        type: jtype(v.type),
         hasDefault: !(j.required ?? []).includes(name),
       }),
     );

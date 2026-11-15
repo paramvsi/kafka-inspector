@@ -96,7 +96,9 @@ export function fromBase64(s: string): Uint8Array {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
-const preview = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
+// numbers via String: JSON.stringify would show NaN / Infinity (valid doubles) as "null"
+const preview = (v: unknown) =>
+  typeof v === 'string' ? v : typeof v === 'number' ? String(v) : JSON.stringify(v);
 const ok = (format: Decoded['format'], value: unknown, schema?: Decoded['schema']): Decoded => ({
   ok: true,
   format,
@@ -124,26 +126,75 @@ function isPrintable(s: string): boolean {
   return bad === 0;
 }
 
-/** Avro logical types → display values (timestamp-millis → ISO). */
+/** Avro logical types → display values (timestamp-millis → ISO, bytes → base64), through unions, maps and named types. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function logical(schema: any, v: any): unknown {
-  if (v === null || v === undefined) return v;
-  if (Array.isArray(schema)) return v; // union branch already resolved; logical types inside unions are rare here
-  if (schema && typeof schema === 'object') {
-    if (schema.logicalType === 'timestamp-millis' && typeof v === 'number')
-      return new Date(v).toISOString().replace('.000Z', 'Z');
-    if (schema.type === 'record')
-      return Object.fromEntries(
-        schema.fields.map((f: { name: string; type: unknown }) => [
-          f.name,
-          logical(f.type, v[f.name]),
-        ]),
-      );
-    if (schema.type === 'array') return v.map((x: unknown) => logical(schema.items, x));
-    if (typeof schema.type === 'object') return logical(schema.type, v);
-  }
-  if (v instanceof Uint8Array) return toBase64(v);
-  return v;
+type AnySchema = any;
+function logicalDisplay(root: AnySchema, v: unknown): unknown {
+  const named = new Map<string, AnySchema>();
+  const collect = (s: AnySchema, ns = ''): void => {
+    if (!s || typeof s !== 'object') return;
+    if (Array.isArray(s)) return s.forEach((x) => collect(x, ns));
+    let inner = ns;
+    if (typeof s.name === 'string' && ['record', 'error', 'enum', 'fixed'].includes(s.type)) {
+      const space = s.name.includes('.')
+        ? s.name.slice(0, s.name.lastIndexOf('.'))
+        : typeof s.namespace === 'string'
+          ? s.namespace
+          : ns;
+      const bare = s.name.slice(s.name.lastIndexOf('.') + 1);
+      named.set(bare, s);
+      if (space) named.set(`${space}.${bare}`, s);
+      inner = space;
+    }
+    (s.fields ?? []).forEach((f: { type: AnySchema }) => collect(f.type, inner));
+    collect(s.items, inner);
+    collect(s.values, inner);
+    if (typeof s.type === 'object') collect(s.type, inner);
+  };
+  collect(root);
+  const resolve = (s: AnySchema): AnySchema =>
+    typeof s === 'string' && named.has(s) ? named.get(s) : s;
+  // the union branch the decoder took, recovered from the value's runtime type
+  const branch = (u: AnySchema[], x: unknown): AnySchema => {
+    const kind = (b: AnySchema): string => {
+      const r = resolve(b);
+      return typeof r === 'string' ? r : typeof r.type === 'string' ? r.type : kind(r.type);
+    };
+    return u.find((b) => {
+      const k = kind(b);
+      if (x instanceof Uint8Array) return k === 'bytes' || k === 'fixed';
+      if (Array.isArray(x)) return k === 'array';
+      if (typeof x === 'number') return ['int', 'long', 'float', 'double'].includes(k);
+      if (typeof x === 'string') return k === 'string' || k === 'enum' || k === 'long';
+      if (typeof x === 'boolean') return k === 'boolean';
+      return k === 'record' || k === 'error' || k === 'map';
+    });
+  };
+  const walk = (schema: AnySchema, x: AnySchema): unknown => {
+    if (x === null || x === undefined) return x;
+    const s = resolve(schema);
+    if (Array.isArray(s)) {
+      const b = branch(s, x);
+      return b === undefined ? x : walk(b, x);
+    }
+    if (s && typeof s === 'object') {
+      if (s.logicalType === 'timestamp-millis' && typeof x === 'number')
+        return new Date(x).toISOString().replace('.000Z', 'Z');
+      if (s.type === 'record' || s.type === 'error')
+        return Object.fromEntries(
+          s.fields.map((f: { name: string; type: unknown }) => [f.name, walk(f.type, x[f.name])]),
+        );
+      if (s.type === 'array') return x.map((y: unknown) => walk(s.items, y));
+      if (s.type === 'map')
+        return Object.fromEntries(
+          Object.entries(x as Record<string, unknown>).map(([k, y]) => [k, walk(s.values, y)]),
+        );
+      if (typeof s.type === 'object') return walk(s.type, x);
+    }
+    if (x instanceof Uint8Array) return toBase64(x);
+    return x;
+  };
+  return walk(root, v);
 }
 
 async function viaRegistry(
@@ -172,7 +223,7 @@ async function viaRegistry(
   if (schema.type === 'AVRO') {
     try {
       const type = AvroType.parse(schema.schema);
-      return ok('avro', logical(type.schema, type.decode(payload)), meta);
+      return ok('avro', logicalDisplay(type.schema, type.decode(payload)), meta);
     } catch (e) {
       return fail(
         bytes,
@@ -205,10 +256,11 @@ async function viaRegistry(
   );
 }
 
+/** `lookup` is undefined when the cluster has no Schema Registry. */
 export async function decode(
   bytes: Uint8Array | null,
   as: DecodeAs,
-  lookup: SchemaLookup,
+  lookup: SchemaLookup | undefined,
 ): Promise<DecodeResult> {
   if (bytes === null) return ok('null', null);
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -277,6 +329,13 @@ export async function decode(
           { annotations: [{ start: 0, end: 1, label: 'expected 0x00' }] },
         );
       }
+      if (!lookup)
+        return fail(
+          bytes,
+          as === 'avro' ? 'Avro' : 'JSON Schema',
+          'No Schema Registry configured',
+          'This cluster has no Schema Registry, so registry-encoded values can’t be decoded. Configure KI_CLUSTERS_n_SCHEMA_REGISTRY, or pick another format.',
+        );
       return viaRegistry(bytes, lookup, as === 'avro' ? 'AVRO' : 'JSON');
     case 'json':
       try {
@@ -296,7 +355,8 @@ export async function decode(
         return fail(bytes, 'Text', "Couldn't decode as text", 'The bytes are not valid UTF-8.');
       }
     case 'auto': {
-      if (bytes.length >= 5 && bytes[0] === 0) return viaRegistry(bytes, lookup);
+      // without a registry a leading 0x00 is just data (e.g. an int64 key 00 00 … 05)
+      if (lookup && bytes.length >= 5 && bytes[0] === 0) return viaRegistry(bytes, lookup);
       let s: string;
       try {
         s = utf8.decode(bytes);
