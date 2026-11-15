@@ -667,6 +667,12 @@ test.describe('reduced motion, overlays', () => {
       .evaluate((e) => getComputedStyle(e).transitionDuration);
     // MOTION.md: no movement under reduced motion — fades of at most 120 ms, everything else ~instant
     expect(d.split(',').every((x) => parseFloat(x) <= 0.12)).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    const pop = await page
+      .locator('#ki-settings')
+      .evaluate((e) => getComputedStyle(e).transitionDuration);
+    expect(pop.split(',').every((x) => parseFloat(x) <= 0.12)).toBe(true);
   });
 });
 

@@ -42,8 +42,10 @@ public class Clusters {
                 throw new IllegalStateException("Two clusters resolve to the id \"" + id + "\" (" + byId.get(id).name() + ", " + c.name() + "). Give each cluster a distinct KI_CLUSTERS_n_NAME.");
             if (!List.of("PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL").contains(c.security()))
                 throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " is not one of PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL (upper case).");
-            if (c.saslMechanism() != null && !c.saslMechanism().isBlank() && !List.of("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER").contains(c.saslMechanism()))
-                throw new IllegalStateException("Cluster " + c.name() + ": SASL mechanism " + c.saslMechanism() + " is not one of PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, OAUTHBEARER.");
+            if ("OAUTHBEARER".equals(c.saslMechanism()))
+                throw new IllegalStateException("Cluster " + c.name() + ": OAUTHBEARER needs a token endpoint and client credentials, which this version doesn't configure. Use PLAIN or SCRAM.");
+            if (c.saslMechanism() != null && !c.saslMechanism().isBlank() && !List.of("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512").contains(c.saslMechanism()))
+                throw new IllegalStateException("Cluster " + c.name() + ": SASL mechanism " + c.saslMechanism() + " is not one of PLAIN, SCRAM-SHA-256, SCRAM-SHA-512.");
             byId.put(id, c);
         }
         // startup log lists clusters and security protocol only (AGENT_API security checklist)
@@ -72,7 +74,6 @@ public class Clusters {
             p.put(SaslConfigs.SASL_MECHANISM, c.saslMechanism());
             String module = switch (c.saslMechanism()) {
                 case "PLAIN" -> "org.apache.kafka.common.security.plain.PlainLoginModule";
-                case "OAUTHBEARER" -> "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule";
                 default -> "org.apache.kafka.common.security.scram.ScramLoginModule";
             };
             if (c.saslUsername() != null) {

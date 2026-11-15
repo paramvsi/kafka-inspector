@@ -22,6 +22,7 @@ class ClustersTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> of(c("Prod", "PLAINTEXT", null), c("prod", "PLAINTEXT", null))).getMessage().contains("distinct"));
         assertThrows(IllegalStateException.class, () -> of(c("a", "sasl_ssl", null)));
         assertThrows(IllegalStateException.class, () -> of(c("a", "SASL_SSL", "plain")));
+        assertTrue(assertThrows(IllegalStateException.class, () -> of(c("a", "SASL_SSL", "OAUTHBEARER"))).getMessage().contains("token endpoint"));
         assertDoesNotThrow(() -> of(c("a", "SASL_SSL", "SCRAM-SHA-512"), c("b", "SSL", null)));
     }
 }

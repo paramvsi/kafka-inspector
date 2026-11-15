@@ -32,5 +32,5 @@ USER 10001
 VOLUME /data
 EXPOSE 8080
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Djava.io.tmpdir=/tmp"
-HEALTHCHECK --interval=15s --timeout=3s --start-period=30s CMD wget -qO- http://127.0.0.1:8080/api/health || exit 1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=30s CMD wget -qO- http://127.0.0.1:${KI_PORT:-8080}/api/health || exit 1
 ENTRYPOINT ["java", "-jar", "/app/agent.jar"]

@@ -87,7 +87,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    static final String PAGE_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-ancestors 'none'";
+    static final String PAGE_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'";
     /** Worker scripts get their own policy (CSP3): the message filter compiles the user's expression, and has no network. */
     static final String WORKER_PREFIX = "/_next/static/chunks/turbopack-worker-";
     static final String WORKER_CSP = "default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'";

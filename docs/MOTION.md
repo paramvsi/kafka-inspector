@@ -26,12 +26,12 @@ Motion in Kafka Inspector has one job: **show what changed and where it went**. 
 | `--pulse-period` | 2000ms | Live dot, firing-alert dot |
 | `--flash-dur` | 600ms | Value-changed tint |
 
-Under reduced motion, the `[data-motion="reduced"]` root sets every `--dur-*` to `0.01ms` except fades, which use 120 ms.
+Under reduced motion, `[data-motion="reduced"]` (or the OS setting) sets `--dur-instant` to 0.01 ms and `--dur-base`/`--dur-slow` to 120 ms; `apps/web/app/globals.css` also caps `--dur-fast` at 120 ms and removes overlay scale/slide, so every remaining motion is a fade of at most 120 ms.
 
 ## Implementation
 
 - **CSS transitions** for hover/press/focus/colour/tab indicator/theme.
-- **`motion`** (motion.dev, the successor of Framer Motion) only for enter/exit presence (dialog, drawer, popover, toast, command palette, banners, tour) and the small number of layout moves. Wrap it in `packages/ui/motion` (`<Fade>`, `<SlideIn side>`, `<Pop>`, `<Presence>`, `useReducedMotion()`) so screens never use raw durations or easings.
+- **Enter/exit presence** (dialog, drawer, popover, toast, command palette, banners, tour) uses native `<dialog>` / `[popover]` with CSS transitions and `@starting-style` in `apps/web/app/globals.css` (no `motion` library, no `packages/ui/motion`; see DECISIONS D-15). The reduced-motion variant is the `motion-off` Tailwind variant plus `data-motion`.
 - Durations and easings come from the tokens only — no literal `ms` values in components (lint rule / grep check).
 
 ## Catalogue
@@ -45,7 +45,7 @@ Under reduced motion, the `[data-motion="reduced"]` root sets every `--dur-*` to
 | Tabs / SegmentedControl | active indicator slides between options, `--dur-fast`, `--ease-standard` |
 | Sidebar collapse | width via `transform` on content + fade labels, `--dur-base` |
 | Theme toggle | colours cross-fade `--dur-fast` on user toggle only, never on page load |
-| Tooltip | fade + 4 px rise, `--dur-fast`, 300 ms open delay, instant close |
+| Tooltip | fade + 4 px rise, `--dur-fast`, `--dur-slow` (320 ms) open delay, instant close, Esc hides |
 
 ### Overlays
 | Element | Enter | Exit |

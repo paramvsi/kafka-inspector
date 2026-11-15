@@ -3,7 +3,7 @@
 Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria (AC). "Demo" = simulated mode; "Self" = self-hosted agent mode. Unless stated, a feature works in both. In Self mode v1, write actions are disabled (F-90).
 
 
-## Build status (2026-11-15)
+## Build status (2026-11-16)
 
 ✅ done and tested · ⚠️ done with a noted gap (see DECISIONS) · ⏳ not done
 
@@ -51,7 +51,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 **F-07 Accessibility — MVP.** WCAG 2.1 AA: contrast per tokens, focus ring on all interactive elements, labelled inputs, tables with `scope` headers and captions, status never shown by colour alone.
 
-**F-08 Motion — MVP.** Every animation per `docs/MOTION.md`: motion tokens, `packages/ui/motion` primitives, overlay enter/exit, live-data signals (flash, pulse, Live dot), chart first-draw only, topology flow, tour spotlight, landing reveals; reduced-motion setting + OS preference; no jank during live updates.
+**F-08 Motion — MVP.** Every animation per `docs/MOTION.md`: motion tokens, CSS/native overlay enter/exit (no motion library), live-data signals (flash, pulse, Live dot), chart first-draw only, topology flow, tour spotlight, landing reveals; reduced-motion setting + OS preference; no jank during live updates.
 
 ## Overview dashboard
 
@@ -117,7 +117,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 **F-70 Lag status — MVP.** Healthy / Warn / Stalled / Stopped (+ Rebalancing/Empty/Unknown as neutral) per partition and rolled up per group, using the rules in ARCHITECTURE "Lag evaluation". Shared pure function with test vectors.
 **F-71 Catch-up forecast — MVP.** `t = lag / (consumeRate − produceRate)` when positive, else "won't catch up at current rates"; shown as "~14 min" everywhere.
-**F-72 Metric history — MVP.** Time series per topic/partition/group (msgs/s, bytes/s, lag, end offset, committed offset) for 15m/1h/24h/7d; Demo pre-generates 24 h on load; Self stores samples in the agent DB (retention configurable, default 7 d).
+**F-72 Metric history — MVP.** Time series for 15m/1h/24h/7d — cluster msgs/s in/out, bytes/s in, lag, under-replicated; topic msgs/s; partition end offset; group lag; Demo pre-generates 24 h on load; Self stores samples in the agent DB (retention configurable, default 7 d).
 
 ## Alerts
 
@@ -130,7 +130,7 @@ Alert rules are app data, not Kafka writes, so they are allowed in read-only Sel
 
 ## Topology
 
-**F-85 Topology map — MVP.** Producers (client ids) → topics → consumer groups (React Flow). Edge width = msgs/s; node colour = health; dashed edge for producers writing to DLQ; highlight search; click node to open; fit to screen. In Self mode, producers are inferred from client ids where available (document the limitation).
+**F-85 Topology map — MVP.** Producers (client ids) → topics → consumer groups (custom SVG). Edge width = msgs/s; node colour = health; dashed edge for producers writing to DLQ; highlight search; click node to open; fit to screen. In Self mode the map shows topics → groups only: the Admin API doesn't expose producers.
 
 ## Schemas
 

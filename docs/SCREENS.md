@@ -53,11 +53,11 @@ Static export cannot pre-render unknown topic/group names, so detail pages use q
 
 ## Sample data story (keep consistent across screens and the simulator)
 
-Cluster `prod-eu-1`, 3 brokers, Kafka 4.1 (KRaft). 42 topics, 186 partitions. Throughput ~48,213 msg/s (peak 52,904 at 13:58). `payments-sink` (classic, 3 members) lag 9,312, Warn, catch-up ~14 min (consume 8,180/s vs produce 7,511/s). `fraud-scorer` stalled on `payments` partition 7 at offset 88,410 for 6 min (poison message → `payments.dlq`); fix = Reset offsets → Shift by +1. `clickstream` partition 3 hot (41 %). `audit-log` RF 1. `legacy-events` no consumers. `search-indexer` stopped (Empty). `notify-workers` is a share group.
+Cluster `prod-eu-1`, 3 brokers, Kafka 4.1 (KRaft). 42 topics, 186 partitions. Throughput ~48,213 msg/s (peak 52,904 at 13:58). `payments-sink` (classic, 3 members) builds lag and drains it on a 16-minute saw-tooth (Warn while rising). `fraud-scorer` stalled on `payments` partition 7 at its committed offset for 6 min (poison message → `payments.dlq`); fix = Reset offsets → Shift by +1. `clickstream` partition 3 hot (41 %). `audit-log` RF 1. `legacy-events` no consumers. `search-indexer` stopped (Empty). `notify-workers` is a share group.
 
 ## Notes for building
 
-- Tables in the references are plain HTML using `co-table` classes; build them with `packages/ui` `DataTable` (TanStack-backed) keeping the same look.
-- Dialogs and drawers: shadcn Dialog/Sheet restyled with tokens; overlay `rgba(5,9,7,.62)`; focus trapped; Esc closes; URL param reflects open state.
+- Tables in the references are plain HTML using `co-table` classes; build them with `packages/ui` `DataTable` keeping the same look.
+- Dialogs and drawers: native `<dialog>` (`packages/ui` Dialog/Drawer) styled with tokens; overlay `rgba(5,9,7,.62)`; focus trapped; Esc closes; URL param reflects open state.
 - Charts in the references are static SVG; build with Recharts using the same tokens (gridlines `line-subtle`, baseline `line-strong`, area fill 12–14 %).
 - The landing page embeds the real Overview as its hero image: render a screenshot (generated in CI by Playwright) rather than a live iframe.

@@ -309,11 +309,10 @@ export const SINK_CYCLE = {
   phaseAtLoadMs: 58 * 1000,
 };
 
-/** Poison message on payments-7 (story: fraud-scorer stalled for 6m 12s at offset 88,410). */
+/** Poison message on payments-7: fraud-scorer stalls at its committed offset, 6m 12s before load. */
 export const POISON = {
   topic: 'payments',
   partition: 7,
-  offset: 88_410,
   group: 'fraud-scorer',
   activeForMsAtLoad: 372_000,
 };

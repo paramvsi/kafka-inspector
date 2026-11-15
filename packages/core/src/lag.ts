@@ -15,7 +15,7 @@ export interface LagWindow {
   lastCommitAt?: number | null;
   /** epoch ms */
   now: number;
-  /** window duration in ms (demo 60 s, agent 5 min) */
+  /** window duration in ms (demo 10 s, agent 5 min) */
   windowMs: number;
 }
 

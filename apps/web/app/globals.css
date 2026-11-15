@@ -337,6 +337,15 @@ html.theme-switching * {
     animation: none !important;
   }
 }
+/* reduced motion (MOTION.md rule 6): fades at most 120 ms — the tokens leave --dur-fast at 150 ms */
+:root[data-motion='reduced'] {
+  --dur-fast: var(--dur-base);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) {
+    --dur-fast: var(--dur-base);
+  }
+}
 /* reduced motion (MOTION.md rule 6): overlays fade in at most 120 ms (--dur-base) and never scale or slide */
 :root[data-motion='reduced'] :is(.ki-dialog, .ki-drawer) {
   transform: none !important;

@@ -3,7 +3,7 @@ export interface SelfHostForm {
   name: string;
   bootstrap: string;
   security: 'PLAINTEXT' | 'SSL' | 'SASL_PLAINTEXT' | 'SASL_SSL';
-  mechanism: 'PLAIN' | 'SCRAM-SHA-256' | 'SCRAM-SHA-512' | 'OAUTHBEARER';
+  mechanism: 'PLAIN' | 'SCRAM-SHA-256' | 'SCRAM-SHA-512'; // OAUTHBEARER needs token settings v1 doesn't have
   schemaRegistry: string;
   registryAuth: boolean;
   port: number;

@@ -84,7 +84,7 @@ Open http://localhost:8080 and sign in as `admin` with `KI_ADMIN_PASSWORD`. The 
 and a `docker run` line, entirely in your browser.
 
 > The image is not published yet: the release workflow is ready, and the first image ships once the product
-> name is settled. Until then build it: `docker build -f deploy/Dockerfile -t ghcr.io/paramvsi/kafka-inspector:1.0.0 .`
+> name is settled. Until then build it: `docker build -f deploy/Dockerfile --build-arg VERSION=1.0.0 -t ghcr.io/paramvsi/kafka-inspector:1.0.0 .`
 
 | Variable                                                             | Default                 | Meaning                                                                           |
 | -------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------- |
@@ -109,7 +109,7 @@ Use `KI_CLUSTERS_1_…` for more clusters. The same keys work in `/config/kafka-
 **Security.** Version 1 is read-only: the agent has no endpoint that creates, deletes, produces, resets or
 edits anything, and its browse consumer has no `group.id` and never commits. Sessions use an HttpOnly,
 SameSite=Strict cookie with CSRF double-submit; sign-in is rate-limited; secrets are never logged. The image
-runs as a non-root user with a read-only root filesystem (only `/data` is writable). Masking rules are a
+runs as a non-root user with a read-only root filesystem (only `/data` and a `/tmp` tmpfs are writable). Masking rules are a
 display feature, not a security control.
 
 ## Develop

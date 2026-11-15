@@ -478,6 +478,7 @@ class AgentIntegrationTest {
         assertTrue(worker.contains("connect-src 'none'"), worker);
         String page = send("GET", "/app/", null).headers().firstValue("content-security-policy").orElseThrow();
         assertFalse(page.contains("'unsafe-eval'"), page);
+        assertFalse(page.contains("ws:") || page.contains("wss:"), "WebSockets to any host: " + page);
     }
 
     @Test

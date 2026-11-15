@@ -116,7 +116,7 @@ export function SelfHostView() {
               disabled={!f.security.startsWith('SASL')}
               value={f.mechanism}
               onChange={(e) => set('mechanism', e.target.value as SelfHostForm['mechanism'])}
-              options={['PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512', 'OAUTHBEARER'].map((v) => ({
+              options={['PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512'].map((v) => ({
                 value: v,
                 label: v,
               }))}

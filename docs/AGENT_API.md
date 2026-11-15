@@ -1,12 +1,12 @@
 # Agent API (self-hosted, v1 read-only)
 
-The agent is a Spring Boot app that serves the web app at `/app/**` (static files from the Next.js export; unknown paths fall back to the route's `index.html`) and this API at `/api/**`. Same origin, so no CORS. `/` redirects to `/app/`.
+The agent is a Spring Boot app that serves the web app at `/app/**` (static files from the Next.js export; a directory path serves its `index.html`, unknown paths are 404 with the app's 404 page) and this API at `/api/**`. Same origin, so no CORS. `/` redirects to `/app/`.
 
 All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message": "Human sentence.", "details": {} } }` with the matching HTTP status. Times are ISO-8601 UTC. Offsets and counts are numbers (use `long` in Java; JS numbers are safe to 2^53).
 
 ## Auth
 
-- `POST /api/auth/login` `{ "username": "admin", "password": "…" }` → 204 + session cookie (`KI_SESSION`, HttpOnly, Secure when behind TLS, SameSite=Strict). Rate-limit 5 attempts/min per IP.
+- `POST /api/auth/login` `{ "username": "admin", "password": "…" }` → 204 + session cookie (`KI_SESSION`, HttpOnly, Secure when behind TLS, SameSite=Strict). Rate-limited: 5 failed attempts / min per address and 30 / min in total.
 - `POST /api/auth/logout` → 204.
 - Every other `/api/**` route except `GET /api/info` and `GET /api/health` requires a session → else 401 `UNAUTHENTICATED`.
 - CSRF: double-submit cookie (`KI_CSRF` cookie + `X-KI-CSRF` header) on non-GET requests.
@@ -43,13 +43,13 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## History
 
-- `GET /api/clusters/{c}/history?metric=messagesIn|bytesIn|bytesOut|lag|endOffset|committedOffset&scope=cluster|topic|partition|group&key=&range=15m|1h|24h|7d` → `Series[]` `{ key, points: [[epochMillis, value], …] }`
+- `GET /api/clusters/{c}/history?metric=…&scope=cluster|topic|partition|group&key=&range=15m|1h|24h|7d` (recorded metrics per scope are listed under "Notes from the build"; others are 400) → `Series[]` `{ key, points: [[epochMillis, value], …] }`
 - Sampler runs every 10 s (configurable), downsamples to 1 min after 1 h and 10 min after 24 h; retention `KI_HISTORY_RETENTION` (default 7d).
 
 ## Live stream
 
 - `GET /api/stream` upgrades to WebSocket. Client sends `{ "op": "sub", "cluster": "prod", "channel": "metrics"|"lag"|"events"|"alerts" }` or `{ "op": "tail", "cluster": "prod", "topic": "orders", "partition": "all", "maxRate": 50 }` and `{ "op": "unsub", "id": "…" }`.
-- Server sends `{ "id": "…", "channel": "…", "ts": "…", "data": … }` batched at most once per second per subscription (tail: batches of `RawMessageDto`).
+- Server sends `{ "id": "…", "channel": "…", "ts": "…", "data": … }` batched at most once per second per subscription (tail: batches of `RawMessageDto`, `maxRate` clamped to 1–500/s, at most 8 tails per connection). A tail that stops sends `{ "id", "channel": "tail", "ts", "error": "…" }`.
 - Heartbeat `{ "op": "ping" }` every 20 s; client reconnects with exponential back-off (1, 2, 5, 10, 30 s) and resubscribes.
 
 ## Schemas (proxied to Schema Registry with server-side credentials)
@@ -57,11 +57,11 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 - `GET /api/clusters/{c}/schemas/subjects` → `SubjectSummary[]` `{ subject, latestVersion, type: AVRO|JSON|PROTOBUF, compatibility }`
 - `GET /api/clusters/{c}/schemas/subjects/{s}/versions/{v|latest}` → `SchemaVersion` `{ subject, version, id, type, schema, references }`
 - `GET /api/clusters/{c}/schemas/ids/{id}` → `SchemaVersion`
-- `POST /api/clusters/{c}/schemas/subjects/{s}/compatibility` `{ schema, version: "latest" }` → `{ compatible: boolean, messages: string[] }` (read-only check; allowed in v1)
+- `POST /api/clusters/{c}/schemas/subjects/{s}/compatibility` `{ schema, schemaType? }` (checked against the latest version) → `{ compatible: boolean, messages: string[] }` (read-only check; allowed in v1)
 
 ## Topology
 
-- `GET /api/clusters/{c}/topology` → `{ nodes: [{ id, kind: producer|topic|group, label, status, rate }], edges: [{ from, to, rate, kind: produce|consume|dlq }] }`. Producers are inferred from client ids seen in broker metrics where available; document that producer detection is best-effort in self-hosted mode.
+- `GET /api/clusters/{c}/topology` → `{ nodes: [{ id, kind: producer|topic|group, label, status, rate }], edges: [{ from, to, rate, kind: produce|consume|dlq }] }`. In self-hosted mode there are no producer nodes: the Admin API doesn't expose producers, so the map shows topics → groups.
 
 ## Alerts (app data — allowed in read-only mode)
 
@@ -84,28 +84,30 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 | `KI_READ_ONLY` | `true` | Must stay true in v1 |
 | `KI_PORT` | `8080` | HTTP port |
 | `KI_DB_URL` | `jdbc:h2:file:/data/ki` | History/alerts DB (PostgreSQL URL allowed) |
+| `KI_DB_USER` / `KI_DB_PASSWORD` | `sa` / empty | DB credentials (for PostgreSQL) |
+| `KI_LAG_WINDOW` | `30` | Samples in the lag window |
 | `KI_HISTORY_RETENTION` | `7d` | Metric history retention |
 | `KI_SAMPLE_INTERVAL` | `10s` | Sampler interval |
 | `KI_CLUSTERS_0_NAME` | — | Cluster display name |
 | `KI_CLUSTERS_0_BOOTSTRAP` | — | Bootstrap servers |
 | `KI_CLUSTERS_0_SECURITY` | `PLAINTEXT` | PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL |
-| `KI_CLUSTERS_0_SASL_MECHANISM` | — | PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, OAUTHBEARER |
+| `KI_CLUSTERS_0_SASL_MECHANISM` | — | PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 (OAUTHBEARER is refused at startup: v1 has no token-endpoint settings) |
 | `KI_CLUSTERS_0_SASL_USERNAME` / `_PASSWORD` | — | Credentials (env only; never logged) |
 | `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD` | — | Optional custom CA |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY` | — | Registry URL |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY_USERNAME` / `_PASSWORD` | — | Registry basic auth |
-| `KAFKA_BOOTSTRAP` | — | Shortcut for a single cluster named `default` |
+| `KAFKA_BOOTSTRAP` / `SCHEMA_REGISTRY_URL` | — | Shortcut for a single cluster named `default` (ignored when any `KI_CLUSTERS_n_*` is set) |
 
 ## Security checklist
 
-- Run as non-root; read-only root filesystem except `/data`.
+- Run as non-root; read-only root filesystem except `/data` (volume) and `/tmp` (tmpfs with exec: snappy/zstd unpack native libraries there).
 - Never log config values containing `PASSWORD`, `SECRET`, `TOKEN`, `KEY`; mask in `/api/.../config` responses.
-- Session timeout 12 h; login rate limiting (5 failed attempts / min per address, 30 / min in total; the attempt is reserved before the password check); `/api/stream` accepts same-origin handshakes only and closes when the session ends; secure headers (CSP limited to self + Google Fonts, `X-Frame-Options: DENY`). Worker scripts (`/_next/static/chunks/turbopack-worker-*`) get their own CSP — `script-src 'self' 'unsafe-eval'; connect-src 'none'` — so the message filter can compile expressions but has no network; pages never allow eval.
+- Session timeout 12 h; login rate limiting (5 failed attempts / min per address, 30 / min in total; the attempt is reserved before the password check); `/api/stream` accepts same-origin handshakes only and closes when the session ends; secure headers (CSP: scripts and connections same-origin only — `script-src 'self' 'unsafe-inline'` for the export's inline bootstrap, `connect-src 'self'` — styles/fonts also from Google Fonts; `X-Frame-Options: DENY`). Worker scripts (`/_next/static/chunks/turbopack-worker-*`) get their own CSP — `script-src 'self' 'unsafe-eval'; connect-src 'none'` — so the message filter can compile expressions but has no network; pages never allow eval.
 - Startup log line lists clusters and security protocol only.
 
 ## Notes from the build (phase 4)
 
-- **Errors.** Every error uses `{ "error": { "code", "message", "details" } }`: 400 `BAD_REQUEST` / `INVALID_DATA`, 404 `NOT_FOUND` / `TOPIC_NOT_FOUND` / `BROKER_NOT_FOUND` / `RULE_NOT_FOUND` / `ALERT_NOT_FOUND`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED`, 502 `KAFKA_UNAVAILABLE`, 503 `UNAVAILABLE`, 500 `INTERNAL` (no internals; see the agent log).
+- **Errors.** Every error uses `{ "error": { "code", "message", "details" } }`: 400 `BAD_REQUEST` / `INVALID_DATA`, 404 `NOT_FOUND` / `CLUSTER_NOT_FOUND` / `TOPIC_NOT_FOUND` / `GROUP_NOT_FOUND` / `BROKER_NOT_FOUND` / `RULE_NOT_FOUND` / `ALERT_NOT_FOUND` / `SCHEMA_NOT_FOUND` / `NO_SCHEMA_REGISTRY`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED`, 502 `KAFKA_UNAVAILABLE`, 503 `UNAVAILABLE`, 500 `INTERNAL` (no internals; see the agent log).
 - **History** accepts only what the sampler records: cluster `messagesIn`, `messagesOut`, `bytesIn`, `lag`, `underReplicated`; topic `messagesIn`; partition `endOffset`; group `lag`. Ranges `15m`, `1h`, `24h`, `7d`; anything else is 400.
 - **Browse never creates topics**: the consumer sets `allow.auto.create.topics=false`.
 

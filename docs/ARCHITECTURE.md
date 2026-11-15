@@ -31,7 +31,7 @@ kafka-inspector/
 ├─ apps/
 │  ├─ web/                 Next.js App Router, TypeScript, Tailwind, output: 'export'
 │  │  ├─ app/              routes (see SCREENS.md)
-│  │  ├─ lib/client.ts     picks SimulatedClient or AgentClient at startup
+│  │  ├─ lib/client/       pick.ts picks SimulatedClient or AgentClient at startup
 │  │  └─ public/brand/     logos, favicons
 │  ├─ site/                (optional) landing page; or a route group in apps/web — see DECISIONS
 │  └─ agent/               Spring Boot (Gradle), serves /app + /api
@@ -43,9 +43,9 @@ kafka-inspector/
 ├─ designs/screens/        reference HTML per screen
 ├─ deploy/
 │  ├─ Dockerfile           multi-stage: build web → build agent → slim JRE runtime
-│  ├─ docker-compose.dev.yml   agent + Kafka (KRaft) + Schema Registry + a traffic generator
-│  └─ netlify.toml
-└─ .github/workflows/      ci.yml (lint, test, e2e, agent tests), release.yml (image to GHCR on tag)
+│  └─ docker-compose.dev.yml   agent + Kafka (KRaft) + Schema Registry + a traffic generator
+├─ netlify.toml            demo hosting (static export, headers incl. the worker CSP)
+└─ .github/workflows/      ci.yml (lint, test, e2e, agent tests, image smoke), release.yml (image to GHCR on tag, after CI), nightly.yml (three browsers)
 ```
 
 ## Stack
@@ -53,15 +53,15 @@ kafka-inspector/
 | Layer | Choice |
 | --- | --- |
 | Web framework | Next.js (App Router) with `output: 'export'`, React, TypeScript strict |
-| Styling | Tailwind CSS mapped to Copper Oxide CSS variables; shadcn/ui primitives (Dialog, Popover, Tooltip, Command) restyled with tokens |
+| Styling | Tailwind CSS v4 mapped to Copper Oxide CSS variables; native `<dialog>` / `[popover]` primitives in `packages/ui` (no shadcn) |
 | Server state | TanStack Query (requests) + a `useStream` hook over `KafkaClient.subscribe` (live data) |
-| Client state | Zustand (cluster, time range, live/paused, saved filters) |
+| Client state | the URL (F-04) + React context; per-viewer conveniences in localStorage (no Zustand) |
 | Charts | Recharts for time series; small custom SVG for sparklines |
-| Topology | React Flow |
-| Tables | TanStack Table + TanStack Virtual |
+| Topology | custom SVG + HTML (no React Flow) |
+| Tables | `packages/ui` `DataTable` + TanStack Virtual (message list) |
 | Worker RPC | Comlink |
 | Storage (demo) | IndexedDB via Dexie |
-| Serdes | `avsc` (Avro), `ajv` (JSON Schema) |
+| Serdes | own Avro codec in `packages/core` (cross-checked against `avsc` in tests); JSON Schema compatibility subset in `schema-compat.ts` |
 | Tests (TS) | Vitest, Testing Library, Playwright, axe-core |
 | Agent | Java 21, Spring Boot (web, websocket, security, validation, actuator), Kafka `kafka-clients`, Flyway, H2 (default) / PostgreSQL (optional), Testcontainers |
 
@@ -104,7 +104,7 @@ export interface KafkaClient {
 
   // messages (raw bytes; decoding happens in the browser via core/serdes)
   browse(clusterId: string, req: BrowseRequest): Promise<RawMessagePage>;
-  tail(clusterId: string, req: TailRequest, onBatch: (batch: RawMessage[]) => void): Unsubscribe;
+  tail(clusterId: string, req: TailRequest, onBatch: (batch: RawMessage[]) => void, onError?: (message: string) => void): Unsubscribe;
   search(clusterId: string, req: SearchRequest): Promise<RawMessagePage>;   // multi-topic
 
   // consumer groups
@@ -143,7 +143,11 @@ export interface KafkaClient {
   };
 
   // demo only
-  chaos?: { run(action: ChaosAction): Promise<void>; stop(id: string): Promise<void>; reset(): Promise<void>; settings(s: SimSettings): Promise<void> };
+  chaos?: { run(action: ChaosAction): Promise<Incident>; stop(id: string): Promise<void>; reset(): Promise<void>; settings(s: SimSettings): Promise<void>; getSettings(): Promise<Required<SimSettings>>; incidents(): Promise<Incident[]> };
+  savedFilters?: { list(): Promise<SavedFilter[]>; save(f: SavedFilter): Promise<void> }; // agent DB (F-04)
+  previewAlertRule?(rule: AlertRuleInput): Promise<{ firings: number }>;
+  onConnection?(cb: (c: ConnectionState) => void): Unsubscribe; // agent WebSocket state
+  signOut?(): Promise<void>;
 }
 
 export type StreamChannel = 'metrics' | 'lag' | 'events' | 'alerts';
@@ -167,7 +171,7 @@ export interface RawMessage { topic: string; partition: number; offset: number; 
 export interface HealthFinding { id: 'rf1' | 'low-min-isr' | 'no-consumers' | 'infinite-retention' | 'skew' | 'disk-fill'; severity: 'warn' | 'crit' | 'info'; message: string; fix: string }
 ```
 
-### Picking the client (apps/web/lib/client.ts)
+### Picking the client (apps/web/lib/client/pick.ts)
 
 1. `NEXT_PUBLIC_KI_MODE` set → force that mode (dev).
 2. Else `GET /api/info` (same origin, 2 s timeout). 200 → `AgentClient`; 401 → go to `/app/sign-in`; anything else → `SimulatedClient`.
@@ -177,7 +181,7 @@ export interface HealthFinding { id: 'rf1' | 'low-min-isr' | 'no-consumers' | 'i
 
 Inputs per partition: an ordered window of samples `{t, committed, end}` (committed may be null) plus `lastCommitAt`.
 
-Window: demo 60 samples at 1 s; agent 30 samples at 10 s (5 min). Configurable.
+Window: demo 10 samples at 1 s; agent 30 samples at 10 s (5 min). Configurable.
 
 Rules, evaluated in order (Burrow-style):
 
@@ -188,7 +192,7 @@ Rules, evaluated in order (Burrow-style):
 5. Committed offset advanced and lag strictly increased across the window (or net increase with a positive least-squares slope) → `warn`.
 6. Otherwise → `healthy`.
 
-Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; else any `warn` → `warn`; else `healthy`. Neutral states (Empty, rebalancing) come from `GroupState` and are shown with the neutral badge.
+Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; else any `warn` → `warn`; else every partition `unknown` → `unknown`; else `healthy`. Neutral states (Empty, rebalancing) come from `GroupState` and are shown with the neutral badge.
 
 **Forecast** over the same window: `consumeRate = Σ Δcommitted / Δt`, `produceRate = Σ Δend / Δt`.
 - lag = 0 → `caught-up`
@@ -203,14 +207,14 @@ Ship **test vectors** (`packages/core/test/lag-vectors.json`) and run the same f
 ## Simulator (packages/simulator)
 
 - Runs in a Web Worker; exposed with Comlink as `SimulatedClient`'s backend. Ticks every 1 s.
-- **Seed cluster** (seed `kafka-42`): brokers 1–3 (KRaft, controller 1, racks eu-west-1a/b/c); topics `orders` (24p), `payments` (12p), `clickstream` (12p), `inventory` (12p), `notifications` (6p), `payments.dlq` (3p), `audit-log` (3p, RF 1), `legacy-events` (6p, no consumers), plus internal `__consumer_offsets`, `_schemas`; groups `order-service`, `payments-sink` (classic), `fraud-scorer`, `analytics-etl`, `search-indexer` (empty), `notify-workers` (share group).
+- **Seed cluster** (seed `kafka-42`): brokers 1–3 (KRaft, controller 1, racks eu-west-1a/b/c); topics `orders` (24p), `payments` (12p), `clickstream` (12p), `inventory` (12p), `notifications` (6p), `payments.dlq` (3p), `audit-log` (3p, RF 1), `legacy-events` (6p, no consumers), 31 smaller filler topics, plus internal `__consumer_offsets`, `_schemas`, `__share_group_state` (42 topics, 186 partitions in all); groups `order-service`, `payments-sink` (classic), `fraud-scorer`, `analytics-etl`, `search-indexer` (empty), `notify-workers` (share group).
 - Producer rate per topic = base × daily wave (sin, period 24 h) × noise (seeded) × chaos multipliers. Spread across partitions with optional hot-key skew.
 - Each partition's end offset grows by its rate; each group's committed offset grows by its consume rate, capped at end offset.
 - 24 h of history is back-filled on first load (sampled every 60 s for older data, 1 s for the last 15 min).
-- **Messages are a pure function of `(topic, partition, offset)`** via a seeded PRNG — nothing stored. Avro topics produce real Confluent wire-format bytes (magic 0, schema id, avro payload) using the simulator's own schema registry, so the real decoder path is exercised. One payments message (offset 88,410 on partition 7) is malformed when the "poison message" scenario is active.
+- **Messages are a pure function of `(topic, partition, offset)`** via a seeded PRNG — nothing stored. Avro topics produce real Confluent wire-format bytes (magic 0, schema id, avro payload) using the simulator's own schema registry, so the real decoder path is exercised. When the "poison message" scenario is active, the payments message at fraud-scorer's committed offset on partition 7 is malformed (the offset follows the run, it isn't fixed).
 - Writes (create topic, produce, reset offsets) and saved state go to IndexedDB; "Reset demo" clears it.
-- **Chaos actions** (each returns an incident id and can be stopped): crash consumer (group → Empty, commits stop), slow consumer (consume rate × 0.6), traffic spike (× 10 for 2 min), broker down (broker offline, ISR shrinks, leaders move), rebalance (group → rebalancing 8 s), hot partition (one partition gets 40 % of a topic), poison message (fraud-scorer stalls on payments-7 offset 88,410; failures written to payments.dlq).
-- The opening state reproduces the designs: `payments-sink` warn (lag ≈ 9,312, catch-up ≈ 14 min), `fraud-scorer` stalled, `clickstream` skewed.
+- **Chaos actions** (each returns an incident id and can be stopped): crash consumer (group → Empty, commits stop), slow consumer (consume rate × 0.6), traffic spike (× 10 for 2 min), broker down (broker offline, ISR shrinks, leaders move), rebalance (group → rebalancing 8 s), hot partition (one partition gets 40 % of a topic), poison message (fraud-scorer stalls on payments-7 at its committed offset; failures written to payments.dlq).
+- The opening state reproduces the designs: `payments-sink` builds lag and drains it on a 16-minute saw-tooth, `fraud-scorer` stalled, `clickstream` skewed.
 
 ## Serdes (packages/core/serdes)
 
@@ -235,7 +239,7 @@ Run user expressions in a dedicated Worker with no DOM, compiled once per expres
 - Live updates batched to 1 per second per channel; charts update without re-mounting.
 - Message pages ≤ 500 rows; live tail ring buffer 2,000 rows; tables virtualised beyond 200 rows.
 - Worker tick ≤ 10 ms for the seed cluster on a mid-range laptop.
-- Initial JS for the dashboard route ≤ 250 kB gzip (lazy-load React Flow, avsc, ajv, Recharts per route).
+- Initial JS for the dashboard route ≤ 250 kB gzip (Recharts loads lazily).
 
 ## Testing strategy
 
