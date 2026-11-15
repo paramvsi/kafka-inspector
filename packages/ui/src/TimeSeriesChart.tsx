@@ -164,10 +164,16 @@ export function TimeSeriesChart({
             )}
             {markers.map((m) => (
               <ReferenceLine
-                key={m.label}
+                key={`${m.label}-${m.t}`}
                 x={m.t}
-                stroke="var(--ink-muted)"
+                stroke="var(--line-strong)"
                 strokeDasharray="2 3"
+                label={{
+                  value: m.label,
+                  position: 'insideTopLeft',
+                  fill: 'var(--ink-muted)',
+                  fontSize: 9,
+                }}
               />
             ))}
             {peak && (

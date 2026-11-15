@@ -130,7 +130,12 @@ export function ResetOffsetsDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={apply} disabled={busy || !changed.length}>
+          <Button
+            variant="primary"
+            data-tour="apply"
+            onClick={apply}
+            disabled={busy || !changed.length}
+          >
             {busy
               ? 'Applying…'
               : `Apply reset to ${changed.length} partition${changed.length === 1 ? '' : 's'}`}

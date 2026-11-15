@@ -353,3 +353,64 @@ html.theme-switching * {
     animation: none;
   }
 }
+
+/* Topology edge flow: dashes move producer → topic → group; speed set per edge; static when reduced. */
+.ki-flow {
+  animation: ki-flow var(--pulse-period) linear infinite;
+}
+.ki-flow-slow {
+  animation-duration: calc(var(--pulse-period) * 2) !important;
+}
+@keyframes ki-flow {
+  to {
+    stroke-dashoffset: -34;
+  }
+}
+:root[data-motion='reduced'] .ki-flow {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .ki-flow {
+    animation: none;
+  }
+}
+
+/* Tour spotlight moves between targets (position via transform only) */
+.ki-spotlight {
+  transition: transform var(--dur-slow) var(--ease-standard);
+}
+/* Chaos progress bar */
+.ki-progress {
+  animation: ki-progress linear forwards;
+}
+@keyframes ki-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.ki-progress-indeterminate {
+  transform: scaleX(0.3);
+  animation: ki-indeterminate calc(var(--pulse-period) * 0.75) var(--ease-standard) infinite
+    alternate;
+}
+@keyframes ki-indeterminate {
+  from {
+    transform: translateX(-30%) scaleX(0.3);
+  }
+  to {
+    transform: translateX(100%) scaleX(0.3);
+  }
+}
+:root[data-motion='reduced'] :is(.ki-spotlight, .ki-progress-indeterminate) {
+  transition: none;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) :is(.ki-spotlight, .ki-progress-indeterminate) {
+    transition: none;
+    animation: none;
+  }
+}

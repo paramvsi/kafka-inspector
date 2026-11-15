@@ -345,6 +345,8 @@ export interface TopologyNode {
   label: string;
   status: LagStatus | 'neutral';
   rate: number;
+  /** short finding shown on the node, e.g. "skew 41%", "RF 1", "9.3k behind" */
+  note?: string;
 }
 export interface TopologyEdge {
   from: string;

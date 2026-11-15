@@ -8,6 +8,7 @@ import { useKafka } from '../lib/kafka';
 import { isReducedMotion, setReducedMotion, setTheme } from '../lib/prefs';
 import { groupBadge } from '../lib/status';
 import { useReadOnly } from './Page';
+import { startTour } from './Tour';
 
 interface Item {
   id: string;
@@ -211,6 +212,14 @@ export function CommandPalette({
         href,
       })),
     );
+    if (info.mode === 'demo')
+      actions.push({
+        id: 'a:tour',
+        section: 'Actions',
+        text: 'Start guided tour',
+        label: 'Start guided tour',
+        run: () => startTour(),
+      });
     actions.push({
       id: 'a:rule',
       section: 'Actions',

@@ -62,3 +62,6 @@ Add rows here as you go: date, decision, reason.
 | 2026-11-15 | Add cluster (demo): "Local agent" stores the agent URL and checks it is reachable; Kafka credentials are never typed into the browser. "Remember password" removed. REST proxy shown as v2 | A browser can't speak Kafka's protocol (D-01); rule 6 |
 | 2026-11-15 | Saved filters, masking rules, starred topics and saved clusters live in localStorage in both modes | Per-viewer conveniences; AGENT_API has no endpoints for them |
 | 2026-11-15 | Status words in text use the `-text` tokens (`ok-text`, …); base `ok/warn/crit` only for dots, lines and fills | `--ok` on white is 4.39:1, below AA for text |
+| 2026-11-15 | Topology is custom SVG + HTML in the reference's three-column layout, not React Flow | Matches `Topology.dc.html` exactly; saves the React Flow bundle; pan/zoom/fit are transforms |
+| 2026-11-15 | Demo lag window is 10 samples at 1 s (ARCHITECTURE updated); seeded "group stalled or stopped" rule fires after 30 s | Phase 3 gate needs Stalled within 10 s; simulated consumers track the produced rate per tick so forecasts stay stable on a short window |
+| 2026-11-15 | Guided tour renders inside an open modal dialog (portal) | A modal `<dialog>` makes the rest of the page inert; the tour's step 4 sits on the Reset offsets dialog |

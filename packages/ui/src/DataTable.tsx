@@ -20,6 +20,7 @@ export interface DataTableProps<T> {
   onSort?: (key: string) => void;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string | undefined;
+  rowAttrs?: (row: T) => Record<string, string | undefined>;
   footer?: ReactNode;
   empty?: ReactNode;
   className?: string;
@@ -42,6 +43,7 @@ export function DataTable<T>({
   onSort,
   onRowClick,
   rowClassName,
+  rowAttrs,
   footer,
   empty,
   className,
@@ -107,6 +109,7 @@ export function DataTable<T>({
               rows.map((r) => (
                 <tr
                   key={rowKey(r)}
+                  {...rowAttrs?.(r)}
                   onClick={onRowClick ? () => onRowClick(r) : undefined}
                   className={cx(
                     'group transition-colors duration-instant ease-standard [&>td]:hover:bg-surface-hover',

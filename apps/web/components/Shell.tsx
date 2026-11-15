@@ -4,6 +4,8 @@ import { Sidebar, Skeleton, ToastProvider, Topbar } from '@ki/ui';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useState, type ReactNode } from 'react';
+import { AlertWatcher, Bell } from './AlertWatcher';
+import { GuidedTour } from './Tour';
 import { CommandPalette } from './CommandPalette';
 import { ShortcutSheet, useShortcuts } from './Shortcuts';
 import { useSavedClusters } from '../lib/clusters';
@@ -122,12 +124,15 @@ function Chrome({ children }: { children: ReactNode }) {
       counts={counts}
       version={info.version}
       onSearchOpen={openPalette}
+      bell={<Bell />}
       clusterMenu={
         <ClusterMenu clusters={info.clusters} saved={info.mode === 'demo' ? saved : []} />
       }
     >
       {preview === 'disconnected' && <DisconnectedBanner cluster={cluster.name} />}
       {children}
+      <AlertWatcher />
+      {info.mode === 'demo' && <GuidedTour />}
       <CommandPalette
         open={palette.open}
         initial={palette.initial}
@@ -146,7 +151,9 @@ function Frame({
   children,
   onSearchOpen,
   clusterMenu,
+  bell,
 }: {
+  bell?: ReactNode;
   mode: Mode;
   cluster: { name: string; status: 'connected' | 'degraded' | 'disconnected' };
   counts?: { brokers: number; topics: number; groups: number; alerts: number };
@@ -192,7 +199,12 @@ function Frame({
           onRange={setRange}
           live={live && preview !== 'disconnected'}
           onLiveToggle={() => setLive(!live)}
-          actions={<SettingsMenu />}
+          actions={
+            <>
+              {bell}
+              <SettingsMenu />
+            </>
+          }
           onSearchOpen={onSearchOpen}
         />
         <main id="main" className="flex min-w-0 flex-col gap-4 p-6">

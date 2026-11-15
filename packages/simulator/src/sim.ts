@@ -6,6 +6,7 @@ import {
   forecast as forecastOf,
   formatDuration,
   formatEta,
+  formatCount,
   formatInt,
   isNeutralState,
   rollupStatus,
@@ -75,8 +76,10 @@ import * as registry from './registry';
 import { MemoryStore, type Action, type Store } from './store';
 
 const DAY = 24 * 3600 * 1000;
-const WINDOW = 60; // lag window: 60 samples at 1 s (demo)
-const WINDOW_MS = 60_000;
+// Lag window in demo mode: 10 samples at 1 s, so a stall shows within 10 s (phase 3 gate). Configurable per
+// ARCHITECTURE; the agent uses 30 samples at 10 s.
+const WINDOW = 10;
+const WINDOW_MS = 10_000;
 const FINE_MS = 15 * 60 * 1000;
 const VERSION = '0.1.0';
 
@@ -146,7 +149,7 @@ export const SEEDED_RULES: AlertRule[] = [
     name: 'Consumer group stalled or stopped',
     metric: 'group-status',
     scope: { kind: 'any' },
-    durationSec: 60,
+    durationSec: 30,
     severity: 'crit',
     channels: ['in-app', 'browser'],
     enabled: true,
@@ -1382,10 +1385,12 @@ export class Simulator {
     for (const def of core) {
       const rate = this.parts.get(def.name)!.reduce((a, s) => a + s.rate, 0);
       const health = this.summary(def.name).health;
+      const finding = health.find((h) => h.severity === 'warn' || h.severity === 'crit');
       nodes.push({
         id: `topic:${def.name}`,
         kind: 'topic',
         label: def.name,
+        note: finding?.message.replace(/^Skew/, 'skew'),
         status: health.some((h) => h.severity === 'warn' || h.severity === 'crit')
           ? 'warn'
           : 'healthy',
@@ -1416,6 +1421,14 @@ export class Simulator {
         id: `group:${g.def.groupId}`,
         kind: 'group',
         label: g.def.groupId,
+        note:
+          g.status === 'stalled' || g.status === 'stopped'
+            ? g.status
+            : g.def.type === 'share'
+              ? 'share'
+              : g.status === 'warn'
+                ? `${formatCount(this.groupLag(g))} behind`
+                : undefined,
         status: neutral ? 'neutral' : g.status,
         rate,
       });
@@ -1533,6 +1546,7 @@ export class Simulator {
           rule.metric === 'topic-silent' || t - this.pending.get(k)! >= rule.durationSec * 1000;
         const ev = this.firing.get(k);
         if (ev) {
+          ev.title = h.title;
           ev.evidence = h.evidence;
         } else if (fire && !rule.muted) {
           const firedAt =
@@ -2087,13 +2101,14 @@ const STATUS_CODE: Record<LagStatus, number> = {
   stopped: 3,
 };
 
+// Lag builds on three partitions (as in the reference); the rest stay caught up.
 const SINK_WEIGHTS: Record<string, number> = {
-  'orders:7': 0.45,
-  'orders:3': 0.23,
-  'payments:4': 0.17,
+  'orders:7': 0.5,
+  'orders:3': 0.3,
+  'payments:4': 0.2,
 };
 function sinkWeight(topic: string, p: number): number {
-  return SINK_WEIGHTS[`${topic}:${p}`] ?? 0.15 / 33;
+  return SINK_WEIGHTS[`${topic}:${p}`] ?? 0;
 }
 
 function needsAttention(t: TopicSummary): boolean {

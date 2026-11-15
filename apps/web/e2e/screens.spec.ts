@@ -53,6 +53,7 @@ test('dark and light both pass axe on the overview', async ({ page }) => {
     await page.goto('/app/');
     await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
+    await page.waitForTimeout(1000); // let enter fades finish: axe measures contrast at the current opacity
     expect(await axe(page)).toEqual([]);
   }
 });

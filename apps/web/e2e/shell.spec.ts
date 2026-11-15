@@ -28,7 +28,7 @@ test('every sidebar item navigates to its stub and marks itself current', async 
   await page.goto('/app/brokers/');
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const [label, path, title] of NAV) {
-    await nav.getByRole('link', { name: label, exact: true }).click();
+    await nav.getByRole('link', { name: new RegExp(`^${label}( \\d+)?$`) }).click();
     await expect(page).toHaveURL(path);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(

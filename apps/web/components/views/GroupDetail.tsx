@@ -11,6 +11,7 @@ import {
 import {
   Button,
   Card,
+  CopyButton,
   DataTable,
   EmptyState,
   KpiCard,
@@ -68,7 +69,9 @@ export function GroupDetailView() {
         mono
         badges={
           <>
-            <StatusBadge status={b.status}>{b.label}</StatusBadge>
+            <span data-tour="status">
+              <StatusBadge status={b.status}>{b.label}</StatusBadge>
+            </span>
             <span className="rounded-sm bg-surface-hover px-2 py-[3px] text-[12px] text-ink-muted">
               {s.type} · {s.state} · {s.members} member{s.members === 1 ? '' : 's'}
             </span>
@@ -135,6 +138,7 @@ function Actions({ d }: { d: Detail }) {
   const empty = d.summary.members === 0;
   return (
     <>
+      <CopyButton text={() => location.href} label="Copy link" />
       {empty ? (
         <WriteButton
           variant="danger"
@@ -161,7 +165,7 @@ function Actions({ d }: { d: Detail }) {
         </Button>
       )}
       {d.summary.type !== 'share' && (
-        <WriteButton variant="primary" onClick={() => url.set({ reset: 1 })}>
+        <WriteButton variant="primary" data-tour="reset" onClick={() => url.set({ reset: 1 })}>
           Reset offsets
         </WriteButton>
       )}
@@ -338,6 +342,7 @@ function Partitions({ rows }: { rows: GroupPartitionLag[] }) {
       caption="Lag by partition"
       rows={shown}
       rowKey={(r) => `${r.topic}-${r.partition}`}
+      rowAttrs={(r) => (r.status === 'stalled' ? { 'data-tour': 'stalled' } : {})}
       footer={
         !all && rows.length > shown.length ? (
           <button

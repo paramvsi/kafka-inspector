@@ -304,7 +304,7 @@ export const SINK_CYCLE = {
   dipMs: 60 * 1000,
   dipDeficit: 155,
   drainSurplus: 11,
-  phaseAtLoadMs: 90 * 1000,
+  phaseAtLoadMs: 58 * 1000,
 };
 
 /** Poison message on payments-7 (story: fraud-scorer stalled for 6m 12s at offset 88,410). */

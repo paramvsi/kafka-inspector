@@ -36,7 +36,12 @@ export function StatusBadge({
   const prev = useRef(status);
   const [pulse, setPulse] = useState(0);
   useEffect(() => {
-    if (prev.current !== status && BAD.has(status)) setPulse((n) => n + 1);
+    // one pulse when it turns bad, and one when it recovers to Healthy (MOTION.md)
+    if (
+      prev.current !== status &&
+      (BAD.has(status) || (status === 'healthy' && BAD.has(prev.current)))
+    )
+      setPulse((n) => n + 1);
     prev.current = status;
   }, [status]);
   return (

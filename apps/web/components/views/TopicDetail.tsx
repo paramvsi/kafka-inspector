@@ -8,8 +8,19 @@ import {
   type PartitionInfo,
   type TopicDetail as Detail,
 } from '@ki/core';
-import { Button, Card, DataTable, EmptyState, KpiCard, StatusBadge, Tabs } from '@ki/ui';
+import {
+  Button,
+  Card,
+  CopyButton,
+  DataTable,
+  EmptyState,
+  KpiCard,
+  StatusBadge,
+  Tabs,
+  TimeSeriesChart,
+} from '@ki/ui';
 import Link from 'next/link';
+import { useApp } from '../../lib/app';
 import { useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { useUrl } from '../../lib/url';
@@ -96,6 +107,7 @@ export function TopicDetailView() {
         }
         actions={
           <>
+            <CopyButton text={() => location.href} label="Copy link" />
             <Button variant="ghost" onClick={() => url.set({ tab: 'config' })}>
               Edit config
             </Button>
@@ -177,7 +189,10 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
         />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <PartitionTable parts={d.partitions} maxDev={maxDev} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <PartitionTable parts={d.partitions} maxDev={maxDev} />
+          <TopicThroughput name={s.name} />
+        </div>
         <div className="flex flex-col gap-4">
           <Card title="Health checks">
             <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13px]">
@@ -485,6 +500,27 @@ function SchemaTab({ d }: { d: Detail }) {
           </pre>
         </>
       )}
+    </Card>
+  );
+}
+
+function TopicThroughput({ name }: { name: string }) {
+  const { range } = useApp();
+  const h = useKafkaQuery(
+    ['topic-history', name, range],
+    async (c, id) =>
+      (await c.getHistory(id, { metric: 'messagesIn', scope: 'topic', key: name, range }))[0]
+        ?.points ?? [],
+    5000,
+  );
+  return (
+    <Card title="Messages in / s" className="ki-fade-in" key={range}>
+      <TimeSeriesChart
+        label={`Messages in per second on ${name}`}
+        height={140}
+        yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
+        series={[{ key: 'in', label: 'in', points: h.data ?? [], color: 'chart-1', area: true }]}
+      />
     </Card>
   );
 }

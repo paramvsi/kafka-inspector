@@ -119,7 +119,12 @@ export function OverviewView() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-            <Throughput inn={history.data?.inn ?? []} out={history.data?.out ?? []} />
+            <Throughput
+              key={range}
+              inn={history.data?.inn ?? []}
+              out={history.data?.out ?? []}
+              events={data.events}
+            />
             <NeedsAttention data={data} />
           </div>
           <GroupTable groups={data.groups} />
@@ -130,7 +135,35 @@ export function OverviewView() {
   );
 }
 
-function Throughput({ inn, out }: { inn: Series['points']; out: Series['points'] }) {
+function Throughput({
+  inn,
+  out,
+  events,
+}: {
+  inn: Series['points'];
+  out: Series['points'];
+  events: OverviewData['events'];
+}) {
+  const from = inn[0]?.[0] ?? Date.now();
+  // Annotate rebalances, chaos and broker changes inside the visible range
+  const markers = events
+    .filter(
+      (e) =>
+        ['rebalance', 'chaos', 'broker-down', 'broker-up', 'offsets-reset'].includes(e.kind) &&
+        Date.parse(e.ts) >= from,
+    )
+    .slice(0, 6)
+    .map((e) => ({
+      t: Date.parse(e.ts),
+      label:
+        e.kind === 'rebalance'
+          ? 'rebalance'
+          : e.kind === 'offsets-reset'
+            ? 'reset'
+            : e.kind.startsWith('broker')
+              ? e.kind.replace('-', ' ')
+              : 'chaos',
+    }));
   const peak = inn.reduce<[number, number] | null>((m, p) => (!m || p[1] > m[1] ? p : m), null);
   const legend = (color: string, label: string) => (
     <span className="inline-flex items-center gap-[6px] text-[12px] text-ink-muted">
@@ -140,6 +173,7 @@ function Throughput({ inn, out }: { inn: Series['points']; out: Series['points']
   );
   return (
     <Card
+      className="ki-fade-in"
       title={
         <span className="flex items-center gap-4">
           Throughput {legend('chart-1', 'in')} {legend('chart-2', 'out')}
@@ -158,6 +192,7 @@ function Throughput({ inn, out }: { inn: Series['points']; out: Series['points']
         height={180}
         yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
         peak={peak ? { t: peak[0], v: peak[1] } : undefined}
+        markers={markers}
         series={[
           { key: 'in', label: 'in', points: inn, color: 'chart-1', area: true },
           { key: 'out', label: 'out', points: out, color: 'chart-2' },
@@ -174,6 +209,7 @@ function NeedsAttention({ data }: { data: OverviewData }) {
   return (
     <Card
       title="Needs attention"
+      data-tour="attention"
       actions={
         <Link href="/app/alerts/" className="text-[13px] text-copper underline">
           All alerts
