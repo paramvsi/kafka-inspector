@@ -1,0 +1,1170 @@
+[
+  {
+    "name": "empty window",
+    "samples": [],
+    "lastCommitAt": null,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "unknown",
+      "forecast": {
+        "kind": "unknown"
+      }
+    }
+  },
+  {
+    "name": "committed always null",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": null,
+        "end": 1000
+      },
+      {
+        "t": 1700000010000,
+        "committed": null,
+        "end": 2000
+      },
+      {
+        "t": 1700000020000,
+        "committed": null,
+        "end": 3000
+      },
+      {
+        "t": 1700000030000,
+        "committed": null,
+        "end": 4000
+      },
+      {
+        "t": 1700000040000,
+        "committed": null,
+        "end": 5000
+      },
+      {
+        "t": 1700000050000,
+        "committed": null,
+        "end": 6000
+      },
+      {
+        "t": 1700000060000,
+        "committed": null,
+        "end": 7000
+      }
+    ],
+    "lastCommitAt": null,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "unknown",
+      "forecast": {
+        "kind": "unknown"
+      }
+    }
+  },
+  {
+    "name": "single sample caught up",
+    "samples": [
+      {
+        "t": 1700000060000,
+        "committed": 500,
+        "end": 500
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "caught-up"
+      }
+    }
+  },
+  {
+    "name": "single sample behind, recent commit",
+    "samples": [
+      {
+        "t": 1700000060000,
+        "committed": 400,
+        "end": 500
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "unknown"
+      }
+    }
+  },
+  {
+    "name": "single sample behind, never committed recently",
+    "samples": [
+      {
+        "t": 1700000060000,
+        "committed": 400,
+        "end": 500
+      }
+    ],
+    "lastCommitAt": null,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stopped",
+      "forecast": {
+        "kind": "unknown"
+      }
+    }
+  },
+  {
+    "name": "caught up throughout",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 1000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2000,
+        "end": 2000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 4000,
+        "end": 4000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 5000,
+        "end": 5000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 6000,
+        "end": 6000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 7000,
+        "end": 7000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "caught-up"
+      }
+    }
+  },
+  {
+    "name": "lag shrinking -> eta",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 10000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2500,
+        "end": 11000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 4000,
+        "end": 12000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 5500,
+        "end": 13000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 7000,
+        "end": 14000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 8500,
+        "end": 15000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 10000,
+        "end": 16000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "eta",
+        "seconds": 120
+      }
+    }
+  },
+  {
+    "name": "lag growing strictly while consuming",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 2000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 1800,
+        "end": 3000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 2600,
+        "end": 4000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 3400,
+        "end": 5000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 4200,
+        "end": 6000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 5000,
+        "end": 7000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 5800,
+        "end": 8000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "warn",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "lag net up with noise, positive slope",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 2000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 1900,
+        "end": 3000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 2600,
+        "end": 4000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 3700,
+        "end": 5000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 4300,
+        "end": 6000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 5400,
+        "end": 7000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 6000,
+        "end": 8000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "warn",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "stalled: committed frozen, commits arriving",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 88410,
+        "end": 88500
+      },
+      {
+        "t": 1700000010000,
+        "committed": 88410,
+        "end": 89500
+      },
+      {
+        "t": 1700000020000,
+        "committed": 88410,
+        "end": 90500
+      },
+      {
+        "t": 1700000030000,
+        "committed": 88410,
+        "end": 91500
+      },
+      {
+        "t": 1700000040000,
+        "committed": 88410,
+        "end": 92500
+      },
+      {
+        "t": 1700000050000,
+        "committed": 88410,
+        "end": 93500
+      },
+      {
+        "t": 1700000060000,
+        "committed": 88410,
+        "end": 94500
+      }
+    ],
+    "lastCommitAt": 1700000058000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stalled",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "stopped: no commit within window",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 2000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 1000,
+        "end": 3000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 1000,
+        "end": 4000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 1000,
+        "end": 5000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 1000,
+        "end": 6000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 1000,
+        "end": 7000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 1000,
+        "end": 8000
+      }
+    ],
+    "lastCommitAt": 1699999940000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stopped",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "stopped wins over frozen pattern",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 5000,
+        "end": 6000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 5000,
+        "end": 6000
+      }
+    ],
+    "lastCommitAt": 1699999999000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stopped",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "frozen committed but no lag",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 3000,
+        "end": 3000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 3000,
+        "end": 3000
+      }
+    ],
+    "lastCommitAt": 1700000055000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "caught-up"
+      }
+    }
+  },
+  {
+    "name": "offsets reset to earliest",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 9000,
+        "end": 9500
+      },
+      {
+        "t": 1700000010000,
+        "committed": 9100,
+        "end": 9550
+      },
+      {
+        "t": 1700000020000,
+        "committed": 0,
+        "end": 9600
+      },
+      {
+        "t": 1700000030000,
+        "committed": 100,
+        "end": 9650
+      },
+      {
+        "t": 1700000040000,
+        "committed": 200,
+        "end": 9700
+      },
+      {
+        "t": 1700000050000,
+        "committed": 300,
+        "end": 9750
+      },
+      {
+        "t": 1700000060000,
+        "committed": 400,
+        "end": 9800
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "committed beyond end clamps to zero lag",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1200,
+        "end": 1000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2200,
+        "end": 2000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 3200,
+        "end": 3000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 4200,
+        "end": 4000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 5200,
+        "end": 5000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 6200,
+        "end": 6000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 7200,
+        "end": 7000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "caught-up"
+      }
+    }
+  },
+  {
+    "name": "constant lag, consuming at production rate",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 1000,
+        "end": 1500
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2000,
+        "end": 2500
+      },
+      {
+        "t": 1700000020000,
+        "committed": 3000,
+        "end": 3500
+      },
+      {
+        "t": 1700000030000,
+        "committed": 4000,
+        "end": 4500
+      },
+      {
+        "t": 1700000040000,
+        "committed": 5000,
+        "end": 5500
+      },
+      {
+        "t": 1700000050000,
+        "committed": 6000,
+        "end": 6500
+      },
+      {
+        "t": 1700000060000,
+        "committed": 7000,
+        "end": 7500
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "leading null then frozen",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": null,
+        "end": 900
+      },
+      {
+        "t": 1700000010000,
+        "committed": 700,
+        "end": 1400
+      },
+      {
+        "t": 1700000020000,
+        "committed": 700,
+        "end": 1900
+      },
+      {
+        "t": 1700000030000,
+        "committed": 700,
+        "end": 2400
+      },
+      {
+        "t": 1700000040000,
+        "committed": 700,
+        "end": 2900
+      },
+      {
+        "t": 1700000050000,
+        "committed": 700,
+        "end": 3400
+      },
+      {
+        "t": 1700000060000,
+        "committed": 700,
+        "end": 3900
+      }
+    ],
+    "lastCommitAt": 1700000057000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stalled",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "agent window 5 min, lag growing",
+    "samples": [
+      {
+        "t": 1699999770000,
+        "committed": 10000,
+        "end": 11000
+      },
+      {
+        "t": 1699999780000,
+        "committed": 10900,
+        "end": 12000
+      },
+      {
+        "t": 1699999790000,
+        "committed": 11800,
+        "end": 13000
+      },
+      {
+        "t": 1699999800000,
+        "committed": 12700,
+        "end": 14000
+      },
+      {
+        "t": 1699999810000,
+        "committed": 13600,
+        "end": 15000
+      },
+      {
+        "t": 1699999820000,
+        "committed": 14500,
+        "end": 16000
+      },
+      {
+        "t": 1699999830000,
+        "committed": 15400,
+        "end": 17000
+      },
+      {
+        "t": 1699999840000,
+        "committed": 16300,
+        "end": 18000
+      },
+      {
+        "t": 1699999850000,
+        "committed": 17200,
+        "end": 19000
+      },
+      {
+        "t": 1699999860000,
+        "committed": 18100,
+        "end": 20000
+      },
+      {
+        "t": 1699999870000,
+        "committed": 19000,
+        "end": 21000
+      },
+      {
+        "t": 1699999880000,
+        "committed": 19900,
+        "end": 22000
+      },
+      {
+        "t": 1699999890000,
+        "committed": 20800,
+        "end": 23000
+      },
+      {
+        "t": 1699999900000,
+        "committed": 21700,
+        "end": 24000
+      },
+      {
+        "t": 1699999910000,
+        "committed": 22600,
+        "end": 25000
+      },
+      {
+        "t": 1699999920000,
+        "committed": 23500,
+        "end": 26000
+      },
+      {
+        "t": 1699999930000,
+        "committed": 24400,
+        "end": 27000
+      },
+      {
+        "t": 1699999940000,
+        "committed": 25300,
+        "end": 28000
+      },
+      {
+        "t": 1699999950000,
+        "committed": 26200,
+        "end": 29000
+      },
+      {
+        "t": 1699999960000,
+        "committed": 27100,
+        "end": 30000
+      },
+      {
+        "t": 1699999970000,
+        "committed": 28000,
+        "end": 31000
+      },
+      {
+        "t": 1699999980000,
+        "committed": 28900,
+        "end": 32000
+      },
+      {
+        "t": 1699999990000,
+        "committed": 29800,
+        "end": 33000
+      },
+      {
+        "t": 1700000000000,
+        "committed": 30700,
+        "end": 34000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 31600,
+        "end": 35000
+      },
+      {
+        "t": 1700000020000,
+        "committed": 32500,
+        "end": 36000
+      },
+      {
+        "t": 1700000030000,
+        "committed": 33400,
+        "end": 37000
+      },
+      {
+        "t": 1700000040000,
+        "committed": 34300,
+        "end": 38000
+      },
+      {
+        "t": 1700000050000,
+        "committed": 35200,
+        "end": 39000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 36100,
+        "end": 40000
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 300000,
+    "expect": {
+      "status": "warn",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "commit age exactly window: not stopped",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 4000,
+        "end": 4500
+      },
+      {
+        "t": 1700000010000,
+        "committed": 4000,
+        "end": 4600
+      },
+      {
+        "t": 1700000020000,
+        "committed": 4000,
+        "end": 4700
+      },
+      {
+        "t": 1700000030000,
+        "committed": 4000,
+        "end": 4800
+      },
+      {
+        "t": 1700000040000,
+        "committed": 4000,
+        "end": 4900
+      },
+      {
+        "t": 1700000050000,
+        "committed": 4000,
+        "end": 5000
+      },
+      {
+        "t": 1700000060000,
+        "committed": 4000,
+        "end": 5100
+      }
+    ],
+    "lastCommitAt": 1700000000000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "stalled",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "idle and caught up with old commits",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000010000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000020000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000030000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000040000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000050000,
+        "committed": 800,
+        "end": 800
+      },
+      {
+        "t": 1700000060000,
+        "committed": 800,
+        "end": 800
+      }
+    ],
+    "lastCommitAt": 1699996460000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "caught-up"
+      }
+    }
+  },
+  {
+    "name": "zero lag mid-window then growing",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 100,
+        "end": 150
+      },
+      {
+        "t": 1700000010000,
+        "committed": 200,
+        "end": 250
+      },
+      {
+        "t": 1700000020000,
+        "committed": 300,
+        "end": 300
+      },
+      {
+        "t": 1700000030000,
+        "committed": 400,
+        "end": 500
+      },
+      {
+        "t": 1700000040000,
+        "committed": 500,
+        "end": 700
+      },
+      {
+        "t": 1700000050000,
+        "committed": 600,
+        "end": 900
+      },
+      {
+        "t": 1700000060000,
+        "committed": 700,
+        "end": 1100
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "large lag draining slowly -> hours",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 0,
+        "end": 100000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 200,
+        "end": 100100
+      },
+      {
+        "t": 1700000020000,
+        "committed": 400,
+        "end": 100200
+      },
+      {
+        "t": 1700000030000,
+        "committed": 600,
+        "end": 100300
+      },
+      {
+        "t": 1700000040000,
+        "committed": 800,
+        "end": 100400
+      },
+      {
+        "t": 1700000050000,
+        "committed": 1000,
+        "end": 100500
+      },
+      {
+        "t": 1700000060000,
+        "committed": 1200,
+        "end": 100600
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "eta",
+        "seconds": 9940.0
+      }
+    }
+  },
+  {
+    "name": "dip then net rise with positive slope",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 2000,
+        "end": 5000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2300,
+        "end": 5200
+      },
+      {
+        "t": 1700000020000,
+        "committed": 2600,
+        "end": 5400
+      },
+      {
+        "t": 1700000030000,
+        "committed": 2900,
+        "end": 5600
+      },
+      {
+        "t": 1700000040000,
+        "committed": 3200,
+        "end": 5800
+      },
+      {
+        "t": 1700000050000,
+        "committed": 3500,
+        "end": 6500
+      },
+      {
+        "t": 1700000060000,
+        "committed": 3800,
+        "end": 6900
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "warn",
+      "forecast": {
+        "kind": "never"
+      }
+    }
+  },
+  {
+    "name": "draining partition beats a late production burst",
+    "samples": [
+      {
+        "t": 1700000000000,
+        "committed": 2000,
+        "end": 5000
+      },
+      {
+        "t": 1700000010000,
+        "committed": 2400,
+        "end": 5200
+      },
+      {
+        "t": 1700000020000,
+        "committed": 2800,
+        "end": 5400
+      },
+      {
+        "t": 1700000030000,
+        "committed": 3200,
+        "end": 5600
+      },
+      {
+        "t": 1700000040000,
+        "committed": 3600,
+        "end": 5800
+      },
+      {
+        "t": 1700000050000,
+        "committed": 4000,
+        "end": 6100
+      },
+      {
+        "t": 1700000060000,
+        "committed": 4400,
+        "end": 6400
+      }
+    ],
+    "lastCommitAt": 1700000059000,
+    "now": 1700000060000,
+    "windowMs": 60000,
+    "expect": {
+      "status": "healthy",
+      "forecast": {
+        "kind": "eta",
+        "seconds": 119.99999999999999
+      }
+    }
+  }
+]

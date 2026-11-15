@@ -1,0 +1,44 @@
+import { expect, test } from 'vitest';
+import {
+  formatBytes,
+  formatCount,
+  formatDelta,
+  formatDuration,
+  formatInt,
+  formatRate,
+  formatRelative,
+} from '../src/format';
+
+test('formatters', () => {
+  expect(formatInt(48213.4)).toBe('48,213');
+  expect(formatCount(1_234_567)).toBe('1.2M');
+  expect(formatCount(12_480)).toBe('12.5k');
+  expect(formatCount(950)).toBe('950');
+  expect(formatBytes(61_400_000)).toBe('61.4 MB');
+  expect(formatBytes(512)).toBe('512 B');
+  expect(formatRate(8180.2)).toBe('8,180/s');
+  expect(formatRate(2.5)).toBe('2.5/s');
+  expect(formatDuration(372_000)).toBe('6m 12s');
+  expect(formatDuration(45_000)).toBe('45s');
+  expect(formatDuration(7_500_000)).toBe('2h 5m');
+  expect(formatRelative(1000, 1000 + 12_000)).toBe('12s ago');
+  expect(formatRelative(1000, 1000 + 3_600_000 * 3)).toBe('3h ago');
+  expect(formatDelta(4.21)).toBe('+4.2%');
+  expect(formatDelta(-3.1)).toBe('−3.1%');
+});
+
+import { formatClock, formatOffset, formatPct } from '../src/format';
+test('more formatters', () => {
+  expect(formatBytes(1_250_000_000_000)).toBe('1.3 TB');
+  expect(formatCount(2_500_000_000)).toBe('2.5B');
+  expect(formatCount(150_000)).toBe('150k');
+  expect(formatDuration(3 * 86400e3 + 4 * 3600e3)).toBe('3d 4h');
+  expect(formatRelative(undefined)).toBe('—');
+  expect(formatRelative(1000, 2000)).toBe('just now');
+  expect(formatRelative(0, 3 * 86400e3)).toBe('3d ago');
+  expect(formatRelative('1970-01-01T00:01:00Z', 120_000)).toBe('1m ago');
+  expect(formatOffset(null)).toBe('—');
+  expect(formatOffset(21861950)).toBe('21,861,950');
+  expect(formatPct(41.2)).toBe('41%');
+  expect(formatClock(new Date(2026, 0, 1, 9, 5).getTime())).toBe('09:05');
+});

@@ -25,6 +25,8 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': ['error', { allow: ['warn', 'error'] }],
+      // noUncheckedIndexedAccess is on; `xs[i]!` after a bounds check is the idiomatic escape hatch.
+      '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
 );
