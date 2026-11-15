@@ -127,7 +127,7 @@ export function GroupDetailView() {
         ]}
       />
       {tab === 'partitions' ? (
-        <Partitions rows={d.partitions} groupId={d.summary.groupId} />
+        <Partitions key={d.summary.groupId} rows={d.partitions} groupId={d.summary.groupId} />
       ) : (
         <Members d={d} />
       )}

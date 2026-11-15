@@ -121,6 +121,10 @@ export function ProduceDrawer({
     if (open) {
       setTarget(topic);
       setError(undefined);
+      // a fresh message each time: no key or reprocessed-from header left over from the last one
+      setKey('');
+      setHeaders([['region', 'eu']]);
+      setCount('1');
     }
   }, [open, topic]);
   // Prefill from the message being reprocessed
@@ -135,7 +139,8 @@ export function ProduceDrawer({
   );
   useEffect(() => {
     const m = source.data?.messages[0];
-    if (!open || !m) return;
+    // only for a reprocess: the query keeps the previous message as placeholder data afterwards
+    if (!open || !m || !reprocess) return;
     decodeMessage(m, 'auto', 'auto', lookup, []).then((d) => {
       setValue(d.value.ok ? JSON.stringify(d.value.value, null, 2) : d.value.hex);
       setKey(d.key.ok && d.key.value !== null ? String(d.key.value) : '');
@@ -144,7 +149,7 @@ export function ProduceDrawer({
         ['reprocessed-from', `${topic}-${m.partition}@${m.offset}`],
       ]);
     });
-  }, [open, source.data, lookup, topic]);
+  }, [open, source.data, lookup, topic, reprocess]);
   // a fresh sample per target schema: switching topic doesn't keep the previous topic's JSON
   const [sampledFor, setSampledFor] = useState<string>();
   // only once the target's own detail (and schema) loaded — placeholder data is the previous topic's

@@ -57,16 +57,30 @@ export function MessageDrawer({
   const tryLatest = async () => {
     const subject = topicInfo.data?.schema?.valueSubject;
     if (!subject || !m?.value) return;
-    const latest = await client.getSchema(clusterId, subject, 'latest');
-    const bytes = new Uint8Array(m.value);
-    new DataView(bytes.buffer).setInt32(1, latest.id, false);
-    const r = await decodeBytes(bytes, 'auto', async (id) =>
-      id === latest.id ? latest : undefined,
-    );
-    setAlt({
-      label: `Decoded with latest ${subject} (v${latest.version}, id ${latest.id})`,
-      value: r.ok ? r.value : `Still failed: ${r.detail}`,
-    });
+    if (m.value.length < 5) {
+      setAlt({
+        label: `Decoded with latest ${subject}`,
+        value: 'Too short to carry a schema id (under 5 bytes).',
+      });
+      return;
+    }
+    try {
+      const latest = await client.getSchema(clusterId, subject, 'latest');
+      const bytes = new Uint8Array(m.value);
+      new DataView(bytes.buffer).setInt32(1, latest.id, false);
+      const r = await decodeBytes(bytes, 'auto', async (id) =>
+        id === latest.id ? latest : undefined,
+      );
+      setAlt({
+        label: `Decoded with latest ${subject} (v${latest.version}, id ${latest.id})`,
+        value: r.ok ? r.value : `Still failed: ${r.detail}`,
+      });
+    } catch (e) {
+      setAlt({
+        label: `Decoded with latest ${subject}`,
+        value: `Couldn't fetch the schema: ${(e as Error).message}`,
+      });
+    }
   };
 
   const json = d?.value.ok ? JSON.stringify(d.shown, null, 2) : '';
@@ -112,7 +126,9 @@ export function MessageDrawer({
         <p className="text-[13px] text-ink-muted">
           {fetched.isLoading
             ? 'Loading message…'
-            : `Offset ${o} on partition ${p} is outside the retention window.`}
+            : fetched.error
+              ? `Couldn't load the message: ${(fetched.error as Error).message} Close the drawer and try again.`
+              : `Offset ${o} on partition ${p} is outside the retention window.`}
         </p>
       )}
       {m && d && (

@@ -45,7 +45,13 @@ export function CreateTopicDialog({
 
   useEffect(() => {
     if (open) {
+      // every open starts from the defaults, not the last topic's settings
       setName(initialName ?? '');
+      setPartitions('12');
+      setRf('3');
+      setRetention('604800000');
+      setCleanup('delete');
+      setOverrides([['min.insync.replicas', '2']]);
       setError(undefined);
     }
   }, [open, initialName]);

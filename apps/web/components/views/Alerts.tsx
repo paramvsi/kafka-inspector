@@ -143,9 +143,17 @@ export function AlertsView() {
                         size="sm"
                         disabled={!!muted}
                         onClick={async () => {
-                          await client.muteAlert(a.id, new Date(now + 3600e3).toISOString());
+                          try {
+                            await client.muteAlert(a.id, new Date(now + 3600e3).toISOString());
+                            toast({ tone: 'info', title: 'Muted for 1 hour', body: a.title });
+                          } catch (e) {
+                            toast({
+                              tone: 'crit',
+                              title: "Couldn't mute the alert",
+                              body: `${(e as Error).message} It may have just resolved; the list refreshes.`,
+                            });
+                          }
                           refresh();
-                          toast({ tone: 'info', title: 'Muted for 1 hour', body: a.title });
                         }}
                       >
                         Mute 1 h
@@ -154,7 +162,15 @@ export function AlertsView() {
                         size="sm"
                         variant="ghost"
                         onClick={async () => {
-                          await client.acknowledgeAlert(a.id);
+                          try {
+                            await client.acknowledgeAlert(a.id);
+                          } catch (e) {
+                            toast({
+                              tone: 'crit',
+                              title: "Couldn't acknowledge the alert",
+                              body: `${(e as Error).message} It may have just resolved; the list refreshes.`,
+                            });
+                          }
                           refresh();
                         }}
                       >
@@ -372,10 +388,14 @@ function RuleDialog({
   };
   const remove = async () => {
     if (!rule) return;
-    await client.deleteAlertRule(rule.id);
+    try {
+      await client.deleteAlertRule(rule.id);
+      toast({ tone: 'info', title: `Deleted “${rule.name}”` });
+      onClose();
+    } catch (e) {
+      setError(`Couldn't delete the rule: ${(e as Error).message}`);
+    }
     await qc.invalidateQueries({ queryKey: [clusterId, 'alert-rules'] });
-    toast({ tone: 'info', title: `Deleted “${rule.name}”` });
-    onClose();
   };
   const browser = r.channels.includes('browser');
   return (

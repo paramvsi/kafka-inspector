@@ -684,3 +684,62 @@ test('F-08: the tour spotlight frames its target', async ({ page }) => {
   await expect(spot).toBeVisible({ timeout: 15_000 });
   expect((await spot.boundingBox())!.width).toBeGreaterThan(20);
 });
+
+test('Produce after a reprocess has no leftover key or reprocessed-from header', async ({
+  page,
+}) => {
+  // Produce after a reprocess: no leftover key or reprocessed-from header
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const table = page.getByRole('table', { name: 'Messages in orders' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  await page
+    .getByRole('dialog', { name: 'Message', exact: true })
+    .getByRole('button', { name: 'Reprocess to topic' })
+    .click();
+  const re = page.getByRole('dialog', { name: 'Reprocess message' });
+  await expect(re.getByLabel('Key')).not.toHaveValue('', { timeout: 10_000 });
+  await re.getByRole('button', { name: 'Cancel' }).click();
+  // the message drawer is still open underneath: close it too
+  await page
+    .getByRole('dialog', { name: 'Message', exact: true })
+    .getByRole('button', { name: 'Close' })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: 'Message', exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Produce message' }).click();
+  const pr = page.getByRole('dialog', { name: 'Produce message' });
+  await expect(pr.getByLabel('Key')).toHaveValue('');
+  const headerValues = await pr
+    .locator('input[aria-label="Header value"]')
+    .evaluateAll((es) => es.map((e) => (e as HTMLInputElement).value));
+  expect(headerValues.some((v) => v.includes('@'))).toBe(false); // no reprocessed-from header
+  await pr.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('Create topic starts from the defaults each time', async ({ page }) => {
+  await page.goto('/app/topics/');
+  await page.getByRole('button', { name: 'Create topic' }).click();
+  const ct = page.getByRole('dialog', { name: 'Create topic' });
+  await ct.getByLabel('Replication factor').fill('1');
+  await ct.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ct).toBeHidden();
+  await page.getByRole('button', { name: 'Create topic' }).click();
+  await expect(ct.getByLabel('Replication factor')).toHaveValue('3');
+});
+
+test("topic A's filter draft is not shown on topic B", async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await page.getByLabel(/^JavaScript filter/).fill('value.total > 1');
+  await page.getByRole('link', { name: 'Topics', exact: true }).first().click();
+  await page.getByRole('link', { name: 'payments', exact: true }).click();
+  await page.getByRole('link', { name: 'Messages', exact: true }).click();
+  await expect(page.getByLabel(/^JavaScript filter/)).toHaveValue('');
+});
+
+test('a ?produce=1 deep link does not open Produce on a read-only cluster', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&produce=1&preview=readonly');
+  await expect(page.getByRole('heading', { name: 'orders' })).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('dialog', { name: 'Produce message' })).toHaveCount(0);
+});

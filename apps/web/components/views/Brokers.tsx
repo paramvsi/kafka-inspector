@@ -86,8 +86,13 @@ export function BrokersView() {
             key: 'disk',
             header: 'Disk used',
             kind: 'num',
+            // not reported (agent without DescribeLogDirs) → a dash, never invented numbers
             cell: (b) =>
-              `${formatBytes(b.diskUsedBytes ?? 0)} · ${formatPct(((b.diskUsedBytes ?? 0) / (b.diskTotalBytes ?? 1)) * 100)}`,
+              b.diskUsedBytes == null
+                ? '—'
+                : b.diskTotalBytes
+                  ? `${formatBytes(b.diskUsedBytes)} · ${formatPct((b.diskUsedBytes / b.diskTotalBytes) * 100)}`
+                  : formatBytes(b.diskUsedBytes),
           },
           {
             key: 'status',

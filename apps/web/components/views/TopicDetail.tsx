@@ -40,6 +40,7 @@ type Tab = (typeof TABS)[number];
 
 export function TopicDetailView() {
   const url = useUrl();
+  const canWrite = useWrites();
   const name = url.get('name') ?? '';
   const tab = (TABS as readonly string[]).includes(url.get('tab') ?? '')
     ? (url.get('tab') as Tab)
@@ -139,13 +140,14 @@ export function TopicDetailView() {
       {d && tab === 'overview' && <OverviewTab d={d} hourAgo={hourAgo.data} />}
       {d && tab === 'partitions' && <PartitionTable parts={d.partitions} all />}
       {d && tab === 'consumers' && <ConsumersTab d={d} />}
-      {tab === 'config' && <ConfigTab name={name} />}
+      {/* keyed by topic: no edit dialog or drafts carry over from the previous topic */}
+      {tab === 'config' && <ConfigTab key={name} name={name} />}
       {d && tab === 'schema' && <SchemaTab d={d} />}
       {tab === 'messages' && <MessagesTab topic={name} partitions={d?.partitions.length ?? 0} />}
       <ProduceDrawer
         topic={name}
         partitions={d?.partitions.length ?? 1}
-        open={url.get('produce') === '1'}
+        open={url.get('produce') === '1' && !!canWrite} // a deep link can't open it on a read-only cluster
         onClose={() => url.set({ produce: undefined })}
       />
     </>

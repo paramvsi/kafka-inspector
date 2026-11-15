@@ -121,6 +121,15 @@ export function ChaosView() {
   const running = incidents.data ?? [];
   const label = (k: ChaosActionKind) => ACTIONS.find((a) => a.kind === k)!.title;
   const refresh = () => qc.invalidateQueries({ queryKey: [info.clusters[0]?.id, 'incidents'] });
+  /** Runs a simulator call; a failure becomes a toast instead of an unhandled rejection. */
+  const attempt = (what: string, p: Promise<unknown>) =>
+    p.then(
+      () => true,
+      (e: Error) => {
+        toast({ tone: 'crit', title: `Couldn't ${what}`, body: e.message });
+        return false;
+      },
+    );
   const trigger = async (kind: ChaosActionKind, target?: string) => {
     try {
       const inc = await chaos.run({ kind, target });
@@ -205,7 +214,7 @@ export function ChaosView() {
                   size="sm"
                   variant="danger"
                   onClick={async () => {
-                    await chaos.stop(i.id);
+                    await attempt('stop the incident', chaos.stop(i.id));
                     refresh();
                   }}
                 >
@@ -284,8 +293,12 @@ export function ChaosView() {
                   step={0.1}
                   value={traffic}
                   onChange={(e) => setTraffic(Number(e.target.value))}
-                  onPointerUp={() => chaos.settings({ baseTraffic: traffic })}
-                  onKeyUp={() => chaos.settings({ baseTraffic: traffic })}
+                  onPointerUp={() =>
+                    void attempt('change traffic', chaos.settings({ baseTraffic: traffic }))
+                  }
+                  onKeyUp={() =>
+                    void attempt('change traffic', chaos.settings({ baseTraffic: traffic }))
+                  }
                   className="accent-copper"
                 />
               </label>
@@ -294,14 +307,17 @@ export function ChaosView() {
                 checked={wave}
                 onChange={(e) => {
                   setWave(e.target.checked);
-                  void chaos.settings({ dailyWave: e.target.checked });
+                  void attempt(
+                    'change the daily wave',
+                    chaos.settings({ dailyWave: e.target.checked }),
+                  );
                 }}
               />
               <form
                 className="flex items-end gap-2"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  await chaos.settings({ seed });
+                  if (!(await attempt('reseed', chaos.settings({ seed })))) return;
                   toast({ tone: 'info', title: `Reseeded with ${seed}` });
                   qc.invalidateQueries();
                 }}
@@ -319,7 +335,7 @@ export function ChaosView() {
               <Button
                 variant="ghost"
                 onClick={async () => {
-                  await chaos.reset();
+                  if (!(await attempt('reset the demo', chaos.reset()))) return;
                   toast({
                     tone: 'info',
                     title: 'Demo reset',
