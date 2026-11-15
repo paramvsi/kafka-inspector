@@ -20,8 +20,9 @@ services:
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     ports:
-      - '29092:29092'
-      - '29093:29093'
+      # dev only: PLAINTEXT Kafka without auth, so bound to this machine
+      - '127.0.0.1:29092:29092'
+      - '127.0.0.1:29093:29093'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     healthcheck:
@@ -44,7 +45,7 @@ services:
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - '8081:8081'
+      - '127.0.0.1:8081:8081'
 
   loadgen:
     image: apache/kafka:4.1.0
@@ -64,6 +65,10 @@ services:
       kafka:
         condition: service_healthy
     read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp
     environment:
@@ -73,7 +78,7 @@ services:
       KI_CLUSTERS_0_SCHEMA_REGISTRY: http://schema-registry:8081
       KI_SAMPLE_INTERVAL: 5s
     ports:
-      - '8080:8080'
+      - '127.0.0.1:8080:8080' # the dev password is public
     volumes:
       - ki-data:/data
 

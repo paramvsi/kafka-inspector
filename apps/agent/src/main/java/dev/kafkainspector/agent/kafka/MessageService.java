@@ -102,17 +102,15 @@ public class MessageService {
     }
 
     public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Collection<String> topics) {
-        Pattern p;
-        try {
-            p = Pattern.compile(topicRegex);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid regular expression: " + topicRegex);
-        }
-        List<String> matched = topics.stream().filter(t -> p.matcher(t).find() && !t.startsWith("_")).limit(20).toList();
+        Pattern p = dev.kafkainspector.agent.api.SafeRegex.compile(topicRegex, 0);
+        List<String> matched = topics.stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).limit(20).toList();
         int max = Math.max(1, Math.min(limit, 500));
         List<Dto.RawMessage> out = new ArrayList<>();
         int scanned = 0;
+        // ponytail: sequential browses, bounded by a 10 s budget (partial results); parallelise if search gets slow
+        long deadline = System.currentTimeMillis() + 10_000;
         for (String t : matched) {
+            if (System.currentTimeMillis() > deadline) break;
             Dto.RawMessagePage page = browse(cid, t, "all", "oldest".equals(from) ? "oldest" : "newest", null, null, null, Map.of(), Math.max(1, max / matched.size()), null);
             out.addAll(page.messages());
             scanned += page.scanned();

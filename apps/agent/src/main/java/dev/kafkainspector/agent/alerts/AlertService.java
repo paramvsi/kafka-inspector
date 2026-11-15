@@ -46,12 +46,15 @@ public class AlertService {
         if (r.name() == null || r.name().isBlank()) throw new IllegalArgumentException("Give the rule a name.");
         if (!METRICS.contains(r.metric())) throw new IllegalArgumentException("Unknown metric " + r.metric() + ". Use one of " + METRICS + ".");
         if (r.durationSec() < 0) throw new IllegalArgumentException("Duration can't be negative.");
-        String id = r.id() == null || r.id().isBlank() ? "r_" + Long.toString(System.currentTimeMillis(), 36) : r.id();
+        boolean create = r.id() == null || r.id().isBlank();
+        String id = create ? "r_" + java.util.UUID.randomUUID().toString().substring(0, 12) : r.id();
         String scopeKind = r.scope() == null ? "any" : r.scope().kind();
         String scopeTarget = r.scope() == null ? null : r.scope().target();
         String channels = String.join(",", r.channels() == null || r.channels().isEmpty() ? List.of("in-app") : r.channels());
-        int updated = jdbc.update("UPDATE alert_rule SET name = ?, metric = ?, scope_kind = ?, scope_target = ?, threshold = ?, duration_sec = ?, severity = ?, channels = ?, enabled = ?, muted = ?, deleted = FALSE WHERE id = ?",
+        // a deleted rule stays deleted: PUT on its id is a 404, not a revival
+        int updated = jdbc.update("UPDATE alert_rule SET name = ?, metric = ?, scope_kind = ?, scope_target = ?, threshold = ?, duration_sec = ?, severity = ?, channels = ?, enabled = ?, muted = ? WHERE id = ? AND deleted = FALSE",
                 r.name(), r.metric(), scopeKind, scopeTarget, r.threshold(), r.durationSec(), r.severity(), channels, r.enabled(), Boolean.TRUE.equals(r.muted()), id);
+        if (updated == 0 && !create) throw new dev.kafkainspector.agent.config.Clusters.NotFound("RULE_NOT_FOUND", "Alert rule " + id + " doesn't exist.");
         if (updated == 0) {
             jdbc.update("INSERT INTO alert_rule VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", id, r.name(), r.metric(), scopeKind, scopeTarget, r.threshold(), r.durationSec(), r.severity(), channels, r.enabled(), Boolean.TRUE.equals(r.muted()), false);
         }

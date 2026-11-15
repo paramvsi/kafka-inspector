@@ -43,6 +43,10 @@ export function compose(f: SelfHostForm): string {
     `    image: ${IMAGE}`,
     '    restart: unless-stopped',
     '    read_only: true          # only /data is writable',
+    '    security_opt:',
+    '      - no-new-privileges:true',
+    '    cap_drop:',
+    '      - ALL',
     '    tmpfs:',
     '      - /tmp',
     '    ports:',
@@ -71,6 +75,7 @@ export function dotenv(f: SelfHostForm): string {
 export function dockerRun(f: SelfHostForm): string {
   return [
     `docker run -d --name kafka-inspector -p ${f.port}:8080 \\`,
+    '  --read-only --tmpfs /tmp --security-opt no-new-privileges --cap-drop ALL \\',
     '  --env-file .env \\',
     ...envSettings(f).map(
       ([k, v]) => `  -e ${k}=${/^[\w./:,-]+$/.test(v) ? v : `'${v.replace(/'/g, "'\\''")}'`} \\`,

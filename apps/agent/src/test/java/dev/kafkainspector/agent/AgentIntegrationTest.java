@@ -158,6 +158,23 @@ class AgentIntegrationTest {
         assertTrue(spoofed <= 25, "forged X-Forwarded-For got " + spoofed + " password checks; the global cap is 30/min");
     }
 
+    @Test
+    @Order(13)
+    void catastrophicRegexesFailFastAndDeletedRulesStayDeleted() throws Exception {
+        signIn();
+        long t0 = System.currentTimeMillis();
+        // (.*){1,20}y takes ~1.6 s against a 26-character name on Java 21 without the budget
+        assertThrows(IllegalArgumentException.class, () -> dev.kafkainspector.agent.api.SafeRegex.find(java.util.regex.Pattern.compile("(.*){1,20}y"), "x".repeat(26), 50));
+        assertEquals(400, send("GET", "/api/clusters/local/topics?regex=true&query=" + "a".repeat(201), null).statusCode());
+        assertTrue(System.currentTimeMillis() - t0 < 5_000, "regex checks took too long");
+
+        String body = "{\"name\":\"temp\",\"metric\":\"lag\",\"scope\":{\"kind\":\"any\"},\"threshold\":1,\"durationSec\":0,\"severity\":\"warn\",\"channels\":[\"in-app\"],\"enabled\":true}";
+        String id = JSON.readTree(send("POST", "/api/alerts/rules", body).body()).path("id").asString();
+        assertEquals(204, send("DELETE", "/api/alerts/rules/" + id, null).statusCode());
+        assertEquals(404, send("PUT", "/api/alerts/rules/" + id, body).statusCode());
+        assertTrue(get("/api/alerts/rules").findValuesAsString("id").stream().noneMatch(id::equals));
+    }
+
     java.net.http.WebSocket openStream(HttpClient client, String origin, List<String> received, java.util.concurrent.CountDownLatch closed) throws Exception {
         return client.newWebSocketBuilder().header("Origin", origin).buildAsync(URI.create("ws://localhost:" + port + "/api/stream"), new java.net.http.WebSocket.Listener() {
             @Override

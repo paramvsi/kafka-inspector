@@ -154,17 +154,13 @@ public class ApiController {
         ClusterState s = state(c);
         Pattern re = null;
         if (regex && !query.isBlank()) {
-            try {
-                re = Pattern.compile(query, Pattern.CASE_INSENSITIVE);
-            } catch (Exception e) {
-                throw new IllegalArgumentException("Invalid regular expression: " + query);
-            }
+            re = SafeRegex.compile(query, Pattern.CASE_INSENSITIVE);
         }
         Set<String> stars = new HashSet<>(Arrays.asList(starred.split(",")));
         List<Dto.TopicSummary> items = new ArrayList<>();
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (!internal && t.internal) continue;
-            if (!query.isBlank() && (re != null ? !re.matcher(t.name).find() : !t.name.toLowerCase().contains(query.toLowerCase()))) continue;
+            if (!query.isBlank() && (re != null ? !SafeRegex.find(re, t.name, 50) : !t.name.toLowerCase().contains(query.toLowerCase()))) continue;
             Dto.TopicSummary ts = Views.topic(s, t, trend(c, "topic", t.name, "messagesIn"));
             if ("attention".equals(view) && !Views.needsAttention(ts)) continue;
             if ("starred".equals(view) && !stars.contains(t.name)) continue;

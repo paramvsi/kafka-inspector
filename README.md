@@ -71,6 +71,7 @@ The demo always shows a “Simulated cluster” note: generated data is never pr
 
 ```bash
 docker run -d --name kafka-inspector -p 8080:8080 \
+  --read-only --tmpfs /tmp --security-opt no-new-privileges --cap-drop ALL \
   -e KAFKA_BOOTSTRAP=broker:9092 \
   -e KI_ADMIN_PASSWORD=change-me \
   -v ki-data:/data \
