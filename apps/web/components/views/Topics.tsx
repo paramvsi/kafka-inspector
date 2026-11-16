@@ -172,7 +172,13 @@ export function TopicsView() {
           />
         </div>
       </div>
-      {data && data.total === 0 ? (
+      {list.error ? (
+        <div className="rounded-lg border border-line bg-surface">
+          <EmptyState title="Couldn't list topics">
+            {(list.error as Error).message} Fix the filter, or clear it.
+          </EmptyState>
+        </div>
+      ) : data && data.total === 0 ? (
         <div className="rounded-lg border border-line bg-surface">
           <EmptyState
             title={

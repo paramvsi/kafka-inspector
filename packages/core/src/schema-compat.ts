@@ -194,6 +194,15 @@ function avroCheck(
   } catch {
     return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
   }
+  const shape = (x: unknown) =>
+    typeof x === 'string' ||
+    (Array.isArray(x) && x.length > 0) ||
+    (!!x && typeof x === 'object' && !Array.isArray(x));
+  if (!shape(n))
+    return {
+      compatible: false,
+      messages: ['An Avro schema must be a JSON object, a type name or a non-empty union array.'],
+    };
   const on: Named = new Map(),
     nn: Named = new Map();
   collect(o, on);
@@ -269,12 +278,30 @@ export function checkCompatibility(
   newSchema: string,
   mode: SubjectSummary['compatibility'],
 ): CompatibilityResult {
-  if (mode === 'NONE')
+  if (mode === 'NONE') {
+    // NONE accepts any valid schema, but the registry still refuses one it can't parse
+    if (type !== 'PROTOBUF')
+      try {
+        JSON.parse(newSchema);
+      } catch {
+        return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
+      }
     return {
       compatible: true,
       messages: ['Compatibility is NONE for this subject; any schema is accepted.'],
     };
-  if (type === 'AVRO') return avroCheck(oldSchema, newSchema, mode);
+  }
+  if (type === 'AVRO') {
+    try {
+      return avroCheck(oldSchema, newSchema, mode);
+    } catch (e) {
+      // a shape the checker doesn't expect is an invalid schema, not a crash message
+      return {
+        compatible: false,
+        messages: [`The candidate isn't a valid Avro schema (${(e as Error).message}).`],
+      };
+    }
+  }
   if (type === 'JSON') return jsonCheck(oldSchema, newSchema, mode);
   return {
     compatible: false,

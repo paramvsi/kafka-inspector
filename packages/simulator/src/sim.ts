@@ -851,7 +851,7 @@ export class Simulator {
       items.push({
         id: 'offline',
         severity: 'crit',
-        title: `${offline} partitions offline`,
+        title: `${offline} ${offline === 1 ? 'partition' : 'partitions'} offline`,
         detail: 'No in-sync replica can lead them',
         since: new Date(t).toISOString(),
         href: '/app/topics/?view=attention',

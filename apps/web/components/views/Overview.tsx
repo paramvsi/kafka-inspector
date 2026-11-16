@@ -15,6 +15,7 @@ import { TimeSeriesChart } from '../Chart';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '../../lib/app';
+import { axisTime } from '../../lib/axis';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
 import { BootStatus, PageSkeleton, useConnection } from '../Shell';
@@ -187,6 +188,7 @@ function Throughput({
   out: Series['points'];
   events: OverviewData['events'];
 }) {
+  const { range } = useApp();
   const from = inn[0]?.[0] ?? Date.now();
   // Annotate rebalances, chaos and broker changes inside the visible range
   const markers = events
@@ -241,6 +243,7 @@ function Throughput({
       <TimeSeriesChart
         label="Throughput, messages per second"
         height={180}
+        xFormat={axisTime(range)}
         yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
         peak={peak ? { t: peak[0], v: peak[1] } : undefined}
         markers={markers}

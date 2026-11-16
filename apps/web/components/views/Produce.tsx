@@ -235,7 +235,8 @@ export function ProduceDrawer({
           </Button>
           <Button
             variant="primary"
-            onClick={submit}
+            type="submit"
+            form="ki-produce"
             disabled={busy || !value || (v !== null && !v.ok)}
           >
             {busy ? 'Producing…' : `Produce ${n} message${n > 1 ? 's' : ''}`}
@@ -244,6 +245,7 @@ export function ProduceDrawer({
       }
     >
       <form
+        id="ki-produce"
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();

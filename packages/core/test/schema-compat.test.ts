@@ -191,3 +191,14 @@ test('a JSON Schema candidate that is not an object is refused with a message, n
   expect(r.compatible).toBe(false);
   expect(r.messages[0]).toBe('A JSON Schema must be a JSON object.');
 });
+
+test('an Avro candidate of null or [] is refused with a message; NONE still needs valid JSON', () => {
+  const w = '{"type":"record","name":"R","fields":[{"name":"a","type":"string"}]}';
+  for (const bad of ['null', '[]', '5'])
+    expect(checkCompatibility('AVRO', w, bad, 'BACKWARD').messages[0]).toBe(
+      'An Avro schema must be a JSON object, a type name or a non-empty union array.',
+    );
+  const none = checkCompatibility('AVRO', w, '{"type":', 'NONE');
+  expect(none.compatible).toBe(false);
+  expect(none.messages[0]).toBe('The candidate schema is not valid JSON.');
+});

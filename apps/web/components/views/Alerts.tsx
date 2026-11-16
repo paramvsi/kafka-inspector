@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAttempt } from '../../lib/attempt';
+import { axisTime } from '../../lib/axis';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -549,6 +550,7 @@ function RuleDialog({
             <TimeSeriesChart
               label="Lag over the last 24 hours with the threshold"
               height={90}
+              xFormat={axisTime('24h')}
               yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
               series={[
                 { key: 'lag', label: 'worst group lag', points: series.data!, color: 'chart-1' },

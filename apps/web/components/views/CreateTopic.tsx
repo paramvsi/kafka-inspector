@@ -120,9 +120,11 @@ export function CreateTopicDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
+          {/* a submit button linked to the form, so Enter in any field creates (and a disabled one blocks it) */}
           <Button
             variant="primary"
-            onClick={submit}
+            type="submit"
+            form="ki-create-topic"
             disabled={busy || !name || !!nameErr || !!pErr || !!rfErr}
           >
             {busy ? 'Creating…' : 'Create topic'}
@@ -131,6 +133,7 @@ export function CreateTopicDialog({
       }
     >
       <form
+        id="ki-create-topic"
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -142,7 +145,10 @@ export function CreateTopicDialog({
           mono
           data-autofocus
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(undefined); // an error about the old name no longer applies
+          }}
           error={nameErr}
           hint="Letters, numbers, dots, dashes and underscores. Can't be renamed later."
           placeholder="shipment-events"

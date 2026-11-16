@@ -1134,3 +1134,28 @@ test('a stale page number lands on the last real page; the groups filter ignores
     timeout: 15_000,
   });
 });
+
+test('Enter creates a topic; a bad regex says so; a paused Live freezes the tail', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/?create=1');
+  const d = page.getByRole('dialog', { name: 'Create topic' });
+  await d.getByLabel('Name').fill('enter-created');
+  await d.getByLabel('Name').press('Enter');
+  await expect(d).toHaveCount(0, { timeout: 10_000 });
+
+  await page.goto('/app/topics/?q=%5B');
+  await expect(page.getByText("Couldn't list topics")).toBeVisible({ timeout: 15_000 });
+
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await expect(
+    page.getByText('Needs attention').or(page.getByRole('table', { name: 'Messages in orders' })),
+  ).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Live', exact: true }).click();
+  await page.getByLabel('Live tail').click();
+  const rows = page.getByRole('table', { name: 'Messages in orders' }).getByRole('row');
+  await page.waitForTimeout(1500);
+  const before = await rows.count();
+  await page.waitForTimeout(3000);
+  expect(await rows.count()).toBe(before); // paused: no new tail rows arrive
+});

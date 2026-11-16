@@ -16,6 +16,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { csvCell } from '../../lib/csv';
 import { runFilter, type FilterResult } from '../../lib/filter';
+import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocal } from '../../lib/local';
@@ -147,8 +148,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     setPaused(false); // a new tail runs; only Resume continues a paused one
     setUnseen(0);
   }, [live, topic, p]);
+  const appLive = useApp().live; // the top bar's Live: paused there freezes the tail too
   useEffect(() => {
-    if (!live || paused) return;
+    if (!live || paused || !appLive) return;
     return client.tail(
       clusterId,
       { topic, partition: p === 'all' ? 'all' : Number(p), maxRate: 50 },
@@ -159,7 +161,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       },
       (message) => setTailError(message),
     );
-  }, [live, paused, client, clusterId, topic, p]);
+  }, [appLive, live, paused, client, clusterId, topic, p]);
 
   // stable identity: the decode and filter effects key on it
   const raws = useMemo(
