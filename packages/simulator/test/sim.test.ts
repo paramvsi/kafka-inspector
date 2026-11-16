@@ -898,3 +898,42 @@ test('a hot partition needs enough partitions for its 40% to read as skew', asyn
   h.sim.runChaos({ kind: 'hot-partition', target: 'orders' });
   expect(h.sim.getOverview().attention.some((i) => i.id === 'skew-orders')).toBe(true);
 });
+
+test('a new topic gets the same config checks as editing one', async () => {
+  const h = make();
+  await h.init();
+  const base = { partitions: 3, replicationFactor: 3 };
+  await expect(
+    h.sim.createTopic({ name: 'c1', ...base, configs: { 'min.insync.replicas': '0' } }),
+  ).rejects.toThrow('at least 1');
+  await expect(
+    h.sim.createTopic({ name: 'c2', ...base, configs: { 'min.insync.replicas': 'abc' } }),
+  ).rejects.toThrow('whole number');
+  await expect(h.sim.createTopic({ name: 'c3', ...base, configs: { foo: '1' } })).rejects.toThrow(
+    'Unknown topic config foo',
+  );
+  await expect(h.sim.createTopic({ name: 'c4', ...base, retentionMs: Number.NaN })).rejects.toThrow(
+    'retention.ms',
+  );
+});
+
+test('a batch that fails part-way leaves nothing behind for later traffic to show', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.updateTopicConfig('orders', { 'max.message.bytes': '1' });
+  const first =
+    h.sim.browse({ topic: 'orders', partition: 0, from: 'newest', limit: 1 }).messages[0]!.offset +
+    1;
+  await expect(
+    h.sim.produce({ topic: 'orders', partition: 0, value: '{{i}}', count: 10 }),
+  ).rejects.toThrow('max.message.bytes');
+  h.advance(30);
+  const [m] = h.sim.browse({
+    topic: 'orders',
+    partition: 0,
+    from: 'offset',
+    offset: first,
+    limit: 1,
+  }).messages;
+  expect(new TextDecoder().decode(new Uint8Array(m!.value!))).not.toBe('1');
+});

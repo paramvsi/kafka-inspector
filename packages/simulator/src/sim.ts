@@ -1971,12 +1971,14 @@ export class Simulator {
       spec.replicationFactor > online
     )
       throw new Error(`Replication factor must be between 1 and ${online} (brokers online).`);
-    // only an override the user chose is checked: like Kafka, a topic may be created under the cluster default
-    const minIsr = Number(spec.configs?.['min.insync.replicas'] ?? 0);
-    if (minIsr > spec.replicationFactor)
-      throw new Error(
-        `min.insync.replicas (${minIsr}) can't exceed the replication factor (${spec.replicationFactor}): every acks=all write would fail.`,
-      );
+    // only overrides the user chose are checked: like Kafka, a topic may be created under the cluster default
+    checkConfigs(
+      {
+        ...(spec.configs ?? {}),
+        ...(spec.retentionMs !== undefined ? { 'retention.ms': String(spec.retentionMs) } : {}),
+      },
+      spec.replicationFactor,
+    );
     await this.log('create-topic', spec);
   }
 
@@ -1984,26 +1986,7 @@ export class Simulator {
     const def = this.topics.get(name);
     if (!def) throw new Error(`Topic ${name} not found.`);
     if (def.internal) throw new Error('Internal topic configs cannot be changed here.');
-    const known = new Map(TOPIC_DEFAULTS);
-    for (const [k, v] of Object.entries(changes)) {
-      if (!known.has(k)) throw new Error(`Unknown topic config ${k}.`);
-      if (v === null) continue;
-      const def0 = known.get(k)!;
-      if (/^-?\d+$/.test(def0) && !/^-?\d+$/.test(v))
-        throw new Error(`${k} must be a whole number.`);
-      if (/^-?\d+$/.test(def0)) {
-        // Kafka's own lower bounds: -1 means "unlimited" for retention, -2 "use the broker's" for local retention
-        const min = MIN_CONFIG[k] ?? 0;
-        if (Number(v) < min)
-          throw new Error(`${k} must be ${min < 0 ? `${min} or more` : `at least ${min}`}.`);
-        if (k === 'min.insync.replicas' && Number(v) > def.rf)
-          throw new Error(
-            `min.insync.replicas can't exceed the replication factor (${def.rf}): every acks=all write would fail.`,
-          );
-      }
-      if ((def0 === 'true' || def0 === 'false') && v !== 'true' && v !== 'false')
-        throw new Error(`${k} must be true or false.`);
-    }
+    checkConfigs(changes, def.rf);
     if (Object.keys(changes).length) await this.log('update-config', { name, changes });
   }
 
@@ -2036,6 +2019,7 @@ export class Simulator {
       );
     const maxBytes = Number(cfg['max.message.bytes']);
     const first = Math.floor(s.end);
+    const batch: RawMessage[] = []; // all checked before any is written: a failed batch leaves nothing behind
     for (let i = 0; i < count; i++) {
       const offset = first + i;
       const text = count > 1 ? req.value.replaceAll('{{i}}', String(i + 1)) : req.value;
@@ -2053,7 +2037,7 @@ export class Simulator {
         throw new Error(
           `The message is ${formatInt(size)} bytes; ${req.topic} accepts at most ${formatInt(maxBytes)} (max.message.bytes). Make it smaller or raise the topic's limit.`,
         );
-      this.produced.set(`${req.topic}:${partition}:${offset}`, {
+      batch.push({
         topic: req.topic,
         partition,
         offset,
@@ -2064,6 +2048,7 @@ export class Simulator {
         sizeBytes: (key?.length ?? 0) + value.length,
       });
     }
+    for (const m of batch) this.produced.set(`${req.topic}:${partition}:${m.offset}`, m);
     s.end = first + count + (s.end - first);
     s.lastMsgAt = t;
     return { partition, offset: first, count };
@@ -2486,6 +2471,29 @@ function describeStrategy(req: ResetOffsetsRequest): string {
 
 function strip(i: IncidentState): Incident {
   return { id: i.id, kind: i.kind, target: i.target, startedAt: i.startedAt, endsAt: i.endsAt };
+}
+
+/** Kafka's checks on topic config values: the same for a new topic and an edit. */
+function checkConfigs(changes: Record<string, string | null>, rf: number): void {
+  const known = new Map(TOPIC_DEFAULTS);
+  for (const [k, v] of Object.entries(changes)) {
+    if (!known.has(k)) throw new Error(`Unknown topic config ${k}.`);
+    if (v === null) continue;
+    const def0 = known.get(k)!;
+    if (/^-?\d+$/.test(def0) && !/^-?\d+$/.test(v)) throw new Error(`${k} must be a whole number.`);
+    if (/^-?\d+$/.test(def0)) {
+      // Kafka's own lower bounds: -1 means "unlimited" for retention, -2 "use the broker's" for local retention
+      const min = MIN_CONFIG[k] ?? 0;
+      if (Number(v) < min)
+        throw new Error(`${k} must be ${min < 0 ? `${min} or more` : `at least ${min}`}.`);
+      if (k === 'min.insync.replicas' && Number(v) > rf)
+        throw new Error(
+          `min.insync.replicas can't exceed the replication factor (${rf}): every acks=all write would fail.`,
+        );
+    }
+    if ((def0 === 'true' || def0 === 'false') && v !== 'true' && v !== 'false')
+      throw new Error(`${k} must be true or false.`);
+  }
 }
 
 const MIN_CONFIG: Record<string, number> = {
