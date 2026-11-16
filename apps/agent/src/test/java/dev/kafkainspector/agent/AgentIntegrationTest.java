@@ -824,6 +824,29 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(45)
+    void theLagStreamMatchesTheGroupsEndpointAndAnUnknownChannelIsAnError() throws Exception {
+        signIn();
+        var closed = new java.util.concurrent.CountDownLatch(1);
+        List<String> got = java.util.Collections.synchronizedList(new ArrayList<>());
+        var ws = openStream(http, "http://localhost:" + port, got, closed);
+        ws.sendText("{\"op\":\"sub\",\"id\":\"bogus\",\"cluster\":\"local\",\"channel\":\"bogus\"}", true).get(5, TimeUnit.SECONDS);
+        ws.sendText("{\"op\":\"sub\",\"id\":\"l\",\"cluster\":\"local\",\"channel\":\"lag\"}", true).get(5, TimeUnit.SECONDS);
+        long until = System.currentTimeMillis() + 15_000;
+        while (System.currentTimeMillis() < until && got.stream().noneMatch(x -> x.contains("\"id\":\"l\"") && x.contains("\"data\""))) Thread.sleep(200);
+        assertTrue(got.stream().anyMatch(x -> x.contains("\"id\":\"bogus\"") && x.contains("Unknown channel")), () -> "no error for an unknown channel: " + got);
+        String frame = got.stream().filter(x -> x.contains("\"id\":\"l\"") && x.contains("\"data\"")).reduce((a, b) -> b).orElseThrow();
+        JsonNode streamed = JSON.readTree(frame).path("data");
+        JsonNode rest = get("/api/clusters/local/groups");
+        List<String> a = new ArrayList<>(), b = new ArrayList<>();
+        streamed.forEach(g -> a.add(g.path("status").asString()));
+        rest.forEach(g -> b.add(g.path("status").asString()));
+        assertEquals(b, a, "the stream must list groups in the same (worst-first) order as GET /groups");
+        for (JsonNode g : streamed) assertTrue(g.has("trend"), () -> "no trend in the stream: " + g);
+        ws.abort();
+    }
+
+    @Test
     @Order(43)
     void everyNonGetRouteIsOnTheAllowlistNoneReachesKafkaWrites() {
         // rule 5: a new write route must be a deliberate change to this list, not a silent addition

@@ -35,9 +35,9 @@ public class ApiController {
     private final AlertService alerts;
     private final SavedFilters filters;
     private final String version;
-    private final Map<String, List<Double>[]> trendCache = new ConcurrentHashMap<>();
+    private final dev.kafkainspector.agent.history.Trends trends;
 
-    public ApiController(Clusters clusters, Sampler sampler, KafkaService kafka, MessageService messages, HistoryRepository history, SchemaRegistry registry, AlertService alerts, SavedFilters filters, Optional<BuildProperties> build) {
+    public ApiController(Clusters clusters, Sampler sampler, KafkaService kafka, MessageService messages, HistoryRepository history, SchemaRegistry registry, AlertService alerts, SavedFilters filters, dev.kafkainspector.agent.history.Trends trends, Optional<BuildProperties> build) {
         this.clusters = clusters;
         this.sampler = sampler;
         this.kafka = kafka;
@@ -46,6 +46,7 @@ public class ApiController {
         this.registry = registry;
         this.alerts = alerts;
         this.filters = filters;
+        this.trends = trends;
         this.version = build.map(BuildProperties::getVersion).orElse("0.1.0");
     }
 
@@ -78,13 +79,7 @@ public class ApiController {
 
     @SuppressWarnings("unchecked")
     private List<Double> trend(String cid, String scope, String key, String metric) {
-        String k = cid + "|" + scope + "|" + key + "|" + metric;
-        long now = System.currentTimeMillis();
-        List<Double>[] hit = trendCache.get(k);
-        if (hit != null && hit[1] != null && !hit[1].isEmpty() && now - hit[1].get(0).longValue() < 30_000) return hit[0];
-        List<Double> pts = history.series(cid, scope, key, metric, now - 3_600_000L, 24).stream().map(p -> p[1]).toList();
-        trendCache.put(k, new List[] {pts, List.of((double) now)});
-        return pts;
+        return trends.of(cid, scope, key, metric);
     }
 
     // ── cluster ──
@@ -92,9 +87,8 @@ public class ApiController {
     @GetMapping("/clusters/{c}/overview")
     public Dto.Overview overview(@PathVariable String c) {
         ClusterState s = state(c);
-        Map<String, List<Double>> trends = new HashMap<>();
-        s.groups.keySet().forEach(g -> trends.put(g, trend(c, "group", g, "lag")));
-        return Views.overview(c, clusters.get(c), s, alerts.firingCount(), trends);
+
+        return Views.overview(c, clusters.get(c), s, alerts.firingCount(), trends.groups(c, s));
     }
 
     @GetMapping("/clusters/{c}/brokers")

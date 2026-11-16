@@ -49,7 +49,12 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     private static final int MAX_TAILS = 8;
     private final ScheduledExecutorService pinger = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
 
-    public StreamHandler(JsonMapper json, Sampler sampler, MessageService messages, AlertService alerts, Clusters clusters) {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StreamHandler.class);
+    private final dev.kafkainspector.agent.history.Trends trends;
+    private static final java.util.Set<String> CHANNELS = java.util.Set.of("metrics", "lag", "events", "alerts");
+
+    public StreamHandler(JsonMapper json, Sampler sampler, MessageService messages, AlertService alerts, Clusters clusters, dev.kafkainspector.agent.history.Trends trends) {
+        this.trends = trends;
         this.json = json;
         this.sampler = sampler;
         this.messages = messages;
@@ -124,7 +129,10 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 // not JSON: no id to answer
             }
             WebSocketSession s = sessions.get(raw.getId());
-            if (s != null) send(s, Map.of("id", id, "channel", channel, "ts", Instant.now().toString(), "error", e instanceof Clusters.NotFound ? e.getMessage() : "The agent couldn't read that message: " + e.getMessage()));
+            String why = e instanceof Clusters.NotFound || e instanceof IllegalArgumentException ? e.getMessage()
+                    : e instanceof org.springframework.dao.DataAccessException ? "The agent's storage isn't available, so this stream can't start. Check the agent's /data volume and log."
+                    : "The agent couldn't read that message: " + e.getMessage();
+            if (s != null) send(s, Map.of("id", id, "channel", channel, "ts", Instant.now().toString(), "error", why));
         }
     }
 
@@ -136,6 +144,8 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
             case "sub" -> {
                 clusters.get(cid);
                 String channel = m.path("channel").asString("metrics");
+                if (!CHANNELS.contains(channel))
+                    throw new IllegalArgumentException("Unknown channel " + channel + ". Use metrics, lag, events or alerts.");
                 subs.get(raw.getId()).put(id, new String[] {cid, channel});
                 ClusterState st = sampler.state(cid);
                 if (st.ts > 0) push(s, id, cid, channel, st);
@@ -144,7 +154,8 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 clusters.get(cid);
                 int maxRate = Math.max(1, Math.min(500, m.path("maxRate").asInt(50)));
                 String prefix = raw.getId() + "|";
-                if (tails.keySet().stream().filter(k -> k.startsWith(prefix)).count() >= MAX_TAILS) {
+                // a re-sent id replaces its own tail, so it doesn't count against the limit
+                if (!tails.containsKey(prefix + id) && tails.keySet().stream().filter(k -> k.startsWith(prefix)).count() >= MAX_TAILS) {
                     send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", "Too many live tails on this connection (" + MAX_TAILS + ")."));
                     return;
                 }
@@ -177,16 +188,24 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     }
 
     private void broadcast(String cid, ClusterState st) {
+        if (st.ts == 0) return; // no sample yet: REST says "still connecting"; an empty overview would look like data
         subs.forEach((sid, m) -> m.forEach((id, sub) -> {
-            if (sub[0].equals(cid)) push(sessions.get(sid), id, cid, sub[1], st);
+            if (!sub[0].equals(cid)) return;
+            try {
+                push(sessions.get(sid), id, cid, sub[1], st);
+            } catch (RuntimeException e) {
+                // one failing channel (e.g. alerts while the database is down) must not starve the others
+                log.debug("stream {} {} skipped: {}", cid, sub[1], e.toString());
+            }
         }));
     }
 
     private void push(WebSocketSession s, String id, String cid, String channel, ClusterState st) {
         if (s == null) return;
         Object data = switch (channel) {
-            case "metrics" -> Views.overview(cid, clusters.get(cid), st, alerts.firingCount(), Map.of());
-            case "lag" -> st.groups.values().stream().map(g -> Views.group(st, g, List.of())).toList();
+            // the same shapes as GET /overview and GET /groups (trends, worst first): the UI swaps one for the other
+            case "metrics" -> Views.overview(cid, clusters.get(cid), st, alerts.firingCount(), trends.groups(cid, st));
+            case "lag" -> st.groups.values().stream().map(g -> Views.group(st, g, trends.of(cid, "group", g.groupId, "lag"))).sorted(Views.WORST_FIRST).toList();
             case "events" -> {
                 synchronized (st.events) {
                     yield new ArrayList<>(st.events).subList(0, Math.min(30, st.events.size()));
