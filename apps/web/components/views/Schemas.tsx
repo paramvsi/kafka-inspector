@@ -1,4 +1,5 @@
 'use client';
+import { fieldsOf, type Field } from '../../lib/schemaFields';
 import { pickVersions } from '../../lib/versions';
 import {
   checkCompatibility,
@@ -12,32 +13,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
-
-type Field = { name: string; line: string };
-
-function fieldsOf(v: SchemaVersion): Field[] {
-  const j = JSON.parse(v.schema);
-  if (v.type === 'AVRO') {
-    if (!j.fields) return [{ name: '(type)', line: JSON.stringify(j) }];
-    return (j.fields as Array<Record<string, unknown>>).map((f) => {
-      const t =
-        typeof f.type === 'object' && !Array.isArray(f.type)
-          ? JSON.stringify({ type: (f.type as { type: string }).type, '…': '' }).replace(
-              ',"…":""',
-              ',…',
-            )
-          : JSON.stringify(f.type);
-      return {
-        name: String(f.name),
-        line: `{ "name": "${f.name}", "type": ${t}${'default' in f ? `, "default": ${JSON.stringify(f.default)}` : ''} }`,
-      };
-    });
-  }
-  return Object.entries((j.properties ?? {}) as Record<string, unknown>).map(([k, p]) => ({
-    name: k,
-    line: `"${k}": ${JSON.stringify(p)}${(j.required ?? []).includes(k) ? '  required' : ''}`,
-  }));
-}
 
 function align(a: Field[], b: Field[], changes: FieldChange[]) {
   const kind = (n: string) => changes.find((c) => c.field === n)?.change ?? 'same';

@@ -1,5 +1,5 @@
 /** A "not found" (agent 404, or the simulator's "… not found.") will fail the same way every time. */
-const isNotFound = (e: unknown) =>
+export const isNotFound = (e: unknown) =>
   (e as { status?: number } | null)?.status === 404 ||
   /not found\.?$/i.test((e as Error)?.message ?? '');
 

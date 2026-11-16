@@ -74,7 +74,7 @@ const COMPARE: Array<[string, string, string]> = [
     'Bring your own (Prometheus, Burrow)',
     'Built in: lag, stalled groups, silent topics, under-replicated partitions',
   ],
-  ['Topology', 'Not shown', 'Live producer → topic → group map'],
+  ['Topology', 'Not shown', 'Live topic → group map (producers too in the demo)'],
   [
     'Try without a cluster',
     'Needs a running Kafka',
@@ -250,8 +250,10 @@ export default function Landing() {
               <p className="m-0 font-mono text-[12px] text-copper">03 · How does data flow?</p>
               <h3 className="m-0 mt-3 text-[18px] font-semibold">The whole pipeline on one map</h3>
               <p className="m-0 mt-3 text-[14px] leading-6 text-ink-muted">
-                Producers, topics and consumer groups drawn as a live graph. Line width is
-                throughput; colour is health. A stalled consumer turns red before your users notice.
+                Topics and consumer groups drawn as a live graph (the demo also draws its producers;
+                Kafka doesn't report producers, so a real cluster shows topics and groups). Line
+                width is throughput; colour is health. A stalled consumer turns red before your
+                users notice.
               </p>
               <div
                 className="mt-4 flex flex-wrap items-center gap-1 font-mono text-[11px]"

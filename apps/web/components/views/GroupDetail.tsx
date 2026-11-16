@@ -29,6 +29,7 @@ import { groupBadge } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { useUrl } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
+import { isNotFound } from '../../lib/poll';
 import { sinceRising } from '../../lib/trend';
 import { ResetOffsetsDialog } from './ResetOffsets';
 
@@ -54,11 +55,16 @@ export function GroupDetailView() {
     5000,
   );
   const d = group.data;
-  if (group.error) {
+  // a failed refresh keeps the last data on screen; only a real not-found says "not found"
+  if (group.error && !d) {
     return (
       <Card>
         <EmptyState
-          title={`Consumer group ${id} not found`}
+          title={
+            isNotFound(group.error)
+              ? `Consumer group ${id} not found`
+              : `Couldn't load consumer group ${id}`
+          }
           actions={
             <Link href="/app/groups/" className="text-copper">
               Back to consumer groups
@@ -66,6 +72,7 @@ export function GroupDetailView() {
           }
         >
           {(group.error as Error).message}
+          {isNotFound(group.error) ? '' : ' It retries every few seconds.'}
         </EmptyState>
       </Card>
     );

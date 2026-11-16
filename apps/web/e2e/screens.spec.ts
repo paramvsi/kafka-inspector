@@ -97,7 +97,9 @@ test('topic config: edit an override, see it highlighted, reset it to default (F
   await expect(page.getByRole('row', { name: /^segment\.ms/ }).getByText('default')).toBeVisible();
   // read-only: no edit buttons
   await page.goto('/app/topics/view/?name=orders&tab=config&preview=readonly');
-  await expect(page.getByText(/overrides · editing topic config/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/overrides · Read-only in this version/)).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByRole('button', { name: /^Edit [a-z]+\./ })).toHaveCount(0);
 });
 

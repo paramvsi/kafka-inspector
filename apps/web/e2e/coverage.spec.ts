@@ -1267,3 +1267,15 @@ test('a start offset past the end says so, not "no messages in its retention win
     timeout: 15_000,
   });
 });
+
+test('a mistyped address gets a branded page with a way back, not a bare 404', async ({ page }) => {
+  // Netlify serves out/404.html for unknown paths; the local static server doesn't, so open it directly
+  await page.goto('/404.html');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('link', { name: 'Open the overview' })).toHaveAttribute(
+    'href',
+    /\/app\/?$/,
+  );
+});

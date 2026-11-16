@@ -33,6 +33,7 @@ import { axisTime } from '../../lib/axis';
 import { hourAgoValue } from '../../lib/baseline';
 import { useUrl, pick } from '../../lib/url';
 import { sourceLabel } from '../../lib/configSource';
+import { isNotFound } from '../../lib/poll';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
@@ -76,21 +77,25 @@ export function TopicDetailView() {
         actions={<Link href="/app/topics/">Back to topics</Link>}
       />
     );
-  if (topic.error) {
+  // a failed refresh keeps the last data on screen; only a real not-found says "not found"
+  if (topic.error && !topic.data) {
+    const missing = isNotFound(topic.error);
     return (
       <>
         <PageHeader title={name} mono />
         <Card>
           <EmptyState
-            title={`Topic ${name} not found`}
+            title={missing ? `Topic ${name} not found` : `Couldn't load topic ${name}`}
             actions={
               <Link href="/app/topics/" className="text-copper">
                 Back to topics
               </Link>
             }
           >
-            {(topic.error as Error).message} It may have been deleted, or the link points at another
-            cluster.
+            {(topic.error as Error).message}{' '}
+            {missing
+              ? 'It may have been deleted, or the link points at another cluster.'
+              : 'It retries every few seconds.'}
           </EmptyState>
         </Card>
       </>
@@ -180,7 +185,10 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
   const retention = retentionLabel(cfgValue('retention.ms'));
   const minIsr = cfgValue('min.insync.replicas');
   const urp = s.underReplicated;
-  const last = s.lastMessageAt ? (Date.now() - Date.parse(s.lastMessageAt)) / 1000 : undefined;
+  // clamped: a browser clock a little behind the agent's would show "-2.4 s"
+  const last = s.lastMessageAt
+    ? Math.max(0, (Date.now() - Date.parse(s.lastMessageAt)) / 1000)
+    : undefined;
   const delta = hourAgo ? ((s.messagesInPerSec - hourAgo) / hourAgo) * 100 : undefined;
   // an idle topic has no shares (null): no skew to report, rather than a fake 100/n
   const shares = d.partitions.every((p) => p.sharePct != null)
@@ -441,6 +449,14 @@ function ConfigTab({ name }: { name: string }) {
     (a, b) => Number(a.isDefault) - Number(b.isDefault) || a.name.localeCompare(b.name),
   );
   const overrides = rows.filter((r) => sourceLabel(r) === 'override').length;
+  if (cfg.error && !cfg.data)
+    return (
+      <Card>
+        <EmptyState title="Couldn't load the topic configuration">
+          {(cfg.error as Error).message} It retries every few seconds.
+        </EmptyState>
+      </Card>
+    );
   return (
     <>
       <DataTable
@@ -448,9 +464,7 @@ function ConfigTab({ name }: { name: string }) {
         rows={rows}
         rowKey={(c) => c.name}
         footer={
-          writes
-            ? `${overrides} overrides`
-            : `${overrides} overrides · editing topic config arrives with write support on real clusters (v2)`
+          writes ? `${overrides} overrides` : `${overrides} overrides · Read-only in this version`
         }
         columns={[
           {
