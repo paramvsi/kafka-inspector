@@ -40,7 +40,7 @@ public class MessageService {
     }
 
     /** from: newest | oldest | offset | timestamp | group. Cursor = "p:o,p:o" next offsets. */
-    public Dto.RawMessagePage browse(String cid, String topic, String partition, String from, Long offset, String timestamp, Long groupOffsetsFor, Map<Integer, Long> groupOffsets, int limit, String cursor) {
+    public Dto.RawMessagePage browse(String cid, String topic, String partition, String from, Long offset, String timestamp, Map<Integer, Long> groupOffsets, int limit, String cursor) {
         int max = Math.max(1, Math.min(limit, 500));
         try (KafkaConsumer<byte[], byte[]> c = kafka.consumer(cid, max)) {
             List<PartitionInfo> infos = c.partitionsFor(topic, Duration.ofSeconds(10));
@@ -151,9 +151,9 @@ public class MessageService {
         }
     }
 
-    public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Collection<String> topics) {
+    public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Map<String, ClusterState.TopicSnap> topics) {
         Pattern p = dev.kafkainspector.agent.api.SafeRegex.compile(topicRegex, 0);
-        List<String> matched = topics.stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).limit(20).toList();
+        List<String> matched = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).limit(20).toList();
         int max = Math.max(1, Math.min(limit, 500));
         List<Dto.RawMessage> out = new ArrayList<>();
         int scanned = 0;
@@ -162,7 +162,11 @@ public class MessageService {
         for (String t : matched) {
             if (System.currentTimeMillis() > deadline) break;
             try {
-                Dto.RawMessagePage page = browse(cid, t, "all", "oldest".equals(from) ? "oldest" : "newest", null, null, null, Map.of(), Math.max(1, max / matched.size()), null);
+                // sample spreads reads across every partition; otherwise the busiest partition (same as the simulator, F-43)
+                ClusterState.TopicSnap snap = topics.get(t);
+                String part = sample || snap == null || snap.partitions.isEmpty() ? "all"
+                        : String.valueOf(snap.partitions.stream().max(Comparator.comparingDouble((ClusterState.PartSnap x) -> x.rate).thenComparingLong(x -> x.high)).get().partition);
+                Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), Math.max(1, max / matched.size()), null);
                 out.addAll(page.messages());
                 scanned += page.scanned();
             } catch (dev.kafkainspector.agent.config.Clusters.NotFound e) {
@@ -175,7 +179,6 @@ public class MessageService {
         return new Dto.RawMessagePage(out.subList(0, Math.min(max, out.size())), null, scanned);
     }
 
-    /** Live tail: polls from the end on a virtual thread, samples down to maxRate per second, until stopped. */
     /** Live tail: polls from the end on a virtual thread, samples to maxRate per second; errors go to onError. */
     public Runnable tail(String cid, String topic, String partition, int maxRate, Consumer<List<Dto.RawMessage>> onBatch, Consumer<String> onError) {
         Thread t = Thread.ofVirtual().name("tail-" + topic).start(() -> {

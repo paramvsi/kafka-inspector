@@ -221,14 +221,14 @@ public class ApiController {
             if (g == null && st.ts > 0) throw new Clusters.NotFound("GROUP_NOT_FOUND", "Consumer group " + group + " doesn't exist on " + c + ".");
             if (g != null && g.committed.containsKey(name)) groupOffsets.putAll(g.committed.get(name));
         }
-        return messages.browse(c, name, partition, from, offset, timestamp, null, groupOffsets, limit, cursor);
+        return messages.browse(c, name, partition, from, offset, timestamp, groupOffsets, limit, cursor);
     }
 
     public record SearchRequest(String topicRegex, String from, Integer limit, Boolean sample) {}
 
     @PostMapping("/clusters/{c}/messages/search")
     public Dto.RawMessagePage search(@PathVariable String c, @RequestBody SearchRequest r) {
-        return messages.search(c, r.topicRegex() == null ? ".*" : r.topicRegex(), r.from(), r.limit() == null ? 100 : r.limit(), Boolean.TRUE.equals(r.sample()), state(c).topics.keySet());
+        return messages.search(c, r.topicRegex() == null ? ".*" : r.topicRegex(), r.from(), r.limit() == null ? 100 : r.limit(), Boolean.TRUE.equals(r.sample()), state(c).topics);
     }
 
     // ── groups ──

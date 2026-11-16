@@ -29,7 +29,7 @@ import Link from 'next/link';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
-import { useUrl } from '../../lib/url';
+import { useUrl, pick } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
@@ -42,9 +42,7 @@ export function TopicDetailView() {
   const url = useUrl();
   const canWrite = useWrites();
   const name = url.get('name') ?? '';
-  const tab = (TABS as readonly string[]).includes(url.get('tab') ?? '')
-    ? (url.get('tab') as Tab)
-    : 'overview';
+  const tab: Tab = pick(url.get('tab'), TABS, 'overview');
   const topic = useKafkaQuery(
     ['topic', name],
     (c, id) => c.getTopic(id, name),

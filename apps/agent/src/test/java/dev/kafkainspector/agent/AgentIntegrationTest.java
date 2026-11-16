@@ -440,6 +440,33 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(35)
+    void searchSampleSpreadsAcrossPartitionsOtherwiseReadsTheBusiestOne() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+             KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("spread", 3, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            for (int part = 0; part < 3; part++) for (int i = 0; i < 10 + part * 5; i++) p.send(new ProducerRecord<>("spread", part, "k", "v" + i));
+            p.flush();
+        }
+        long until = System.currentTimeMillis() + 20_000;
+        while (System.currentTimeMillis() < until && get("/api/clusters/local/topics").toString().indexOf("\"spread\"") < 0) Thread.sleep(500);
+        Thread.sleep(1500);
+        java.util.function.Function<Boolean, Set<Integer>> parts = sample -> {
+            try {
+                HttpResponse<String> r = send("POST", "/api/clusters/local/messages/search", "{\"topicRegex\":\"^spread$\",\"from\":\"newest\",\"limit\":30,\"sample\":" + sample + "}");
+                Set<Integer> out = new TreeSet<>();
+                JSON.readTree(r.body()).path("messages").forEach(m -> out.add(m.path("partition").asInt()));
+                return out;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+        assertEquals(1, parts.apply(false).size(), "without sample: one (the busiest) partition");
+        assertEquals(Set.of(0, 1, 2), parts.apply(true), "sample: every partition");
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();

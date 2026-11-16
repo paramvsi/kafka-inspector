@@ -38,9 +38,9 @@ const FROM = [
   { value: 'offset', label: 'From offset' },
   { value: 'timestamp', label: 'From time' },
   { value: 'group', label: 'Group position' },
-];
+] as const;
 
-const FROMS = ['newest', 'oldest', 'offset', 'timestamp', 'group'] as const;
+const FROMS = FROM.map((o) => o.value);
 
 const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
 
@@ -354,7 +354,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                 live: undefined,
               })
             }
-            options={FROM}
+            options={[...FROM]}
           />
         </div>
         {from === 'offset' && (
