@@ -26,6 +26,7 @@ import { useState } from 'react';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
+import { axisTime } from '../../lib/axis';
 import { useUrl } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { sinceRising } from '../../lib/trend';
@@ -196,7 +197,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
   const f = s.forecast;
   // direction from the rates (the forecast's numbers); flat when they match, e.g. a stopped group
   const known = f.consumeRate !== undefined && f.produceRate !== undefined;
-  const trend: 'rising' | 'falling' | 'flat' = known
+  const trend: 'rising' | 'falling' | 'flat' | undefined = known
     ? f.produceRate! > f.consumeRate!
       ? 'rising'
       : f.produceRate! < f.consumeRate!
@@ -204,7 +205,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
         : 'flat'
     : s.status === 'warn' || f.kind === 'never'
       ? 'rising'
-      : 'falling';
+      : undefined; // rates unknown (first samples, share groups): no trend word rather than a guess
   const rising = trend === 'rising';
   const from = rising ? sinceRising(points) : undefined;
   const topics = s.topics.length > 2 ? `${s.topics.length} topics` : s.topics.join(' + ');
@@ -277,6 +278,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
 }
 
 function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> }) {
+  const { range } = useApp();
   const s = d.summary;
   const f = s.forecast;
   const now = points.at(-1)?.[0] ?? Date.now();
@@ -330,6 +332,7 @@ function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> })
       <TimeSeriesChart
         label={`Lag for ${s.groupId}`}
         height={180}
+        xFormat={axisTime(range)}
         yFormat={(v) =>
           v >= 1e6
             ? `${(v / 1e6).toFixed(1)}M`
@@ -446,7 +449,8 @@ function Members({ d }: { d: Detail }) {
           header: 'Assigned partitions',
           cell: (m) => (
             <span className="font-mono text-[12px]">
-              {m.assignments.length} ·{' '}
+              {m.assignments.length}
+              {m.assignments.length > 0 && ' · '}
               {m.assignments
                 .slice(0, 4)
                 .map((a) => `${a.topic}-${a.partition}`)

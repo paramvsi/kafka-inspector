@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
+import { axisTime } from '../../lib/axis';
 import { useUrl, pick } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
@@ -175,7 +176,10 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
   const urp = s.underReplicated;
   const last = s.lastMessageAt ? (Date.now() - Date.parse(s.lastMessageAt)) / 1000 : undefined;
   const delta = hourAgo ? ((s.messagesInPerSec - hourAgo) / hourAgo) * 100 : undefined;
-  const shares = d.partitions.map((p) => p.sharePct ?? 0);
+  // an idle topic has no shares (null): no skew to report, rather than a fake 100/n
+  const shares = d.partitions.every((p) => p.sharePct != null)
+    ? d.partitions.map((p) => p.sharePct!)
+    : [];
   const maxDev = shares.length
     ? Math.max(...shares.map((x) => Math.abs(x - 100 / shares.length)))
     : 0;
@@ -189,7 +193,11 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
           delta={delta !== undefined ? formatDelta(delta) : undefined}
           deltaTone={delta !== undefined && delta >= 0 ? 'ok' : 'neutral'}
         />
-        <KpiCard label="Size on disk" value={formatBytes(s.sizeBytes ?? 0)} delta={retention} />
+        <KpiCard
+          label="Size on disk"
+          value={s.sizeBytes == null ? '—' : formatBytes(s.sizeBytes)}
+          delta={retention}
+        />
         <KpiCard
           label="Partitions · RF"
           value={`${s.partitions} · ${s.replicationFactor}`}
@@ -217,7 +225,7 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
           <Card title="Health checks">
             <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13px]">
               {s.replicationFactor >= 3 ? (
-                <Check ok>Replication factor {s.replicationFactor} (min 2)</Check>
+                <Check ok>Replication factor {s.replicationFactor}</Check>
               ) : null}
               {s.health.map((h) => (
                 <Check key={h.id} ok={false} severity={h.severity} detail={h.fix}>
@@ -232,7 +240,7 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
               {!s.health.some((h) => h.id === 'low-min-isr') &&
                 s.replicationFactor > 1 &&
                 minIsr !== undefined && <Check ok>min.insync.replicas = {minIsr}</Check>}
-              {!s.health.some((h) => h.id === 'skew') && d.partitions.length > 1 && (
+              {!s.health.some((h) => h.id === 'skew') && shares.length > 1 && (
                 <Check ok>Partition skew {formatPct(maxDev, 1)}</Check>
               )}
             </ul>
@@ -337,7 +345,7 @@ export function PartitionTable({
           kind: 'id',
           cell: (p) => (
             <span className={p.isr.length < p.replicas.length ? 'text-crit-text' : undefined}>
-              {p.isr.join(',')}
+              {p.isr.length ? p.isr.join(',') : 'none'}
             </span>
           ),
         },
@@ -661,6 +669,7 @@ function TopicThroughput({ name }: { name: string }) {
       <TimeSeriesChart
         label={`Messages in per second on ${name}`}
         height={140}
+        xFormat={axisTime(range)}
         yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
         series={[{ key: 'in', label: 'in', points: h.data ?? [], color: 'chart-1', area: true }]}
       />
