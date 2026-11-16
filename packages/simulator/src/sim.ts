@@ -1296,9 +1296,10 @@ export class Simulator {
     } catch {
       throw new Error(`Invalid regular expression: ${req.topicRegex}`);
     }
-    const topics = [...this.topics.keys()].filter(
-      (n) => re.test(n) && !this.topics.get(n)!.internal,
-    );
+    // same as the agent (AGENT_API): at most 20 matching topics, results newest first whichever end is read
+    const topics = [...this.topics.keys()]
+      .filter((n) => re.test(n) && !this.topics.get(n)!.internal)
+      .slice(0, 20);
     const limit = Math.min(req.limit ?? 100, 500);
     const out: RawMessage[] = [];
     let scanned = 0;
@@ -1316,11 +1317,7 @@ export class Simulator {
         }
       }
     }
-    out.sort((a, b) =>
-      req.from === 'newest'
-        ? b.timestamp.localeCompare(a.timestamp)
-        : a.timestamp.localeCompare(b.timestamp),
-    );
+    out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     return { messages: out.slice(0, limit), scanned };
   }
 

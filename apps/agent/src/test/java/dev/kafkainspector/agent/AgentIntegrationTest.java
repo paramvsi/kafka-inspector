@@ -546,6 +546,31 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(41)
+    void newestAcrossPartitionsIsTheGlobalNewestAndABlankCursorIsTheFirstPage() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+                KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("skewed", 3, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            long old = System.currentTimeMillis() - 3_600_000;
+            for (int part = 1; part < 3; part++) for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>("skewed", part, old + i, "k", "old" + i));
+            for (int i = 0; i < 30; i++) p.send(new ProducerRecord<>("skewed", 0, System.currentTimeMillis(), "k", "new" + i));
+            p.flush();
+        }
+        // newest 10 over all partitions: all from the hot partition 0, not 4 from it plus old ones from the quiet ones
+        JsonNode page = null;
+        for (long end = System.currentTimeMillis() + 20_000; System.currentTimeMillis() < end; Thread.sleep(500)) {
+            HttpResponse<String> r = send("GET", "/api/clusters/local/topics/skewed/messages?partition=all&from=newest&limit=10", null);
+            if (r.statusCode() == 200 && JSON.readTree(r.body()).path("messages").size() == 10) { page = JSON.readTree(r.body()); break; }
+        }
+        assertTrue(page != null, "no page");
+        for (JsonNode m : page.path("messages")) assertEquals(0, m.path("partition").asInt(), () -> "an old record from a quiet partition on the newest page");
+        // an empty cursor parameter is the first page, not an empty one
+        HttpResponse<String> blank = send("GET", "/api/clusters/local/topics/skewed/messages?partition=all&from=newest&limit=10&cursor=", null);
+        assertEquals(10, JSON.readTree(blank.body()).path("messages").size(), blank::body);
+    }
+
+    @Test
     @Order(40)
     void pruneAndAlertLookupsHaveIndexes() {
         List<String> idx = jdbc.queryForList("SELECT LOWER(INDEX_NAME) FROM INFORMATION_SCHEMA.INDEXES WHERE LOWER(TABLE_NAME) IN ('metric_sample', 'alert_event')", String.class);

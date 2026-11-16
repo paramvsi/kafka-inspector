@@ -945,11 +945,11 @@ test('turning Live tail off and on again starts a running tail, not a paused one
 }) => {
   await page.goto('/app/topics/view/?name=orders&tab=messages');
   await page.getByLabel('Live tail').click();
-  await page.getByRole('button', { name: 'Pause' }).click();
-  await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeVisible();
   await page.getByLabel('Live tail').click();
   await page.getByLabel('Live tail').click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });
 
 test('fast typing into a URL-bound filter keeps every character', async ({ page }) => {

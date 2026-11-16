@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class MessageService {
     private static final Duration BUDGET = Duration.ofSeconds(4);
+    /** Bytes of keys + values + headers read for one page: large records end the page early (the cursor continues). */
+    static final long PAGE_BYTES = 16L * 1024 * 1024;
     private static final Base64.Encoder B64 = Base64.getEncoder();
     private final KafkaService kafka;
 
@@ -42,6 +44,7 @@ public class MessageService {
     /** from: newest | oldest | offset | timestamp | group. Cursor = "p:o,p:o" next offsets. */
     public Dto.RawMessagePage browse(String cid, String topic, String partition, String from, Long offset, String timestamp, Map<Integer, Long> groupOffsets, int limit, String cursor) {
         int max = Math.max(1, Math.min(limit, 500));
+        if (cursor != null && cursor.isBlank()) cursor = null; // "cursor=" is the first page, as the controller treats it
         try (KafkaConsumer<byte[], byte[]> c = kafka.consumer(cid, max)) {
             List<PartitionInfo> infos = c.partitionsFor(topic, Duration.ofSeconds(10));
             if (infos == null || infos.isEmpty()) throw new dev.kafkainspector.agent.config.Clusters.NotFound("TOPIC_NOT_FOUND", "Topic " + topic + " not found.");
@@ -53,7 +56,9 @@ public class MessageService {
             if (!cur.keySet().stream().allMatch(p -> tps.stream().anyMatch(tp -> tp.partition() == p)))
                 throw new IllegalArgumentException("The cursor isn't valid for this topic and partition. Start again without it.");
             boolean desc = "newest".equals(from);
-            int per = desc ? Math.max(1, (int) Math.ceil((double) max / tps.size())) : max;
+            // newest: up to `max` from every partition, then the newest `max` overall (a quiet partition must not fill
+            // the page with old records while the hot one's newest wait for Load more); the cursor keeps the rest
+            int per = max;
             Map<TopicPartition, long[]> ranges = new HashMap<>(); // [start, stopExclusive]
             Map<TopicPartition, OffsetAndTimestamp> byTime = "timestamp".equals(from) && timestamp != null ? c.offsetsForTimes(tpsMap(tps, Instant.parse(timestamp).toEpochMilli()), Duration.ofSeconds(10)) : Map.of();
             for (TopicPartition tp : tps) {
@@ -84,12 +89,16 @@ public class MessageService {
             Set<TopicPartition> done = new HashSet<>(tps);
             done.removeAll(ranges.keySet());
             int scanned = 0;
-            while (done.size() < tps.size() && System.nanoTime() < deadline) {
+            long bytes = 0;
+            while (done.size() < tps.size() && System.nanoTime() < deadline && bytes < PAGE_BYTES) {
                 for (ConsumerRecord<byte[], byte[]> r : c.poll(Duration.ofMillis(200))) {
                     TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                     long[] rg = ranges.get(tp);
                     scanned++;
-                    if (rg != null && r.offset() < rg[1]) got.add(r);
+                    if (rg != null && r.offset() < rg[1]) {
+                        got.add(r);
+                        bytes += Math.max(0, r.serializedKeySize()) + Math.max(0, r.serializedValueSize());
+                    }
                     if (rg == null || r.offset() >= rg[1] - 1) {
                         done.add(tp);
                         c.pause(List.of(tp));
@@ -166,7 +175,7 @@ public class MessageService {
                 ClusterState.TopicSnap snap = topics.get(t);
                 String part = sample || snap == null || snap.partitions.isEmpty() ? "all"
                         : String.valueOf(snap.partitions.stream().max(Comparator.comparingDouble((ClusterState.PartSnap x) -> x.rate).thenComparingLong(x -> x.high)).get().partition);
-                Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), Math.max(1, max / matched.size()), null);
+                Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), Math.max(1, (int) Math.ceil((double) max / matched.size())), null); // ceil, as the simulator: 3 topics × 34 → the full 100 after the cut
                 out.addAll(page.messages());
                 scanned += page.scanned();
             } catch (dev.kafkainspector.agent.config.Clusters.NotFound e) {

@@ -799,3 +799,11 @@ test('stopping a rebalance early settles the group', async () => {
   h.advance(1);
   expect(h.sim.getGroup('analytics-etl').summary.state).toBe('Stable');
 });
+
+test('search lists results newest first for either start, as the agent contract says', async () => {
+  const h = make();
+  await h.init();
+  const r = h.sim.search({ topicRegex: '^(orders|payments)$', from: 'oldest', limit: 20 } as never);
+  const ts = r.messages.map((m) => m.timestamp);
+  expect(ts).toEqual([...ts].sort().reverse());
+});
