@@ -461,6 +461,7 @@ public class Sampler {
             only = !saw && c.position(tp) >= to;
         } catch (RuntimeException e) {
             log.debug("marker check for {}-{} failed: {}", topic, partition, e.toString());
+            return false; // not cached: a passing error mustn't fix this gap as lag for good
         }
         if (markerOnly.size() > 10_000) markerOnly.clear();
         markerOnly.put(k, only);

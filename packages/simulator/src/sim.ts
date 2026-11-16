@@ -727,17 +727,15 @@ export class Simulator {
     if (this.listeners.size === 0) return;
     const overview = this.getOverview();
     const groups = overview.groups;
+    // newest first, as listAlerts and the agent stream order them (the list mustn't reorder when the stream takes over)
+    const firing = this.alertEvents
+      .filter((a) => a.state === 'firing')
+      .sort((a, b) => b.firedAt.localeCompare(a.firedAt));
     for (const l of this.listeners) {
       l('metrics', overview);
       l('lag', groups);
       l('events', overview.events);
-      // newest first, as listAlerts and the agent stream order them (the list mustn't reorder when the stream takes over)
-      l(
-        'alerts',
-        this.alertEvents
-          .filter((a) => a.state === 'firing')
-          .sort((a, b) => b.firedAt.localeCompare(a.firedAt)),
-      );
+      l('alerts', firing);
     }
   }
 
