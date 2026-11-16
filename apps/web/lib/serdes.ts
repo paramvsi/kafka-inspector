@@ -16,6 +16,7 @@ import { useMemo } from 'react';
 import { useKafka } from './kafka';
 import { useLocal } from './local';
 import { validMaskRules } from './maskRules';
+import { joinHeaders } from './headers';
 
 const lookups = new WeakMap<object, SchemaLookup>();
 
@@ -90,12 +91,7 @@ export async function decodeMessage(
   if (value.ok && (value.format === 'hex' || value.format === 'base64') && m.value)
     masked =
       maskEncodedJson(m.value, value.format, m.topic, rules) ?? rawHidden(m.topic, rules) ?? masked;
-  const headers: Record<string, string> = {};
-  // Kafka allows a header key more than once: keep every value, not just the last
-  for (const h of m.headers) {
-    const v = td.decode(h.value);
-    headers[h.key] = h.key in headers ? `${headers[h.key]}, ${v}` : v;
-  }
+  const headers = joinHeaders(m.headers, (b) => td.decode(b));
   return {
     raw: m,
     id: msgId(m),
