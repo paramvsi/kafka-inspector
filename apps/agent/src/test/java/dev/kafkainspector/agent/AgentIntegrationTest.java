@@ -390,6 +390,42 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(33)
+    void futureDatedHeadsCantStallPagingAndSearchOrdersByRealTime() throws Exception {
+        signIn();
+        long now = System.currentTimeMillis(), second = now / 1000 * 1000;
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+             KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("future", 2, (short) 1), new NewTopic("tsz", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            for (int part = 0; part < 2; part++) {
+                p.send(new ProducerRecord<>("future", part, now + 50 * 60_000, "k", "head")); // CreateTime ahead (the broker refuses more than 1 h)
+                for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>("future", part, now - 60_000 + i, "k", "v" + i));
+            }
+            p.send(new ProducerRecord<>("tsz", 0, second, "k", "whole-second"));
+            p.send(new ProducerRecord<>("tsz", 0, second + 500, "k", "half-past"));
+            p.flush();
+        }
+        long until = System.currentTimeMillis() + 20_000;
+        while (System.currentTimeMillis() < until && get("/api/clusters/local/topics").toString().indexOf("\"tsz\"") < 0) Thread.sleep(500);
+
+        Set<String> seen = new HashSet<>(), cursors = new HashSet<>();
+        String cursor = null;
+        for (int i = 0; i < 30; i++) {
+            JsonNode page = get("/api/clusters/local/topics/future/messages?from=oldest&limit=2" + (cursor == null ? "" : "&cursor=" + java.net.URLEncoder.encode(cursor, java.nio.charset.StandardCharsets.UTF_8)));
+            page.path("messages").forEach(m -> seen.add(m.path("partition").asInt() + ":" + m.path("offset").asLong()));
+            cursor = page.path("nextCursor").isNull() || page.path("nextCursor").isMissingNode() ? null : page.path("nextCursor").asString();
+            if (cursor == null) break;
+            assertTrue(cursors.add(cursor), "the same cursor came back: paging is stuck at " + cursor);
+        }
+        assertEquals(12, seen.size(), () -> "records reached: " + seen);
+
+        HttpResponse<String> r = send("POST", "/api/clusters/local/messages/search", "{\"topicRegex\":\"^tsz$\",\"from\":\"newest\",\"limit\":10}");
+        assertEquals(200, r.statusCode(), r::body);
+        JsonNode first = JSON.readTree(r.body()).path("messages").get(0);
+        assertEquals(1, first.path("offset").asLong(), "newest first: the record half a second later must lead");
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();

@@ -129,6 +129,23 @@ public class MessageService {
                 if (desc ? n >= begin.get(tp) : n < end.get(tp)) next.put(tp.partition(), n);
             }
             List<ConsumerRecord<byte[], byte[]>> page = cut.stream().filter(keep::contains).toList();
+            if (page.isEmpty() && !got.isEmpty()) {
+                // the timestamp cut left every partition's run empty (e.g. future-dated heads): show one record in
+                // offset order so the cursor always moves and Load more can't repeat an empty page forever
+                for (var e : ranges.entrySet()) {
+                    TopicPartition tp = e.getKey();
+                    if (desc && !done.contains(tp)) continue;
+                    List<ConsumerRecord<byte[], byte[]>> recs = got.stream().filter(r -> r.partition() == tp.partition())
+                            .sorted(desc ? Comparator.comparingLong(ConsumerRecord<byte[], byte[]>::offset).reversed() : Comparator.comparingLong(ConsumerRecord<byte[], byte[]>::offset)).toList();
+                    if (recs.isEmpty()) continue;
+                    ConsumerRecord<byte[], byte[]> r0 = recs.get(0);
+                    page = List.of(r0);
+                    long n = recs.size() > 1 ? recs.get(1).offset() : desc ? r0.offset() - 1 : r0.offset() + 1;
+                    if (desc ? n >= begin.get(tp) : n < end.get(tp)) next.put(tp.partition(), n);
+                    else next.remove(tp.partition());
+                    break;
+                }
+            }
             String nextCursor = next.isEmpty() ? null : cursorOf(next);
             return new Dto.RawMessagePage(page.stream().map(MessageService::dto).toList(), nextCursor, Math.max(scanned, page.size()));
         }
@@ -144,11 +161,17 @@ public class MessageService {
         long deadline = System.currentTimeMillis() + 10_000;
         for (String t : matched) {
             if (System.currentTimeMillis() > deadline) break;
-            Dto.RawMessagePage page = browse(cid, t, "all", "oldest".equals(from) ? "oldest" : "newest", null, null, null, Map.of(), Math.max(1, max / matched.size()), null);
-            out.addAll(page.messages());
-            scanned += page.scanned();
+            try {
+                Dto.RawMessagePage page = browse(cid, t, "all", "oldest".equals(from) ? "oldest" : "newest", null, null, null, Map.of(), Math.max(1, max / matched.size()), null);
+                out.addAll(page.messages());
+                scanned += page.scanned();
+            } catch (dev.kafkainspector.agent.config.Clusters.NotFound e) {
+                // deleted since it matched: the other topics' results still count
+            }
         }
-        out.sort(Comparator.comparing(Dto.RawMessage::timestamp).reversed());
+        // by time (not the ISO string: "…:00Z" sorts after "…:00.500Z"), then a stable tie-break
+        out.sort(Comparator.comparing((Dto.RawMessage r) -> Instant.parse(r.timestamp())).reversed()
+                .thenComparing(Dto.RawMessage::topic).thenComparingInt(Dto.RawMessage::partition).thenComparingLong(Dto.RawMessage::offset));
         return new Dto.RawMessagePage(out.subList(0, Math.min(max, out.size())), null, scanned);
     }
 
@@ -172,7 +195,16 @@ public class MessageService {
                     // partitions added while tailing join from their end
                     if (System.currentTimeMillis() >= recheck) {
                         recheck += 30_000;
-                        List<TopicPartition> now = partitionsOf(c, topic, partition);
+                        List<TopicPartition> now;
+                        try {
+                            now = partitionsOf(c, topic, partition);
+                        } catch (org.apache.kafka.common.errors.RetriableException e) {
+                            now = tps; // broker restarting: poll copes, check again next time
+                        }
+                        if (now.isEmpty()) { // with assign() a deleted topic doesn't make poll fail: say so
+                            onError.accept("Topic " + topic + " was deleted. The live tail stopped.");
+                            return;
+                        }
                         List<TopicPartition> added = now.stream().filter(tp -> !tps.contains(tp)).toList();
                         if (!added.isEmpty()) {
                             tps.addAll(added);

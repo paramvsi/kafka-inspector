@@ -72,6 +72,13 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
         return new HttpSessionEventPublisher();
     }
 
+    /** Agent shutdown: every live tail closes its Kafka consumer. */
+    @jakarta.annotation.PreDestroy
+    void stopAllTails() {
+        tails.values().forEach(Runnable::run);
+        tails.clear();
+    }
+
     /** A signed-out or expired session ends its live streams too. */
     @EventListener
     public void onSessionEnd(HttpSessionDestroyedEvent e) {
