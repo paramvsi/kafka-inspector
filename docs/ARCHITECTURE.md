@@ -223,7 +223,7 @@ Ship **test vectors** (`packages/core/test/lag-vectors.json`) and run the same f
 - Wire format: byte 0 = 0x00, bytes 1–4 = schema id (big-endian int32), then payload. Protobuf (v2) adds message-index varints.
 - Per-topic overrides for key and value; number keys decode int32/int64/double big-endian; UUID from 16 bytes or 36-char string.
 - Decode errors return `{ ok: false, reason, hex, annotations }` — never throw into the UI.
-- Masking runs after decoding on JSON paths (`$.email`, `$.card.number`) with remove/replace/mask actions. It is a display feature, not a security control; say so in the docs.
+- Masking runs after decoding on JSON paths (`$.email`, `$.card.number`) with remove/replace/mask actions — also on text and hex/base64 views of a JSON body; other bodies on a masked topic hide their raw bytes. It is a display feature, not a security control; say so in the docs.
 
 ## JavaScript filters
 

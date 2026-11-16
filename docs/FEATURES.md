@@ -76,9 +76,9 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 ## Topics
 
-**F-30 Topic list — MVP.** Filter by name/regex, hide internal topics, view switch (All / Needs attention / Starred), sort (issues first default), columns: partitions, RF, size, in/s, 1 h trend, groups, last message (freshness), health badge. Virtualised beyond 200 rows. Pagination footer.
+**F-30 Topic list — MVP.** Filter by name/regex, hide internal topics, view switch (All / Needs attention / Starred), sort (issues first default), columns: partitions, RF, size, in/s, 1 h trend, groups, last message (freshness), health badge. Paginated, 25 per page (a stale page is clamped to the last one); issues-first ties break by name so rows don't move on refresh; the header shows the server's total and notes when the other totals cover only the first 500 topics.
 **F-31 No-results state — MVP.** Explains, offers clear filter / include internal / create topic.
-**F-32 Create topic — MVP (Demo only).** Dialog: name (validation), partitions, RF (validated against broker count), retention, cleanup policy, advanced overrides, equivalent CLI preview.
+**F-32 Create topic — MVP (Demo only).** Dialog: name (validation; "." and ".." refused), partitions, RF (validated against broker count; a min.insync.replicas above RF is refused), retention, cleanup policy, advanced overrides, equivalent CLI preview.
 **F-33 Topic overview tab — MVP.** KPI row, partitions table (leader, ISR, low/high watermark, share of traffic), health checks, consumers with lag badges.
 **F-34 Partitions tab — MVP.** Full partition table with skew bars.
 **F-35 Consumers tab — MVP.** Groups reading this topic with lag and status.
@@ -96,7 +96,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 **F-44 Message drawer — MVP.** Key, partition/offset, timestamp, schema (subject, version, id), headers, size, pretty JSON tree, masked-field note; actions: Copy JSON, Reprocess to topic (Demo), Trace key (v2).
 **F-45 Decoding — MVP.** Auto-detect order: Schema Registry header → JSON → UTF-8 text → hex. Formats: JSON, text, hex, Base64, Avro (registry), JSON Schema (registry), number keys (int/long/double big-endian), UUID. v2: Protobuf, MessagePack, CBOR, XML. See ARCHITECTURE "Serdes".
 **F-46 Decode errors — MVP.** Never hide a message: show error reason, annotated hex dump (magic byte, schema id), and "try another way" actions. Per `TopicMessagesError`.
-**F-47 Data masking — MVP.** Rules per topic pattern: remove / replace / mask a field path; applied after decoding; drawer shows which rule masked what.
+**F-47 Data masking — MVP.** Rules per topic pattern: remove / replace / mask a field path; applied after decoding to every view of a value (tree, text, hex/base64 — JSON is masked, then re-encoded); a non-JSON body on a masked topic shows "Raw bytes hidden: masking rule … applies to this topic"; drawer shows which rule masked what. Not masked: keys, headers, and the raw hex of a body that fails to decode (see DECISIONS).
 **F-48 Export — MVP.** Download current result set as JSON or CSV.
 **F-49 Column picker — MVP.** Choose JSON fields to show as columns.
 
@@ -135,7 +135,7 @@ Alert rules are app data, not Kafka writes, so they are allowed in read-only Sel
 ## Schemas
 
 **F-87 Subjects — MVP.** List with latest version, type, compatibility.
-**F-88 Version diff — MVP.** Pick two versions; side-by-side field diff (added/removed/changed), compatibility verdict (backward/forward/full) with per-field explanation. Per `Schemas`.
+**F-88 Version diff — MVP.** Pick two versions; side-by-side field diff (added/removed/changed), compatibility verdict (backward/forward/full) with per-field explanation; Protobuf pairs show "Not checked" (v2); a JSON Schema verdict covers top-level properties, types and required only. Per `Schemas`.
 **F-89 Compatibility check — MVP.** Paste a candidate schema and check against the registry (read-only call; allowed in Self).
 
 ## Read-only mode and sign-in (Self)

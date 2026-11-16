@@ -91,9 +91,9 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 | `KI_CLUSTERS_0_NAME` | — | Cluster display name |
 | `KI_CLUSTERS_0_BOOTSTRAP` | — | Bootstrap servers |
 | `KI_CLUSTERS_0_SECURITY` | `PLAINTEXT` | PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL |
-| `KI_CLUSTERS_0_SASL_MECHANISM` | — | PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 (OAUTHBEARER is refused at startup: v1 has no token-endpoint settings) |
+| `KI_CLUSTERS_0_SASL_MECHANISM` | — | PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 (OAUTHBEARER is refused at startup: v1 has no token-endpoint settings). `SASL_*` security needs a mechanism and username; a mechanism needs `SASL_*` security — otherwise startup stops with a line naming the variable |
 | `KI_CLUSTERS_0_SASL_USERNAME` / `_PASSWORD` | — | Credentials (env only; never logged) |
-| `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD` | — | Optional custom CA |
+| `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD` | — | Optional custom CA (JKS or PKCS12) for the brokers and an HTTPS Schema Registry; a missing file stops startup. No client certificates (mTLS) yet |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY` | — | Registry URL |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY_USERNAME` / `_PASSWORD` | — | Registry basic auth |
 | `KAFKA_BOOTSTRAP` / `SCHEMA_REGISTRY_URL` | — | Shortcut for a single cluster named `default` (ignored when any `KI_CLUSTERS_n_*` is set) |
