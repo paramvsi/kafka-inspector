@@ -158,8 +158,10 @@ export function createAgentClient(): KafkaClient {
       const m = JSON.parse(e.data as string);
       if (m.op === 'ping') return;
       const sub = subs.get(m.id);
-      if (typeof m.error === 'string') sub?.onError?.(m.error);
-      else sub?.onData(m.data, m.ts);
+      if (typeof m.error === 'string') {
+        sub?.onError?.(m.error);
+        if (m.channel === 'tail') subs.delete(m.id); // the agent ended it: a reconnect must not restart it
+      } else sub?.onData(m.data, m.ts);
     };
     sock.onclose = (e) => {
       if (ws !== sock) return;
@@ -193,6 +195,9 @@ export function createAgentClient(): KafkaClient {
       if (subs.size === 0) {
         clearTimeout(retry);
         retry = undefined;
+        const idle = ws;
+        ws = null; // onclose sees a socket that isn't current and stays quiet
+        idle?.close();
       }
     };
   };

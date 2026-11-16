@@ -7,9 +7,10 @@ export async function pickClient(): Promise<Picked> {
   const forced = process.env.NEXT_PUBLIC_KI_MODE;
   if (forced === 'demo')
     return { kind: 'client', client: (await import('./simulated')).createSimulatedClient() };
-  if (forced === 'agent')
-    return { kind: 'client', client: (await import('./agent')).createAgentClient() };
   const probe = await probeAgent();
+  // forced agent (dev) skips only the demo fallback, not the sign-in check
+  if (forced === 'agent' && probe !== 'sign-in')
+    return { kind: 'client', client: (await import('./agent')).createAgentClient() };
   if (probe === 'agent')
     return { kind: 'client', client: (await import('./agent')).createAgentClient() };
   if (probe === 'sign-in') return { kind: 'sign-in' };

@@ -12,8 +12,12 @@ class FakeSocket {
   constructor(public url: string) {
     FakeSocket.all.push(this);
   }
+  closed = false;
   send(m: string) {
     this.sent.push(m);
+  }
+  close() {
+    this.closed = true;
   }
   up() {
     this.readyState = 1;
@@ -81,4 +85,38 @@ test('a non-JSON error page becomes an ApiError with the status', async () => {
     .catch((e) => e);
   expect(err).toBeInstanceOf(ApiError);
   expect(err.message).toBe('The agent answered 502.');
+});
+
+test('a tail the agent ended is not restarted by a reconnect', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080' });
+  const client = createAgentClient();
+  client.subscribe('local', 'metrics', () => {}); // keeps the connection wanted
+  client.tail(
+    'local',
+    { topic: 'gone', partition: 'all' },
+    () => {},
+    () => {},
+  );
+  const sock = FakeSocket.all[0]!;
+  sock.up();
+  const tailId = sock.sent.map((m) => JSON.parse(m)).find((m) => m.op === 'tail').id;
+  sock.onmessage?.({
+    data: JSON.stringify({ id: tailId, channel: 'tail', error: 'Topic gone was deleted.' }),
+  });
+  sock.down();
+  vi.advanceTimersByTime(60_000);
+  const next = FakeSocket.all[1]!;
+  next.up();
+  expect(next.sent.map((m) => JSON.parse(m).op)).not.toContain('tail');
+});
+
+test('the last unsubscribe closes the idle socket', () => {
+  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080' });
+  const off = createAgentClient().subscribe('local', 'metrics', () => {});
+  FakeSocket.all[0]!.up();
+  off();
+  expect(FakeSocket.all[0]!.closed).toBe(true);
 });

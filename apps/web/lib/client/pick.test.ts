@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { probeAgent } from './pick';
+import { pickClient, probeAgent } from './pick';
 
 const reply = (status: number, body: unknown, type = 'application/json') =>
   vi.stubGlobal(
@@ -12,7 +12,10 @@ const reply = (status: number, body: unknown, type = 'application/json') =>
         }),
     ),
   );
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 test('agent signed in → agent; signed out → sign-in; 401 → sign-in', async () => {
   reply(200, { mode: 'agent', version: '1', readOnly: true, clusters: [] });
@@ -35,4 +38,10 @@ test('static hosts (HTML 404/200) and network errors → demo', async () => {
     }),
   );
   expect(await probeAgent()).toBe('none');
+});
+
+test('forced agent mode still sends a signed-out user to sign-in', async () => {
+  vi.stubEnv('NEXT_PUBLIC_KI_MODE', 'agent');
+  reply(200, { mode: 'agent', version: '1', auth: true, signedIn: false });
+  expect((await pickClient()).kind).toBe('sign-in');
 });
