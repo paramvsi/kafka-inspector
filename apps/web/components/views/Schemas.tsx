@@ -203,6 +203,10 @@ export function SchemasView() {
                   <Verdict a={a} b={b} changes={changes} backward={backward} forward={forward} />
                 )}
               </>
+            ) : versions.error && !versions.data ? (
+              <EmptyState title={`Couldn't load v${latest}`}>
+                {(versions.error as Error).message} Try again in a moment.
+              </EmptyState>
             ) : (
               versions.data && (
                 <pre

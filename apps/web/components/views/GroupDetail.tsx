@@ -31,6 +31,7 @@ import { axisTime } from '../../lib/axis';
 import { useUrl } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { isNotFound } from '../../lib/poll';
+import { useStickyError } from '../../lib/stickyError';
 import { sinceRising } from '../../lib/trend';
 import { ResetOffsetsDialog } from './ResetOffsets';
 
@@ -41,6 +42,7 @@ export function GroupDetailView() {
   const tab = url.get('tab') === 'members' ? 'members' : 'partitions';
   const { range } = useApp();
   const group = useKafkaQuery(['group', id], (c, cid) => c.getGroup(cid, id), 1000);
+  const groupFailed = useStickyError(group, id); // survives re-checks (see lib/stickyError)
   const hist = useKafkaQuery(
     ['group-history', id, range],
     async (c, cid) =>
@@ -57,12 +59,12 @@ export function GroupDetailView() {
   );
   const d = group.data;
   // a failed refresh keeps the last data on screen; only a real not-found says "not found"
-  if (group.error && !d) {
+  if (groupFailed && !d) {
     return (
       <Card>
         <EmptyState
           title={
-            isNotFound(group.error)
+            isNotFound(groupFailed)
               ? `Consumer group ${id} not found`
               : `Couldn't load consumer group ${id}`
           }
@@ -72,8 +74,8 @@ export function GroupDetailView() {
             </Link>
           }
         >
-          {(group.error as Error).message}
-          {isNotFound(group.error) ? '' : ' It retries every few seconds.'}
+          {(groupFailed as Error).message}
+          {isNotFound(groupFailed) ? '' : ' It retries every few seconds.'}
         </EmptyState>
       </Card>
     );

@@ -1404,3 +1404,24 @@ test('a copy the browser blocks says "Copy failed" instead of nothing', async ({
   await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page.getByText('Copy failed', { exact: true })).toBeVisible();
 });
+
+test('a missing topic stays on its not-found screen through the 10 s re-checks', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto('/app/topics/view/?name=nosuch&tab=messages&live=1');
+  await expect(page.getByText('Topic nosuch not found', { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  // a re-check used to swap the not-found screen for the full topic page for ~2 s, remounting the tabs
+  await page.evaluate(() => {
+    const w = window as unknown as { gone: number };
+    w.gone = 0;
+    new MutationObserver(() => {
+      // the topic page (and its Messages tab, which starts the live tail) must never come back
+      if (document.body.textContent?.includes('Browse messages')) w.gone++;
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+  await page.waitForTimeout(25_000); // two re-checks
+  expect(await page.evaluate(() => (window as unknown as { gone: number }).gone)).toBe(0);
+});

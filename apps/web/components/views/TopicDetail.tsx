@@ -35,6 +35,7 @@ import { hourAgoValue } from '../../lib/baseline';
 import { useUrl, pick } from '../../lib/url';
 import { sourceLabel } from '../../lib/configSource';
 import { isNoRegistry, isNotFound } from '../../lib/poll';
+import { useStickyError } from '../../lib/stickyError';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
@@ -53,6 +54,7 @@ export function TopicDetailView() {
     (c, id) => c.getTopic(id, name),
     tab === 'messages' ? 5000 : 2000,
   );
+  const topicFailed = useStickyError(topic, name);
   const subject = topic.data?.schema?.valueSubject;
   const latest = useKafkaQuery(
     ['schema', subject, 'latest'],
@@ -79,8 +81,8 @@ export function TopicDetailView() {
       />
     );
   // a failed refresh keeps the last data on screen; only a real not-found says "not found"
-  if (topic.error && !topic.data) {
-    const missing = isNotFound(topic.error);
+  if (topicFailed && !topic.data) {
+    const missing = isNotFound(topicFailed);
     return (
       <>
         <PageHeader title={name} mono />
@@ -93,7 +95,7 @@ export function TopicDetailView() {
               </Link>
             }
           >
-            {(topic.error as Error).message}{' '}
+            {(topicFailed as Error).message}{' '}
             {missing
               ? 'It may have been deleted, or the link points at another cluster.'
               : 'It retries every few seconds.'}
