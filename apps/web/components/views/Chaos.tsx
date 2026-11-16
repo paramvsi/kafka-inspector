@@ -115,6 +115,7 @@ export function ChaosView() {
   const [traffic, setTraffic] = useState<number>(1);
   const [wave, setWave] = useState(true);
   const [seed, setSeed] = useState('kafka-42');
+  const [starting, setStarting] = useState<ChaosActionKind>(); // a Trigger in flight (above the early return: hooks run every render)
   useEffect(() => {
     if (!settings.data) return;
     setTraffic(settings.data.baseTraffic);
@@ -129,7 +130,6 @@ export function ChaosView() {
   const running = incidents.data ?? [];
   const label = (k: ChaosActionKind) => ACTIONS.find((a) => a.kind === k)!.title;
   const refresh = () => qc.invalidateQueries({ queryKey: [info.clusters[0]?.id, 'incidents'] });
-  const [starting, setStarting] = useState<ChaosActionKind>();
   const trigger = async (kind: ChaosActionKind, target?: string) => {
     if (starting) return; // a double click mustn't start it twice (the second would fail as "already running")
     setStarting(kind);
