@@ -57,9 +57,13 @@ export function TopicDetailView() {
   );
   const hourAgo = useKafkaQuery(
     ['topic-1h', name],
-    async (c, id) =>
-      (await c.getHistory(id, { metric: 'messagesIn', scope: 'topic', key: name, range: '1h' }))[0]
-        ?.points[0]?.[1],
+    async (c, id) => {
+      // only a sample from about an hour ago is a baseline (see Overview)
+      const p = (
+        await c.getHistory(id, { metric: 'messagesIn', scope: 'topic', key: name, range: '1h' })
+      )[0]?.points[0];
+      return p && p[0] <= Date.now() - 50 * 60_000 ? p[1] : undefined;
+    },
     30_000,
   );
 

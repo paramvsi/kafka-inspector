@@ -87,7 +87,7 @@ export function AlertsView() {
     <>
       <PageHeader
         title="Alerts"
-        subtitle={`${firing.length} firing · ${rules.data?.length ?? 0} rules · notifications to this browser`}
+        subtitle={`${firing.filter((a) => !a.mutedUntil || Date.parse(a.mutedUntil) <= now).length} firing · ${rules.data?.length ?? 0} rules · notifications to this browser`} // muted ones stay listed but aren't counted, as in the bell
         actions={
           <Button variant="primary" onClick={() => url.set({ rule: 'new' })}>
             New rule

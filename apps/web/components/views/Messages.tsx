@@ -124,7 +124,10 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             limit: 100,
           }),
     false,
-    !needs && !(regex === undefined && from === 'group' && !group), // groups still loading: wait
+    // groups still loading, or a partition number before the topic's partition count is known: wait
+    !needs &&
+      !(regex === undefined && from === 'group' && !group) &&
+      !(/^\d+$/.test(pRaw) && !partitions),
   );
   const pageRef = useRef(page.data);
   useEffect(() => {

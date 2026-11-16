@@ -1159,3 +1159,14 @@ test('Enter creates a topic; a bad regex says so; a paused Live freezes the tail
   await page.waitForTimeout(3000);
   expect(await rows.count()).toBe(before); // paused: no new tail rows arrive
 });
+
+test('muting an alert takes it out of the "N firing" count, as in the bell', async ({ page }) => {
+  await page.goto('/app/alerts/');
+  const sub = page.getByText(/^(\d+) firing · /);
+  await expect(page.getByRole('button', { name: 'Mute 1 h' }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  const n = Number((await sub.innerText()).match(/^(\d+)/)![1]);
+  await page.getByRole('button', { name: 'Mute 1 h' }).first().click();
+  await expect(sub).toHaveText(new RegExp(`^${n - 1} firing · `), { timeout: 10_000 });
+});

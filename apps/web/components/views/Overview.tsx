@@ -43,7 +43,10 @@ export function OverviewView() {
         c.getHistory(id, { metric: 'messagesIn', scope: 'cluster', range: '1h' }),
         c.getHistory(id, { metric: 'bytesIn', scope: 'cluster', range: '1h' }),
       ]);
-      return { m: m[0]?.points[0]?.[1], b: b[0]?.points[0]?.[1] };
+      // only a sample from about an hour ago is a baseline: right after start, the first sample is minutes old
+      const old = (p?: [number, number]) =>
+        p && p[0] <= Date.now() - 50 * 60_000 ? p[1] : undefined;
+      return { m: old(m[0]?.points[0]), b: old(b[0]?.points[0]) };
     },
     30_000,
   );

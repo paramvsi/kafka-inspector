@@ -161,6 +161,8 @@ public class SchemaRegistry {
     }
 
     public Dto.CompatibilityResult compatibility(String cid, String subject, String schema, String type) {
+        // a candidate is checked as the subject's own type (JSON, PROTOBUF), not assumed Avro
+        if (type == null || type.isBlank()) type = get(cid, subject, "latest").type();
         String body = json.writeValueAsString(Map.of("schema", schema, "schemaType", type == null ? "AVRO" : type));
         JsonNode r = call(cid, "POST", "/compatibility/subjects/" + enc(subject) + "/versions/latest?verbose=true", body);
         List<String> msgs = new ArrayList<>();
