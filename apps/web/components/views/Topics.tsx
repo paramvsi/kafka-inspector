@@ -14,7 +14,7 @@ import {
 } from '@ki/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
 import { useStickyError } from '../../lib/stickyError';
@@ -52,7 +52,6 @@ export function TopicsView() {
   const sort = pick(url.get('sort'), ['issues', 'name', 'size', 'rate'] as const, 'issues');
   const page = Math.max(1, Math.floor(Number(url.get('page') ?? 1)) || 1);
   const [starred, setStarred] = useLocal<string[]>('ki-starred-topics', []);
-  const filterRef = useRef<HTMLInputElement>(null);
 
   const all = useKafkaQuery(
     ['topics', 'all-internal'],
@@ -77,20 +76,7 @@ export function TopicsView() {
   );
   const listFailed = useStickyError(list, JSON.stringify([q, view, internal, sort, page, starred]));
 
-  // "/" focuses the page filter (F-06)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.key === '/' &&
-        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
-      ) {
-        e.preventDefault();
-        filterRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // "/" focuses the page filter (F-06): Shortcuts.tsx handles it for every page's search input
 
   const everything = all.data?.items ?? [];
   const visible = everything.filter((t) => !t.internal);
@@ -136,7 +122,6 @@ export function TopicsView() {
           label="Filter topics"
           placeholder="Filter by name or regex"
           shortcut="/"
-          ref={filterRef}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
