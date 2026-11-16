@@ -70,3 +70,10 @@ test('a trickle never reads as zero; deltas have no signed zero or NaN', () => {
   expect(formatDelta(4.2)).toBe('+4.2%');
   expect(formatDelta(-3.1)).toBe('−3.1%');
 });
+
+test('rotation 10 boundaries: 999.6 B promotes to 1 kB; an invalid time is a dash, not NaN:NaN', () => {
+  expect(formatBytes(999.6)).toBe('1 kB');
+  expect(formatBytes(999)).toBe('999 B');
+  expect(formatClock('not a date')).toBe('—');
+  expect(formatClock(Number.NaN)).toBe('—');
+});

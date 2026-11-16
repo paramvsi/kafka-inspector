@@ -81,13 +81,13 @@ export function evaluateLag(w: LagWindow): LagStatus {
 
 const SEVERITY: LagStatus[] = ['stopped', 'stalled', 'warn', 'healthy'];
 
-/** Group roll-up: worst partition wins; partitions with unknown status are ignored unless all are unknown. */
 /** A group event is raised when a group turns stalled or stopped — not when it moves between the two (recovery). */
 export function becameStuck(prev: LagStatus | undefined, next: LagStatus): boolean {
   const stuck = (s: LagStatus | undefined) => s === 'stalled' || s === 'stopped';
   return prev !== undefined && stuck(next) && !stuck(prev);
 }
 
+/** Group roll-up: worst partition wins; partitions with unknown status are ignored unless all are unknown. */
 export function rollupStatus(statuses: LagStatus[]): LagStatus {
   for (const s of SEVERITY) if (statuses.includes(s)) return s;
   return 'unknown';

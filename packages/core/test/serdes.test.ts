@@ -372,3 +372,13 @@ test('with a Schema Registry, auto still shows an int64 key (leading 0x00, unkno
   const int64Key = Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 5);
   expect(await decode(int64Key, 'auto', lookup)).toMatchObject({ ok: true, format: 'hex' });
 });
+
+test('an Avro timestamp-millis beyond the Date range shows the number instead of failing the record', async () => {
+  const { logicalDisplay } = await import('../src/serdes/decode');
+  expect(
+    logicalDisplay({ type: 'long', logicalType: 'timestamp-millis' }, 8_700_000_000_000_000),
+  ).toBe(8_700_000_000_000_000);
+  expect(logicalDisplay({ type: 'long', logicalType: 'timestamp-millis' }, 0)).toBe(
+    '1970-01-01T00:00:00Z',
+  );
+});

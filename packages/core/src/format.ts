@@ -31,8 +31,8 @@ export function formatBytes(n: number): string {
     v /= 1000;
     i++;
   }
-  // 999,999 B rounds to 1,000 kB: promote it to 1 MB
-  if (i > 0 && i < units.length - 1 && Math.round(Math.abs(v)) >= 1000) {
+  // 999,999 B rounds to 1,000 kB (and 999.6 B to 1,000 B): promote to the next unit
+  if (i < units.length - 1 && Math.round(Math.abs(v)) >= 1000) {
     v /= 1000;
     i++;
   }
@@ -77,6 +77,7 @@ export function formatRelative(iso: string | number | undefined, now = Date.now(
 /** 14:21 (24 h, UTC-free local display) */
 export function formatClock(t: number | string): string {
   const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '—';
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 

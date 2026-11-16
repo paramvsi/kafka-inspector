@@ -759,11 +759,21 @@ export class Simulator {
           Math.round(offsets.length * keep),
         );
         const stride = offsets.length / Math.max(1, n);
-        for (let i = 0; i < n; i++)
-          batch.push(this.message(s, offsets[Math.floor(i * stride + stride - 1)]!));
+        const picked = new Set<number>();
+        for (let i = 0; i < n; i++) picked.add(offsets[Math.floor(i * stride + stride - 1)]!);
+        // a message the user just produced always shows, however busy the topic (sampling would hide it)
+        for (const o of offsets) if (this.produced.has(`${t.req.topic}:${s.p}:${o}`)) picked.add(o);
+        for (const o of picked) batch.push(this.message(s, o));
       }
       batch.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      t.cb(batch.slice(-maxRate));
+      const mine = batch.filter((m) => this.produced.has(`${m.topic}:${m.partition}:${m.offset}`));
+      const room = Math.max(0, maxRate - mine.length); // slice(-0) would keep everything
+      const rest = batch.filter((m) => !mine.includes(m));
+      t.cb(
+        [...(room ? rest.slice(-room) : []), ...mine].sort((a, b) =>
+          a.timestamp.localeCompare(b.timestamp),
+        ),
+      );
     }
   }
 
@@ -1985,6 +1995,14 @@ export class Simulator {
       throw new Error(
         `Partition ${partition} of ${req.topic} has no leader (its brokers are down). Pick another partition or bring the broker back.`,
       );
+    // the same limits a real cluster applies (producers default to acks=all since Kafka 3.0)
+    const cfg = this.effectiveConfig(req.topic);
+    const minIsr = Number(cfg['min.insync.replicas']);
+    if (s.isr.length < minIsr)
+      throw new Error(
+        `Not enough in-sync replicas for partition ${partition} of ${req.topic}: ${s.isr.length} of the ${minIsr} min.insync.replicas requires. Bring the broker back, or produce to another partition.`,
+      );
+    const maxBytes = Number(cfg['max.message.bytes']);
     const first = Math.floor(s.end);
     for (let i = 0; i < count; i++) {
       const offset = first + i;
@@ -1998,6 +2016,11 @@ export class Simulator {
       }
       const key = req.key ? enc.encode(req.key) : null;
       const headers = (req.headers ?? []).map((h) => ({ key: h.key, value: enc.encode(h.value) }));
+      const size = value.length + (key?.length ?? 0);
+      if (maxBytes > 0 && size > maxBytes)
+        throw new Error(
+          `The message is ${formatInt(size)} bytes; ${req.topic} accepts at most ${formatInt(maxBytes)} (max.message.bytes). Make it smaller or raise the topic's limit.`,
+        );
       this.produced.set(`${req.topic}:${partition}:${offset}`, {
         topic: req.topic,
         partition,
@@ -2257,6 +2280,13 @@ export class Simulator {
           throw new Error(`${target} has no members to rebalance. Stop the crash first.`);
         this.rebalance(rg, t, 'chaos panel');
         until = t + 8000;
+        // stopped early: the group settles now, as the other kinds restore their state on stop
+        undo = () => {
+          if (rg.deleted || rg.crashed || !rg.rebalanceUntil) return;
+          rg.rebalanceUntil = 0;
+          rg.resetRejoin = false;
+          rg.state = rg.members > 0 ? 'Stable' : 'Empty';
+        };
         break;
       }
       case 'hot-partition': {

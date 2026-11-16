@@ -1,5 +1,6 @@
 import avro from 'avsc';
 import { beforeAll, describe, expect, test } from 'vitest';
+import type { RawMessage } from '@ki/core';
 import { MemoryStore, Simulator } from '../src';
 import { getSchemaById } from '../src/registry';
 
@@ -743,4 +744,58 @@ test("the alert preview agrees with the live rules: a 20 s broker outage counts,
     threshold: Math.round((before + peak) / 2),
   };
   expect(h.sim.previewAlertRule(rule as never).firings).toBe(0);
+});
+
+test('a message produced into a busy topic shows in an open live tail', async () => {
+  const h = make();
+  await h.init();
+  const seen: RawMessage[] = [];
+  const stop = h.sim.tail({ topic: 'orders', partition: 'all', maxRate: 50 }, (b) =>
+    seen.push(...b),
+  );
+  h.advance(1);
+  const res = await h.sim.produce({ topic: 'orders', key: 'mine-1', value: '{"mine":true}' });
+  h.advance(2);
+  stop();
+  expect(seen.some((m) => m.partition === res.partition && m.offset === res.offset)).toBe(true);
+});
+
+test('produce applies max.message.bytes and min.insync.replicas like a real cluster', async () => {
+  const h = make();
+  await h.init();
+  const big = 'x'.repeat(3_000_000);
+  await expect(h.sim.produce({ topic: 'orders', value: big })).rejects.toThrow(
+    /max\.message\.bytes/,
+  );
+  h.sim.runChaos({ kind: 'broker-down', target: '2' });
+  h.sim.runChaos({ kind: 'broker-down', target: '3' });
+  h.advance(5);
+  let hit: { topic: string; partition: number } | undefined;
+  for (const sum of h.sim.listTopics({ size: 500 } as never).items) {
+    const d = h.sim.getTopic(sum.name);
+    const cfg = (
+      h.sim as never as { effectiveConfig: (n: string) => Record<string, string> }
+    ).effectiveConfig(sum.name);
+    const minIsr = Number(cfg['min.insync.replicas']);
+    const p = d.partitions.find((x) => x.leader !== null && x.isr.length < minIsr);
+    if (p && !sum.internal) {
+      hit = { topic: sum.name, partition: p.partition };
+      break;
+    }
+  }
+  expect(hit).toBeDefined();
+  await expect(
+    h.sim.produce({ topic: hit!.topic, partition: hit!.partition, value: '{}' }),
+  ).rejects.toThrow(/Not enough in-sync replicas/);
+});
+
+test('stopping a rebalance early settles the group', async () => {
+  const h = make();
+  await h.init();
+  const inc = h.sim.runChaos({ kind: 'rebalance', target: 'analytics-etl' });
+  h.advance(1);
+  expect(h.sim.getGroup('analytics-etl').summary.state).not.toBe('Stable');
+  h.sim.stopChaos(inc.id);
+  h.advance(1);
+  expect(h.sim.getGroup('analytics-etl').summary.state).toBe('Stable');
 });

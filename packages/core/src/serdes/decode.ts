@@ -132,7 +132,8 @@ function isPrintable(s: string): boolean {
 /** Avro logical types → display values (timestamp-millis → ISO, bytes → base64), through unions, maps and named types. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchema = any;
-function logicalDisplay(root: AnySchema, v: unknown): unknown {
+/** Exported for tests. */
+export function logicalDisplay(root: AnySchema, v: unknown): unknown {
   const named = new Map<string, AnySchema>();
   const collect = (s: AnySchema, ns = ''): void => {
     if (!s || typeof s !== 'object') return;
@@ -181,8 +182,11 @@ function logicalDisplay(root: AnySchema, v: unknown): unknown {
       return b === undefined ? x : walk(b, x);
     }
     if (s && typeof s === 'object') {
+      // beyond ±8.64e15 ms a Date is invalid: show the number rather than fail the whole record
       if (s.logicalType === 'timestamp-millis' && typeof x === 'number')
-        return new Date(x).toISOString().replace('.000Z', 'Z');
+        return Number.isNaN(new Date(x).getTime())
+          ? x
+          : new Date(x).toISOString().replace('.000Z', 'Z');
       if (s.type === 'record' || s.type === 'error')
         return Object.fromEntries(
           s.fields.map((f: { name: string; type: unknown }) => [f.name, walk(f.type, x[f.name])]),
