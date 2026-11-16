@@ -546,6 +546,13 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(40)
+    void pruneAndAlertLookupsHaveIndexes() {
+        List<String> idx = jdbc.queryForList("SELECT LOWER(INDEX_NAME) FROM INFORMATION_SCHEMA.INDEXES WHERE LOWER(TABLE_NAME) IN ('metric_sample', 'alert_event')", String.class);
+        assertTrue(idx.contains("metric_sample_ts") && idx.contains("alert_event_firing"), () -> idx.toString());
+    }
+
+    @Test
     @Order(39)
     void groupsListWorstFirstAndConfigOfADeletedTopicIs404() throws Exception {
         signIn();

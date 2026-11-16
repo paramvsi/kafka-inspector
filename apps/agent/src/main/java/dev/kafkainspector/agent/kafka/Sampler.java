@@ -240,9 +240,11 @@ public class Sampler {
         }
         if (!consumerIds.isEmpty()) {
             Map<String, ConsumerGroupDescription> described = new HashMap<>();
+            // one deadline for the batch, not 20 s per group: a hung coordinator must not stretch a sample into hours
+            long describeBy = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
             admin.describeConsumerGroups(consumerIds).describedGroups().forEach((id, f) -> {
                 try {
-                    described.put(id, f.get(20, TimeUnit.SECONDS));
+                    described.put(id, f.get(left(describeBy), TimeUnit.NANOSECONDS));
                 } catch (Exception e) {
                     groups.remove(id); // one odd group must not fail the whole sample
                     log.debug("describe {} failed: {}", id, e.getMessage());
@@ -265,10 +267,11 @@ public class Sampler {
             Map<String, ListConsumerGroupOffsetsSpec> spec = new HashMap<>();
             consumerIds.forEach(id -> spec.put(id, new ListConsumerGroupOffsetsSpec()));
             ListConsumerGroupOffsetsResult offs = admin.listConsumerGroupOffsets(spec);
+            long offsetsBy = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
             for (String id : consumerIds) {
                 // per group: one group without Describe ACL, or deleted mid-sample, must not fail the cluster
                 try {
-                    Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(20, TimeUnit.SECONDS);
+                    Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(left(offsetsBy), TimeUnit.NANOSECONDS);
                     ClusterState.GroupSnap gs = groups.get(id);
                     m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
                 } catch (Exception e) {
@@ -283,9 +286,10 @@ public class Sampler {
         if (!shareIds.isEmpty()) {
             var shareResult = admin.describeShareGroups(shareIds).describedGroups();
             Map<String, org.apache.kafka.clients.admin.ShareGroupDescription> shares = new HashMap<>();
+            long sharesBy = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
             shareResult.forEach((id, f) -> {
                 try {
-                    shares.put(id, f.get(20, TimeUnit.SECONDS));
+                    shares.put(id, f.get(left(sharesBy), TimeUnit.NANOSECONDS));
                 } catch (Exception e) {
                     log.debug("share group {} failed: {}", id, rootMessage(e));
                 }
@@ -322,7 +326,7 @@ public class Sampler {
                     if (ps == null) continue;
                     String key = gs.groupId + "|" + te.getKey() + "|" + pe.getKey();
                     live.add(key);
-                    Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new ArrayDeque<>());
+                    Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
                     // the topic was deleted and re-created: samples from the old one would run the lag rules backwards
                     if (w.peekLast() != null && w.peekLast().end() > ps.high) w.clear();
                     Lag.Sample last = w.peekLast();
@@ -418,5 +422,10 @@ public class Sampler {
             s.events.addFirst(new Dto.ClusterEvent("ev_" + Long.toString(now, 36) + "_" + Integer.toString(Math.abs(title.hashCode()), 36), Instant.ofEpochMilli(now).toString(), kind, severity, title, detail));
             while (s.events.size() > 200) s.events.removeLast();
         }
+    }
+
+    /** Time left until a deadline (System.nanoTime); 0 once passed, so finished futures still return. */
+    static long left(long deadlineNanos) {
+        return Math.max(0, deadlineNanos - System.nanoTime());
     }
 }

@@ -148,13 +148,21 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                     send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", "Too many live tails on this connection (" + MAX_TAILS + ")."));
                     return;
                 }
+                // the error can arrive before this tail is registered, or after a re-sent id replaced it:
+                // it removes only its own entry, and a tail that already ended is never registered
+                var self = new java.util.concurrent.atomic.AtomicReference<Runnable>();
+                var ended = new java.util.concurrent.atomic.AtomicBoolean();
                 Runnable stop = messages.tail(cid, m.path("topic").asString(), m.path("partition").asString("all"), maxRate, batch -> send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "data", batch)),
                         err -> {
-                            tails.remove(prefix + id); // ended: frees its slot under MAX_TAILS
+                            ended.set(true);
+                            Runnable me = self.get();
+                            if (me != null) tails.remove(prefix + id, me); // frees its slot under MAX_TAILS
                             send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", err));
                         });
-                Runnable old = tails.put(prefix + id, stop);
+                self.set(stop);
+                Runnable old = ended.get() ? tails.remove(prefix + id) : tails.put(prefix + id, stop);
                 if (old != null) old.run(); // same id re-sent: replace, don't leak the old consumer
+                if (ended.get()) tails.remove(prefix + id, stop); // ended between the check and the put
                 if (!raw.isOpen() && tails.remove(prefix + id) != null) stop.run(); // closed while we registered
             }
             case "unsub" -> {
