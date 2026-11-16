@@ -14,7 +14,6 @@ const RETENTION = [
   { value: '2592000000', label: '30 days' },
   { value: '-1', label: 'Infinite' },
 ];
-const NAME = TOPIC_NAME;
 
 export function CreateTopicDialog({
   open,
@@ -65,7 +64,7 @@ export function CreateTopicDialog({
       ? `At most 249 characters (this is ${formatInt(name.length)}).`
       : name === '.' || name === '..'
         ? 'A topic can’t be named “.” or “..”.'
-        : !NAME.test(name)
+        : !TOPIC_NAME.test(name)
           ? 'Use letters, numbers, dots, dashes and underscores only.'
           : undefined;
   const pErr = !Number.isInteger(p) || p < 1 || p > 1000 ? 'Between 1 and 1,000.' : undefined;
