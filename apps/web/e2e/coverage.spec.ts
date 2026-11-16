@@ -1425,3 +1425,20 @@ test('a missing topic stays on its not-found screen through the 10 s re-checks',
   await page.waitForTimeout(25_000); // two re-checks
   expect(await page.evaluate(() => (window as unknown as { gone: number }).gone)).toBe(0);
 });
+
+test('a failing topic list keeps its error card through re-checks instead of flashing an empty table', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await page.getByLabel('Filter topics').fill('(');
+  await expect(page.getByText("Couldn't list topics")).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => {
+    const w = window as unknown as { flashes: number };
+    w.flashes = 0;
+    new MutationObserver(() => {
+      if (!document.body.textContent?.includes("Couldn't list topics")) w.flashes++;
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+  await page.waitForTimeout(6_000); // three 2 s polls
+  expect(await page.evaluate(() => (window as unknown as { flashes: number }).flashes)).toBe(0);
+});

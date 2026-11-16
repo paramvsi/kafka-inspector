@@ -456,7 +456,7 @@ function ConfigTab({ name }: { name: string }) {
     return (
       <Card>
         <EmptyState title="Couldn't load the topic configuration">
-          {(cfg.error as Error).message} It retries every few seconds.
+          {(cfg.error as Error).message} Reload the page to try again.
         </EmptyState>
       </Card>
     );

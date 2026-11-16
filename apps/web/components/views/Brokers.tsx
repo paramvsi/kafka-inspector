@@ -3,6 +3,7 @@ import { formatBytes, formatInt, formatPct } from '@ki/core';
 import { Card, DataTable, Drawer, EmptyState, SearchInput, StatusBadge } from '@ki/ui';
 import { useState } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
+import { useStickyError } from '../../lib/stickyError';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
 
@@ -17,6 +18,7 @@ const KEY = [
 export function BrokersView() {
   const url = useUrl();
   const brokers = useKafkaQuery(['brokers'], (c, id) => c.listBrokers(id), 2000);
+  const brokersFailed = useStickyError(brokers, 'brokers'); // no flicker to "Loading" on each re-check
   const overview = useKafkaQuery(['overview-static'], (c, id) => c.getOverview(id), 10_000);
   // an unknown broker in the link (?broker=abc or 99) falls back to the controller
   const asked = brokers.data?.find((b) => String(b.id) === url.get('broker'))?.id;
@@ -46,9 +48,9 @@ export function BrokersView() {
         caption="Brokers"
         rows={list}
         empty={
-          brokers.error ? (
+          brokersFailed ? (
             <EmptyState title="Couldn't list brokers">
-              {(brokers.error as Error).message} It retries every few seconds.
+              {(brokersFailed as Error).message} It retries every few seconds.
             </EmptyState>
           ) : (
             <EmptyState title="Loading brokers…">{'\u00a0'}</EmptyState>

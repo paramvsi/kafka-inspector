@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
+import { useStickyError } from '../../lib/stickyError';
 import { useUrl, useUrlText, pick } from '../../lib/url';
 import { PageHeader, useReadOnly, WriteButton } from '../Page';
 import { CreateTopicDialog } from './CreateTopic';
@@ -59,7 +60,8 @@ export function TopicsView() {
     5000,
   );
   const list = useKafkaQuery(
-    ['topics', q, view, internal, sort, page, starred],
+    // filters in one object: the previous page stays while they change (lib/keep.ts treats a bare string here as an id)
+    ['topics', { q, view, internal, sort, page, starred }],
     (c, id) =>
       c.listTopics(id, {
         query: q || undefined,
@@ -73,6 +75,7 @@ export function TopicsView() {
       }),
     2000,
   );
+  const listFailed = useStickyError(list, JSON.stringify([q, view, internal, sort, page, starred]));
 
   // "/" focuses the page filter (F-06)
   useEffect(() => {
@@ -173,10 +176,10 @@ export function TopicsView() {
           />
         </div>
       </div>
-      {list.error ? (
+      {listFailed ? (
         <div className="rounded-lg border border-line bg-surface">
           <EmptyState title="Couldn't list topics">
-            {(list.error as Error).message} Fix the filter, or clear it.
+            {(listFailed as Error).message} Fix the filter, or clear it.
           </EmptyState>
         </div>
       ) : data && data.total === 0 ? (

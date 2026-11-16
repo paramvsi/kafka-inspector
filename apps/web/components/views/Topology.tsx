@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
+import { useStickyError } from '../../lib/stickyError';
 import { useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
 
@@ -71,6 +72,7 @@ const DOT: Record<string, string> = {
 export function TopologyView() {
   const { info } = useKafka();
   const data = useKafkaQuery(['topology'], (c, id) => c.getTopology(id), 2000);
+  const failed = useStickyError(data, 'topology');
   const [highlight, setHighlight] = useUrlText('highlight');
   const q = highlight.toLowerCase();
   const [zoom, setZoom] = useState(1);
@@ -97,9 +99,9 @@ export function TopologyView() {
           subtitle="Producers → topics → consumer groups · line width = messages per second"
         />
         <Card>
-          {data.error ? (
+          {failed ? (
             <EmptyState title="Couldn't load the topology">
-              {(data.error as Error).message} It retries every few seconds.
+              {(failed as Error).message} It retries every few seconds.
             </EmptyState>
           ) : (
             <p className="m-0 p-4 text-[13px] text-ink-muted" role="status">

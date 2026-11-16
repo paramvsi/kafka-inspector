@@ -111,7 +111,7 @@ export function GroupsView() {
           !live && !fallback.data ? (
             fallback.error ? (
               <EmptyState title="Couldn't list consumer groups">
-                {(fallback.error as Error).message} It retries on the next refresh.
+                {(fallback.error as Error).message} Reload the page to try again.
               </EmptyState>
             ) : (
               <EmptyState title="Loading consumer groups…">{'\u00a0'}</EmptyState>
