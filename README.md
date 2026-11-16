@@ -86,17 +86,17 @@ and a `docker run` line, entirely in your browser.
 > The image is not published yet: the release workflow is ready, and the first image ships once the product
 > name is settled. Until then build it: `docker build -f deploy/Dockerfile --build-arg VERSION=1.0.0 -t ghcr.io/paramvsi/kafka-inspector:1.0.0 .`
 
-| Variable                                                             | Default                 | Meaning                                                                           |
-| -------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------- |
-| `KI_ADMIN_PASSWORD`                                                  | required                | Sign-in password; the agent refuses to start without it                           |
-| `KAFKA_BOOTSTRAP`                                                    | —                       | Shortcut for one cluster named `default`                                          |
-| `KI_CLUSTERS_0_NAME` / `_BOOTSTRAP` / `_SECURITY`                    | — / — / `PLAINTEXT`     | Cluster name, bootstrap servers, `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL` |
-| `KI_CLUSTERS_0_SASL_MECHANISM` / `_SASL_USERNAME` / `_SASL_PASSWORD` | —                       | `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`                                         |
-| `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD`                | —                       | Custom CA                                                                         |
-| `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                       | Schema Registry URL and basic auth                                                |
-| `KI_DB_URL`                                                          | `jdbc:h2:file:/data/ki` | History and alerts; a PostgreSQL JDBC URL also works                              |
-| `KI_SAMPLE_INTERVAL`                                                 | `10s`                   | How often the agent samples the cluster                                           |
-| `KI_PORT`                                                            | `8080`                  | HTTP port                                                                         |
+| Variable                                                             | Default                                | Meaning                                                                                                                                                 |
+| -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KI_ADMIN_PASSWORD`                                                  | required                               | Sign-in password; the agent refuses to start without it                                                                                                 |
+| `KAFKA_BOOTSTRAP` / `SCHEMA_REGISTRY_URL`                            | —                                      | Shortcut for one PLAINTEXT cluster named `default`; ignored when any `KI_CLUSTERS_0_*` is set                                                           |
+| `KI_CLUSTERS_0_NAME` / `_BOOTSTRAP` / `_SECURITY`                    | — / — / `PLAINTEXT`                    | Cluster name, bootstrap servers, `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`                                                                       |
+| `KI_CLUSTERS_0_SASL_MECHANISM` / `_SASL_USERNAME` / `_SASL_PASSWORD` | —                                      | `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`; required with `SASL_*` security, refused without it                                                          |
+| `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD`                | —                                      | Custom CA (JKS or PKCS12) for the brokers and an HTTPS Schema Registry; without it the JVM's CAs apply. Client certificates (mTLS) aren't supported yet |
+| `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                                      | Schema Registry URL and basic auth                                                                                                                      |
+| `KI_DB_URL` / `KI_DB_USER` / `KI_DB_PASSWORD`                        | `jdbc:h2:file:/data/ki` / `sa` / empty | History and alerts. The PostgreSQL driver is included (set user and password too), but only H2 is tested                                                |
+| `KI_SAMPLE_INTERVAL`                                                 | `10s`                                  | How often the agent samples the cluster                                                                                                                 |
+| `KI_PORT`                                                            | `8080`                                 | HTTP port                                                                                                                                               |
 
 Use `KI_CLUSTERS_1_…` for more clusters. The same keys work in `/config/kafka-inspector.yml`.
 

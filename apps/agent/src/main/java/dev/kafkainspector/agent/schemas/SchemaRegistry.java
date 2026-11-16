@@ -20,7 +20,16 @@ import tools.jackson.databind.json.JsonMapper;
 public class SchemaRegistry {
     private final Clusters clusters;
     private final JsonMapper json;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    // one client per cluster: an HTTPS registry signed by a private CA trusts the cluster's truststore too
+    private final java.util.Map<String, HttpClient> http = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private HttpClient client(String cid, KiProperties.Cluster c) {
+        return http.computeIfAbsent(cid, k -> {
+            HttpClient.Builder b = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5));
+            if (c.sslTruststoreLocation() != null && !c.sslTruststoreLocation().isBlank()) b.sslContext(Clusters.trusting(c));
+            return b.build();
+        });
+    }
 
     public SchemaRegistry(Clusters clusters, JsonMapper json) {
         this.clusters = clusters;
@@ -43,7 +52,7 @@ public class SchemaRegistry {
         b.method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
         if (body != null) b.header("Content-Type", "application/vnd.schemaregistry.v1+json");
         try {
-            HttpResponse<String> r = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = client(cid, c).send(b.build(), HttpResponse.BodyHandlers.ofString());
             if (r.statusCode() == 404) throw new Clusters.NotFound("SCHEMA_NOT_FOUND", "The registry has no " + path + ".");
             if (r.statusCode() >= 400) throw new IllegalStateException("Schema Registry answered " + r.statusCode() + ": " + r.body());
             return json.readTree(r.body());

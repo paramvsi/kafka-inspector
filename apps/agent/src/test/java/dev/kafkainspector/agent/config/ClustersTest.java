@@ -10,7 +10,25 @@ import org.springframework.mock.env.MockEnvironment;
 /** Settings that would fail every request (or silently replace a cluster) fail at startup instead. */
 class ClustersTest {
     static KiProperties.Cluster c(String name, String security, String mech) {
-        return new KiProperties.Cluster(name, "b:9092", security, mech, null, null, null, null, null, null, null);
+        return new KiProperties.Cluster(name, "b:9092", security, mech, mech == null ? null : "u", mech == null ? null : "pw", null, null, null, null, null);
+    }
+
+    static KiProperties.Cluster c(String security, String mech, String user, String truststore) {
+        return new KiProperties.Cluster("prod", "b:9092", security, mech, user, "pw", truststore, null, null, null, null);
+    }
+
+    static void refused(String part, org.junit.jupiter.api.function.Executable r) {
+        IllegalStateException e = assertThrows(IllegalStateException.class, r);
+        assertTrue(e.getMessage().contains(part), e.getMessage());
+    }
+
+    @Test
+    void saslAndTruststoreMistakesFailAtStartupNamingTheVariable() {
+        refused("KI_CLUSTERS_n_SASL_MECHANISM", () -> of(c("SASL_SSL", null, "u", null)));
+        refused("KI_CLUSTERS_n_SASL_USERNAME", () -> of(c("SASL_SSL", "PLAIN", null, null)));
+        refused("use SASL_SSL or SASL_PLAINTEXT", () -> of(c("SSL", "PLAIN", "u", null)));
+        refused("KI_CLUSTERS_n_SSL_TRUSTSTORE_LOCATION", () -> of(c("SSL", null, null, "/no/such/ca.jks")));
+        assertDoesNotThrow(() -> of(c("SASL_SSL", "SCRAM-SHA-512", "u", null)));
     }
 
     static Clusters of(KiProperties.Cluster... cs) {

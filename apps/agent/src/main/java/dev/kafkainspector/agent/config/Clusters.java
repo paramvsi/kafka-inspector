@@ -46,6 +46,17 @@ public class Clusters {
                 throw new IllegalStateException("Cluster " + c.name() + ": OAUTHBEARER needs a token endpoint and client credentials, which this version doesn't configure. Use PLAIN or SCRAM.");
             if (c.saslMechanism() != null && !c.saslMechanism().isBlank() && !List.of("PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512").contains(c.saslMechanism()))
                 throw new IllegalStateException("Cluster " + c.name() + ": SASL mechanism " + c.saslMechanism() + " is not one of PLAIN, SCRAM-SHA-256, SCRAM-SHA-512.");
+            // combinations that would otherwise fail every request with an obscure Kafka error
+            boolean sasl = c.security().startsWith("SASL");
+            boolean hasMech = c.saslMechanism() != null && !c.saslMechanism().isBlank();
+            if (sasl && !hasMech)
+                throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_MECHANISM (PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512).");
+            if (sasl && (c.saslUsername() == null || c.saslUsername().isBlank()))
+                throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_USERNAME and KI_CLUSTERS_n_SASL_PASSWORD.");
+            if (!sasl && hasMech)
+                throw new IllegalStateException("Cluster " + c.name() + ": KI_CLUSTERS_n_SASL_MECHANISM is set but security is " + c.security() + "; use SASL_SSL or SASL_PLAINTEXT.");
+            if (c.sslTruststoreLocation() != null && !c.sslTruststoreLocation().isBlank() && !java.nio.file.Files.isReadable(java.nio.file.Path.of(c.sslTruststoreLocation())))
+                throw new IllegalStateException("Cluster " + c.name() + ": KI_CLUSTERS_n_SSL_TRUSTSTORE_LOCATION " + c.sslTruststoreLocation() + " doesn't exist or can't be read. Mount the file into the container.");
             byId.put(id, c);
         }
         // startup log lists clusters and security protocol only (AGENT_API security checklist)
@@ -85,6 +96,21 @@ public class Clusters {
             if (c.sslTruststorePassword() != null) p.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, c.sslTruststorePassword());
         }
         return p;
+    }
+
+    /** An SSLContext trusting the cluster's truststore (JKS or PKCS12, detected by the JDK). */
+    public static javax.net.ssl.SSLContext trusting(KiProperties.Cluster c) {
+        try {
+            char[] pw = c.sslTruststorePassword() == null ? null : c.sslTruststorePassword().toCharArray();
+            java.security.KeyStore ks = java.security.KeyStore.getInstance(new java.io.File(c.sslTruststoreLocation()), pw);
+            var tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(ks);
+            var ctx = javax.net.ssl.SSLContext.getInstance("TLS");
+            ctx.init(null, tmf.getTrustManagers(), null);
+            return ctx;
+        } catch (Exception e) {
+            throw new IllegalStateException("Cluster " + c.name() + ": couldn't load KI_CLUSTERS_n_SSL_TRUSTSTORE_LOCATION for the Schema Registry: " + e.getMessage());
+        }
     }
 
     private static String esc(String s) {
