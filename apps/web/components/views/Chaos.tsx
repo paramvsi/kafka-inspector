@@ -129,7 +129,17 @@ export function ChaosView() {
   const running = incidents.data ?? [];
   const label = (k: ChaosActionKind) => ACTIONS.find((a) => a.kind === k)!.title;
   const refresh = () => qc.invalidateQueries({ queryKey: [info.clusters[0]?.id, 'incidents'] });
+  const [starting, setStarting] = useState<ChaosActionKind>();
   const trigger = async (kind: ChaosActionKind, target?: string) => {
+    if (starting) return; // a double click mustn't start it twice (the second would fail as "already running")
+    setStarting(kind);
+    try {
+      await start(kind, target);
+    } finally {
+      setStarting(undefined);
+    }
+  };
+  const start = async (kind: ChaosActionKind, target?: string) => {
     let inc: Incident | undefined;
     const ok = await attempt(
       `start ${label(kind).toLowerCase()}`,
@@ -253,6 +263,7 @@ export function ChaosView() {
                   ) : (
                     <Button
                       size="sm"
+                      disabled={starting === a.kind}
                       onClick={() => trigger(a.kind, a.target ? target : undefined)}
                     >
                       Trigger
@@ -277,7 +288,15 @@ export function ChaosView() {
                   <span
                     aria-hidden="true"
                     className={`absolute bottom-0 left-0 h-[2px] w-full origin-left bg-warn ${dur ? 'ki-progress' : 'ki-progress-indeterminate'}`}
-                    style={dur ? { animationDuration: `${dur}ms` } : undefined}
+                    // started before this page mounted: the bar starts where the incident is, not empty
+                    style={
+                      dur
+                        ? {
+                            animationDuration: `${dur}ms`,
+                            animationDelay: `-${Math.min(dur, Math.max(0, Date.now() - Date.parse(inc.startedAt)))}ms`,
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </article>

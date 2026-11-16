@@ -1607,3 +1607,39 @@ test('at 1024 px the time-range control shows all four ranges', async ({ page })
   await expect(range).toBeVisible({ timeout: 15_000 });
   expect(await range.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
 });
+
+test('reprocessing after a generated draft sends the same message each time, and says so', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages&produce=1');
+  const produce = page.getByRole('dialog', { name: 'Produce message' });
+  await produce.getByRole('button', { name: 'Generate from schema' }).click();
+  await produce.getByRole('button', { name: 'Cancel' }).click();
+  const table = page.getByRole('table', { name: 'Messages in payments' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  await page
+    .getByRole('dialog', { name: 'Message', exact: true })
+    .getByRole('button', { name: 'Reprocess to topic' })
+    .click();
+  const drawer = page.getByRole('dialog', { name: 'Reprocess message' });
+  await expect(drawer.getByText(/the same message each time/)).toBeVisible();
+});
+
+test('a double click on Trigger starts chaos once; its progress bar resumes where the incident is', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const card = page.locator('article', { hasText: 'Traffic spike' });
+  await card.getByRole('button', { name: 'Trigger' }).dblclick();
+  await expect(card.getByText('Running', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Couldn't start/)).toHaveCount(0);
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await nav.getByRole('link', { name: /^Overview/ }).click();
+  await page.waitForTimeout(3000);
+  await nav.getByRole('link', { name: /^Chaos panel/ }).click();
+  const bar = card.locator('.ki-progress');
+  await expect(bar).toHaveCount(1, { timeout: 10_000 });
+  const delay = await bar.evaluate((e) => parseFloat(getComputedStyle(e).animationDelay));
+  expect(delay).toBeLessThanOrEqual(-2);
+});

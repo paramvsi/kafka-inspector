@@ -125,6 +125,7 @@ export function ProduceDrawer({
       setKey('');
       setHeaders([['region', 'eu']]);
       setCount('1');
+      setGenerated(false); // a draft generated before closing doesn't carry over (Reprocess sends its own message)
     }
   }, [open, topic]);
   // Prefill from the message being reprocessed
@@ -160,6 +161,7 @@ export function ProduceDrawer({
     if (!open || reprocess || !sampleKey || sampleKey === sampledFor) return;
     setSampledFor(sampleKey);
     setValue(generate(subject ? schema : undefined));
+    setGenerated(true); // the sample is generated: "Send N" makes N fresh ones
   }, [open, reprocess, sampleKey, sampledFor, schema, subject]);
 
   const v = useMemo(() => validate(schema, value), [schema, value]);
@@ -386,7 +388,9 @@ export function ProduceDrawer({
             />
           </div>
           <span className="mt-5 text-[12px] text-ink-muted">
-            message(s) · above 1, generated values are new each time
+            {generated
+              ? 'message(s) · above 1, generated values are new each time'
+              : 'message(s) · above 1, the same message each time'}
           </span>
         </div>
         {error && (
