@@ -29,7 +29,14 @@ async function boot(seed?: string): Promise<void> {
   subs.forEach((s) => s.off?.());
   sim = next;
   // tick first: a subscription that can't be re-attached must not stop the cluster
-  timer = setInterval(() => sim!.tick(Date.now()), 1000);
+  timer = setInterval(() => {
+    // one bad tick must not reach the page as a worker error (which marks the cluster stopped for good)
+    try {
+      sim!.tick(Date.now());
+    } catch (e) {
+      console.error('Simulator tick failed; the next tick retries.', e);
+    }
+  }, 1000);
   for (const [id, s] of subs) {
     try {
       attach(s);

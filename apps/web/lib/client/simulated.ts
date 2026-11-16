@@ -63,7 +63,8 @@ export function createSimulatedClient(): KafkaClient {
     search: (_c, req) => call('search', req),
     tail: (_c, req: TailRequest, onBatch: (b: RawMessage[]) => void) => {
       const id = call<number>('tailStart', req, Comlink.proxy(onBatch));
-      return () => void id.then((i) => call('release', i));
+      // after the worker died both reject: nothing to release, and no unhandled rejection
+      return () => void id.then((i) => call('release', i)).catch(() => undefined);
     },
     listGroups: (_c, q) => call('listGroups', q),
     getGroup: (_c, id) => call('getGroup', id),

@@ -41,7 +41,7 @@ export function useBoot(): Boot {
           location.assign(`/app/sign-in/?next=${next}`);
           return;
         }
-        if (alive) setBoot({ state: 'connecting', step: 'Starting the simulated cluster' });
+        if (alive) setBoot({ state: 'connecting', step: 'Connecting to the cluster' });
         const info = await picked.client.info();
         const fromUrl = new URLSearchParams(location.search).get('c');
         const clusterId =
