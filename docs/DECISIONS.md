@@ -102,8 +102,7 @@ Add rows here as you go: date, decision, reason.
 
 ## DECISION-PENDING (needs the owner's go-ahead)
 
-- **Narrow and tablet layouts (owner decision).** At 390 px the sidebar never collapses and every /app screen scrolls sideways; at 768 px Schemas and Clusters scroll sideways, and the Add-cluster dialog uses a fixed two-column grid. DECISIONS treats the app as a 1280 px dashboard, but no decision covers touch or narrow screens. Decide: support ≥768 only (and fix those two screens), or add a collapsing sidebar for phones.
-
 | Date | Item | Exact statements parked | Effect until decided |
 | --- | --- | --- | --- |
+| 2026-11-16 | Narrow and tablet layouts (scope) | none — a product decision | At 390 px the sidebar never collapses and every /app screen scrolls sideways; at 768 px Schemas and Clusters scroll sideways and the Add-cluster dialog has a fixed two-column grid. Decide: support ≥768 only (fix those two screens), or add a collapsing sidebar for phones |
 | 2026-11-15 | Publish the local commits | `git push origin main` | Blocked by the local safety hook (direct push to `main`); the owner will run `! git push`. Deployment (Netlify, GHCR) is deferred by the owner |
