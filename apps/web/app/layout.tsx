@@ -1,4 +1,6 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import tokens from '../../../design-system/tokens.json';
+import { SITE_URL } from '../lib/site';
 import { Martian_Mono, Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { prefsScript } from '../lib/prefs';
@@ -11,7 +13,19 @@ const sora = Sora({
 });
 const mono = Martian_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' });
 
+// mobile browser chrome follows the theme; colours from the design tokens (rule 2), not literals
+const bg = tokens.color.tokens.find((t) => t.name === 'bg')!.value;
+export const viewport: Viewport = {
+  colorScheme: 'dark light',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: bg.dark },
+    { media: '(prefers-color-scheme: light)', color: bg.light },
+  ],
+};
+
 export const metadata: Metadata = {
+  // absolute Open Graph image URLs need a base; without one Next falls back to localhost
+  ...(SITE_URL && { metadataBase: new URL(SITE_URL) }),
   title: { template: '%s · Kafka Inspector', default: 'Kafka Inspector' },
   description: 'A real-time UI for Apache Kafka.',
   icons: {

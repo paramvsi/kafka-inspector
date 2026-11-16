@@ -21,12 +21,20 @@ try {
     await p.getByText('Needs attention').waitFor({ timeout: 20000 });
     await p.waitForTimeout(2500);
     await p.screenshot({ path: `public/shots/overview-${theme}.png` });
-    if (theme === 'dark')
-      await p.screenshot({
-        path: 'public/shots/og.png',
-        clip: { x: 0, y: 0, width: 1200, height: 630 },
-      });
     await p.close();
+    // the share card at its own size, so the whole sidebar — with the "Simulated cluster" note — is in it (rule 7)
+    if (theme === 'dark') {
+      const og = await b.newPage({
+        viewport: { width: 1200, height: 630 },
+        colorScheme: 'dark',
+        deviceScaleFactor: 1,
+      });
+      await og.goto('http://localhost:3101/app/');
+      await og.getByText('Needs attention').waitFor({ timeout: 20000 });
+      await og.waitForTimeout(2500);
+      await og.screenshot({ path: 'public/shots/og.png' });
+      await og.close();
+    }
   }
   // README images
   const p = await b.newPage({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });

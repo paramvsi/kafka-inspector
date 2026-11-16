@@ -119,8 +119,11 @@ export default function Landing() {
           >
             Features
           </a>
-          <a href="#how" className="hidden text-ink-muted no-underline hover:text-ink sm:inline">
-            How it works
+          <a
+            href="#compare"
+            className="hidden text-ink-muted no-underline hover:text-ink sm:inline"
+          >
+            Compare
           </a>
           <a
             href="#self-host"
@@ -274,7 +277,7 @@ export default function Landing() {
         </Section>
 
         <Section
-          id="how"
+          id="compare"
           tint
           kicker="Why another Kafka UI"
           title="Most free Kafka UIs show you right now. This one remembers."
@@ -326,7 +329,7 @@ export default function Landing() {
                 Live demo on a simulated cluster
               </h3>
               <p className="m-0 mt-3 text-[14px] leading-6 text-ink-muted">
-                A realistic cluster with 3 brokers, a dozen topics and live traffic runs inside your
+                A realistic cluster with 3 brokers, 42 topics and live traffic runs inside your
                 browser tab. Use the chaos panel to crash a consumer or spike traffic and watch
                 every screen react.
               </p>
