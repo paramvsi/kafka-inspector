@@ -511,7 +511,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           </span>
         ) : filter ? (
           <span className="whitespace-nowrap text-[12px] text-ink-muted" role="status">
-            {formatInt(filter.matches.length)} of {formatInt(filter.scanned)} scanned match
+            <span className="font-mono tabular-nums">{formatInt(filter.matches.length)}</span> of{' '}
+            <span className="font-mono tabular-nums">{formatInt(filter.scanned)}</span> scanned
+            match
             {filter.timedOut && ' · stopped at the 50 ms budget'}
           </span>
         ) : (
@@ -533,7 +535,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         )}
         {expr && naming === null && (
           <Button size="sm" variant="ghost" onClick={() => setNaming('')}>
-            Save
+            Save filter
           </Button>
         )}
         {naming !== null && (
@@ -608,7 +610,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         {quickOn && (
           <>
             <span className="pb-2 text-[12px] text-ink-muted" role="status">
-              {formatInt(rows.length)} of {formatInt(jsRows.length)} shown
+              <span className="font-mono tabular-nums">{formatInt(rows.length)}</span> of{' '}
+              <span className="font-mono tabular-nums">{formatInt(jsRows.length)}</span> shown
             </span>
             <Button
               size="sm"
@@ -654,7 +657,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             }}
             className="ki-toast absolute left-1/2 top-12 z-10 -translate-x-1/2 cursor-pointer rounded-full border border-copper bg-surface px-3 py-1 text-[12px] font-semibold text-copper [box-shadow:var(--shadow-popover)]"
           >
-            {formatInt(unseen)} new — jump
+            <span className="font-mono tabular-nums">{formatInt(unseen)}</span> new — jump
           </button>
         )}
         <div
@@ -802,8 +805,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         {!live && regex === undefined && (
           <div className="flex items-center gap-3 border-t border-line-subtle px-4 py-2 text-[12px] text-ink-muted">
             <span>
-              {formatInt(raws.length)} messages ·{' '}
-              {formatInt((page.data?.scanned ?? 0) + extraScanned)} scanned
+              <span className="font-mono tabular-nums">{formatInt(raws.length)}</span> messages ·{' '}
+              <span className="font-mono tabular-nums">
+                {formatInt((page.data?.scanned ?? 0) + extraScanned)}
+              </span>{' '}
+              scanned
             </span>
             <div className="grow" />
             <Button size="sm" variant="ghost" onClick={() => url.set({ search: '' })}>

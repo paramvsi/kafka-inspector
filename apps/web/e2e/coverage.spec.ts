@@ -397,7 +397,7 @@ test('F-47: a masking rule hides a field and the drawer names the rule; F-44 Cop
   await dialog.getByLabel('Topics').fill('payments');
   await dialog.getByLabel('JSON path').fill('$.merchantId');
   await dialog.getByRole('button', { name: 'Add rule' }).click();
-  await dialog.getByRole('button', { name: 'Close' }).click();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   const table = page.getByRole('table', { name: 'Messages in payments' });
   await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
   await table.getByRole('row').nth(1).click();

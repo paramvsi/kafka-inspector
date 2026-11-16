@@ -231,7 +231,7 @@ export function AlertsView() {
           title="Rules"
           actions={
             <Button size="sm" variant="ghost" onClick={() => url.set({ rule: 'new' })}>
-              Add
+              Add alert rule
             </Button>
           }
           className="self-start"

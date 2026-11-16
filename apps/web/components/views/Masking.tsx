@@ -32,7 +32,7 @@ export function MaskingDialog({
       description="Applied after decoding, in the table, drawer and exports. A display feature, not a security control."
       footer={
         <Button variant="primary" onClick={onClose}>
-          Done
+          Close masking rules
         </Button>
       }
     >
