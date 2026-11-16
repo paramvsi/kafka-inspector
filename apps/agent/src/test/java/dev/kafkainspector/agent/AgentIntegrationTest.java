@@ -824,6 +824,41 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(49)
+    void aConsumerBehindOnlyATransactionMarkerIsCaughtUp() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+                KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "transactional.id", "it-marker", "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("txmark", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            p.initTransactions();
+            p.beginTransaction();
+            for (int i = 0; i < 3; i++) p.send(new ProducerRecord<>("txmark", 0, "k", "v" + i));
+            p.commitTransaction(); // offsets 0-2 are records, 3 is the commit marker: end offset 4
+        }
+        Map<String, Object> cfg = Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "eos-app", "isolation.level", "read_committed", "enable.auto.commit", "false", "auto.offset.reset", "earliest",
+                "key.deserializer", org.apache.kafka.common.serialization.StringDeserializer.class.getName(), "value.deserializer", org.apache.kafka.common.serialization.StringDeserializer.class.getName());
+        try (var c = new org.apache.kafka.clients.consumer.KafkaConsumer<String, String>(cfg)) {
+            c.subscribe(List.of("txmark"));
+            JsonNode lag = null;
+            for (long end = System.currentTimeMillis() + 25_000; System.currentTimeMillis() < end; ) {
+                c.poll(Duration.ofMillis(300));
+                // commit lastRecord+1, as Kafka Streams and per-record acks do: one marker behind the end offset
+                if (!c.assignment().isEmpty()) c.commitSync(Map.of(new org.apache.kafka.common.TopicPartition("txmark", 0), new org.apache.kafka.clients.consumer.OffsetAndMetadata(3)));
+                HttpResponse<String> r = send("GET", "/api/clusters/local/groups/eos-app", null);
+                if (r.statusCode() == 200 && JSON.readTree(r.body()).path("partitions").size() > 0) {
+                    Thread.sleep(2500);
+                    lag = JSON.readTree(send("GET", "/api/clusters/local/groups/eos-app", null).body()).path("partitions").get(0);
+                    break;
+                }
+            }
+            final JsonNode l = lag;
+            assertTrue(l != null, "group never appeared");
+            assertEquals(0, l.path("lag").asLong(), () -> "a marker counted as lag: " + l);
+            assertEquals(3, l.path("committedOffset").asLong(), () -> "the committed offset is shown as Kafka holds it: " + l);
+        }
+    }
+
+    @Test
     @Order(48)
     void aTopicTheGroupNoLongerReadsIsntLag() throws Exception {
         signIn();

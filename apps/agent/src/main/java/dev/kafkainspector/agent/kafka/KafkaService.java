@@ -34,6 +34,11 @@ public class KafkaService implements DisposableBean {
 
     /** A consumer with no group.id: assign + seek only, auto-commit off — it can never commit offsets. */
     public KafkaConsumer<byte[], byte[]> consumer(String cid, int maxPoll) {
+        return consumer(cid, maxPoll, false);
+    }
+
+    /** readCommitted: skip aborted transactions, as a read_committed application does. */
+    public KafkaConsumer<byte[], byte[]> consumer(String cid, int maxPoll, boolean readCommitted) {
         KiProperties.Cluster c = clusters.get(cid);
         Properties p = clusters.clientProps(c);
         p.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
@@ -45,6 +50,7 @@ public class KafkaService implements DisposableBean {
         p.put(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, false);
         p.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafka-inspector-browse");
         p.remove(ConsumerConfig.GROUP_ID_CONFIG);
+        if (readCommitted) p.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         return new KafkaConsumer<>(p);
     }
 

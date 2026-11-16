@@ -60,6 +60,8 @@ public class ClusterState {
         public List<MemberSnap> members = new ArrayList<>();
         /** topic → partition → committed */
         public Map<String, Map<Integer, Long>> committed = new HashMap<>();
+        /** topic|partition → the offset Kafka holds, where `committed` was moved past trailing transaction markers */
+        public Map<String, Long> reportedCommitted = new HashMap<>();
         public Lag.Status status = Lag.Status.unknown;
         public Lag.Forecast forecast = Lag.Forecast.of("unknown");
         public Map<String, Lag.Status> partStatus = new HashMap<>();

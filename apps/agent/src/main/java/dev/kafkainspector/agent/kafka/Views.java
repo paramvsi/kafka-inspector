@@ -137,7 +137,7 @@ public final class Views {
                 long end = 0;
                 if (t != null) for (ClusterState.PartSnap p : t.partitions) if (p.partition == pe.getKey()) end = p.high;
                 ClusterState.MemberSnap m = owner.get(te.getKey() + "|" + pe.getKey());
-                parts.add(new Dto.GroupPartitionLag(te.getKey(), pe.getKey(), pe.getValue(), end, Math.max(0, end - pe.getValue()), m == null ? null : m.memberId, m == null ? null : m.clientId, m == null ? null : m.host,
+                parts.add(new Dto.GroupPartitionLag(te.getKey(), pe.getKey(), g.reportedCommitted.getOrDefault(te.getKey() + "|" + pe.getKey(), pe.getValue()), end, Math.max(0, end - pe.getValue()), m == null ? null : m.memberId, m == null ? null : m.clientId, m == null ? null : m.host,
                         g.partStatus.getOrDefault(te.getKey() + "|" + pe.getKey(), Lag.Status.unknown).name()));
             }
         }

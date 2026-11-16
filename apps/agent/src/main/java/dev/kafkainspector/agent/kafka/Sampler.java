@@ -6,6 +6,7 @@ import dev.kafkainspector.agent.config.Clusters;
 import dev.kafkainspector.agent.config.KiProperties;
 import dev.kafkainspector.agent.history.HistoryRepository;
 import dev.kafkainspector.agent.lag.Lag;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,6 +38,8 @@ public class Sampler {
     private final AlertService alerts;
     private final KiProperties props;
     private final Map<String, ClusterState> states = new ConcurrentHashMap<>();
+    /** cid|topic|partition|committed|end → whether only transaction markers lie between them (cached: offsets only grow) */
+    private final Map<String, Boolean> markerOnly = new ConcurrentHashMap<>();
     private final List<java.util.function.BiConsumer<String, ClusterState>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private int tick;
 
@@ -333,6 +336,13 @@ public class Sampler {
                     if (ps == null) continue;
                     String key = gs.groupId + "|" + te.getKey() + "|" + pe.getKey();
                     live.add(key);
+                    // a read_committed consumer that commits lastRecord+1 sits behind a trailing commit/abort marker,
+                    // which no application ever reads: that gap is caught up, not frozen lag (else: Stalled forever)
+                    long gap = ps.high - pe.getValue();
+                    if (gap > 0 && gap <= 5 && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
+                        gs.reportedCommitted.put(te.getKey() + "|" + pe.getKey(), pe.getValue()); // shown as Kafka has it
+                        pe.setValue(ps.high); // lag and status: caught up
+                    }
                     Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
                     // the topic was deleted and re-created: samples from the old one would run the lag rules backwards
                     if (w.peekLast() != null && w.peekLast().end() > ps.high) w.clear();
@@ -434,5 +444,26 @@ public class Sampler {
     /** Time left until a deadline (System.nanoTime); 0 once passed, so finished futures still return. */
     static long left(long deadlineNanos) {
         return Math.max(0, deadlineNanos - System.nanoTime());
+    }
+
+    /** True when a read_committed read from `from` reaches `to` without one record: the gap is only control records. */
+    private boolean onlyMarkers(String cid, String topic, int partition, long from, long to) {
+        String k = cid + "|" + topic + "|" + partition + "|" + from + "|" + to;
+        Boolean hit = markerOnly.get(k);
+        if (hit != null) return hit;
+        boolean only = false;
+        try (var c = kafka.consumer(cid, 5, true)) {
+            TopicPartition tp = new TopicPartition(topic, partition);
+            c.assign(List.of(tp));
+            c.seek(tp, from);
+            boolean saw = false;
+            for (int i = 0; i < 4 && !saw && c.position(tp) < to; i++) saw = !c.poll(Duration.ofMillis(250)).isEmpty();
+            only = !saw && c.position(tp) >= to;
+        } catch (RuntimeException e) {
+            log.debug("marker check for {}-{} failed: {}", topic, partition, e.toString());
+        }
+        if (markerOnly.size() > 10_000) markerOnly.clear();
+        markerOnly.put(k, only);
+        return only;
     }
 }
