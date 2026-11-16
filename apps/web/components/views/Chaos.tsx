@@ -162,7 +162,10 @@ export function ChaosView() {
         e.title.includes('stopped'),
     )
     .slice(0, 8);
-  const groupNames = (groups ?? []).map((g) => g.groupId);
+  // only groups a consumer action can affect: with members, not share groups (the simulator refuses the rest)
+  const groupNames = (groups ?? [])
+    .filter((g) => g.members > 0 && g.type !== 'share')
+    .map((g) => g.groupId);
   const optionsFor = (t?: 'group' | 'topic' | 'broker', kind?: string) =>
     kind === 'hot-partition'
       ? // one topic, with enough partitions for its 40% to show as skew (the simulator refuses the rest)

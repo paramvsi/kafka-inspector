@@ -974,3 +974,39 @@ test('a deleted group leaves no topology edge behind', async () => {
   const ids = new Set(t.nodes.map((n) => n.id));
   expect(t.edges.filter((e) => !ids.has(e.from) || !ids.has(e.to))).toEqual([]);
 });
+
+test('chaos refuses targets it makes no sense for, and says so', async () => {
+  const h = make();
+  await h.init();
+  expect(() => h.sim.runChaos({ kind: 'crash-consumer', target: 'search-indexer' })).toThrow(
+    'no members',
+  );
+  expect(() => h.sim.runChaos({ kind: 'slow-consumer', target: 'notify-workers' })).toThrow(
+    'no members',
+  );
+  expect(() => h.sim.runChaos({ kind: 'traffic-spike', target: 'nope' })).toThrow('not found');
+});
+
+test('an attention item keeps the time it first appeared; stopping a poison message logs its end', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'broker-down', target: '2' });
+  h.advance(1);
+  const first = h.sim.getOverview().attention.find((a) => a.id === 'broker-2')!.since;
+  h.advance(30);
+  expect(h.sim.getOverview().attention.find((a) => a.id === 'broker-2')!.since).toBe(first);
+  // the seeded poison isn't an incident: fix it (shift +1), then start one from the Chaos panel
+  await h.sim.resetOffsets(
+    {
+      groupId: 'fraud-scorer',
+      topic: 'payments',
+      partitions: [7],
+      strategy: { kind: 'shift', by: 1 },
+    },
+    false,
+  );
+  h.advance(5);
+  const inc = h.sim.runChaos({ kind: 'poison-message' });
+  h.sim.stopChaos(inc.id);
+  expect(h.sim.getOverview().events.some((e) => /Chaos ended: .*poison/i.test(e.title))).toBe(true);
+});

@@ -887,8 +887,15 @@ export class Simulator {
     };
   }
 
+  /** attention id → when it first appeared: "since" mustn't move forward every tick */
+  private attentionSince = new Map<string, number>();
+
   private attention(groups: GroupSummary[], urp: number, offline: number): AttentionItem[] {
     const t = this.lastTick;
+    const firstSeen = (id: string) => {
+      if (!this.attentionSince.has(id)) this.attentionSince.set(id, t);
+      return new Date(this.attentionSince.get(id)!).toISOString();
+    };
     const items: AttentionItem[] = [];
     const sev: Record<string, number> = { crit: 0, warn: 1, info: 2 };
     for (const b of BROKERS) {
@@ -898,7 +905,7 @@ export class Simulator {
           severity: 'crit',
           title: `Broker ${b.id} is offline`,
           detail: `${b.host}:${b.port} · leaders moved to other brokers`,
-          since: new Date(t).toISOString(),
+          since: firstSeen(`broker-${b.id}`),
           href: '/app/brokers/',
           action: `Investigate broker ${b.id}`,
         });
@@ -910,7 +917,7 @@ export class Simulator {
         title: offlineLabel(offline),
         detail:
           offline === 1 ? 'No in-sync replica can lead it' : 'No in-sync replica can lead them',
-        since: new Date(t).toISOString(),
+        since: firstSeen('offline'),
         href: '/app/topics/?view=attention',
       });
     if (urp)
@@ -919,7 +926,7 @@ export class Simulator {
         severity: 'warn',
         title: `${plural(urp, 'partition')} under-replicated`,
         detail: 'ISR is smaller than the replica set',
-        since: new Date(t).toISOString(),
+        since: firstSeen('urp'),
         href: '/app/topics/?view=attention',
       });
     for (const g of groups) {
@@ -934,7 +941,7 @@ export class Simulator {
               )
             : g.status === 'stopped'
               ? gs.lastCommitAt
-              : t;
+              : Date.parse(firstSeen(`group-${g.groupId}`));
         items.push({
           id: `group-${g.groupId}`,
           severity: g.status === 'warn' ? 'warn' : 'crit',
@@ -962,6 +969,9 @@ export class Simulator {
         });
       }
     }
+    // forget items that cleared, so a later recurrence starts its own clock
+    for (const id of [...this.attentionSince.keys()])
+      if (!items.some((x) => x.id === id)) this.attentionSince.delete(id);
     return items.sort(
       (a, b) => sev[a.severity]! - sev[b.severity]! || b.since.localeCompare(a.since),
     );
@@ -2220,6 +2230,8 @@ export class Simulator {
       case 'crash-consumer': {
         target ||= 'order-service';
         const g = this.group(target);
+        if (g.members === 0 || g.def.type === 'share')
+          throw new Error(`${target} has no members to crash. Pick a group with members.`);
         g.crashed = true;
         g.state = 'Empty';
         g.members = 0;
@@ -2238,6 +2250,8 @@ export class Simulator {
       case 'slow-consumer': {
         target ||= 'payments-sink';
         const g = this.group(target);
+        if (g.members === 0 || g.def.type === 'share')
+          throw new Error(`${target} has no members to slow down. Pick a group with members.`);
         g.slow = true;
         ev(`Chaos: ${target} slowed to 60%`);
         undo = () => {
@@ -2248,6 +2262,8 @@ export class Simulator {
       }
       case 'traffic-spike': {
         target ||= '*';
+        if (target !== '*' && !this.topics.has(target))
+          throw new Error(`Topic ${target} not found.`);
         this.spike.set(target, 10);
         until = t + 2 * 60_000;
         ev(
@@ -2341,7 +2357,9 @@ export class Simulator {
         target = `${POISON.topic}-${POISON.partition}`;
         this.startPoison(t, id);
         undo = () => {
-          if (this.poison?.incident === id) this.poison = null;
+          if (this.poison?.incident !== id) return; // already fixed by a reset: nothing to end
+          this.poison = null;
+          ended('Chaos ended: poison message removed from payments partition 7');
         };
         break;
       }
