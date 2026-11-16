@@ -11,6 +11,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
 COPY apps/web ./apps/web
 RUN pnpm install --frozen-lockfile --filter "web..."
+# the image is always the agent: a slow or failing /api/info at start-up must show "disconnected", never
+# fall back to the simulated demo (rule 7) — that fallback is for the static demo build only
+ENV NEXT_PUBLIC_KI_MODE=agent
 RUN pnpm --filter web build
 
 # 2. Agent (Spring Boot, Java 21)

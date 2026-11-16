@@ -45,3 +45,11 @@ test('forced agent mode still sends a signed-out user to sign-in', async () => {
   reply(200, { mode: 'agent', version: '1', auth: true, signedIn: false });
   expect((await pickClient()).kind).toBe('sign-in');
 });
+
+test('the self-hosted image is built in agent mode: a slow /api/info never drops it into the demo', async () => {
+  const { readFileSync } = await import('node:fs');
+  const docker = readFileSync(new URL('../../../../deploy/Dockerfile', import.meta.url), 'utf8');
+  const mode = docker.indexOf('NEXT_PUBLIC_KI_MODE=agent');
+  expect(mode).toBeGreaterThan(-1);
+  expect(mode).toBeLessThan(docker.indexOf('pnpm --filter web build'));
+});
