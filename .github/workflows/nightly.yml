@@ -1,6 +1,7 @@
 name: Nightly
 
-# Full Playwright suite on all three engines. CI on every push runs Chromium only.
+# The Playwright suite on Firefox and WebKit, plus Chromium (each leg runs one browser project; the
+# reduced-motion project runs in CI on every push).
 on:
   schedule:
     - cron: '17 3 * * *'

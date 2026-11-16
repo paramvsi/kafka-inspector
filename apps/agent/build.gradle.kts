@@ -48,4 +48,8 @@ tasks.withType<Test> {
 val webOut = (findProperty("webOut") as String?) ?: "../web/out"
 tasks.processResources {
     from(webOut) { into("static") }
+    // a jar without the export starts fine but serves no UI: say so (tests don't need it)
+    doFirst {
+        if (!file("$webOut/index.html").exists()) logger.warn("No web export at $webOut: this build will serve no UI. Run `pnpm build` first, or pass -PwebOut=<dir>.")
+    }
 }

@@ -33,6 +33,8 @@ for i in $(seq 1 60); do curl -fs localhost:$PORT/api/health >/dev/null && { ok=
 health=starting
 for i in $(seq 1 30); do health=$(docker inspect ki-smoke-agent --format '{{.State.Health.Status}}'); [ "$health" = healthy ] && break; sleep 3; done
 [ "$health" = healthy ] || { echo "FAIL: HEALTHCHECK says $health"; exit 1; }
+# the web app is in the image (a jar built without the export would serve no UI)
+curl -fs localhost:$PORT/app/ | grep -q '<html' || { echo "FAIL: /app/ doesn't serve the web app"; exit 1; }
 curl -fs -c "$J" -b "$J" localhost:$PORT/api/info >/dev/null
 T=$(awk '$6=="KI_CSRF"{print $7}' "$J")
 curl -fs -c "$J" -b "$J" -H "X-KI-CSRF: $T" -H 'Content-Type: application/json' -d '{"username":"admin","password":"smoke"}' localhost:$PORT/api/auth/login
@@ -41,4 +43,4 @@ for c in snappy zstd lz4 gzip; do
   body=$(curl -s -b "$J" "localhost:$PORT/api/clusters/default/topics/comp-$c/messages?limit=5")
   echo "$body" | grep -q '"offset"' || { echo "FAIL: comp-$c: $body"; exit 1; }
 done
-echo "PASS: hardened image healthy as 10001, reads snappy, zstd, lz4 and gzip topics"
+echo "PASS: hardened image healthy as 10001, serves the web app, reads snappy, zstd, lz4 and gzip topics"
