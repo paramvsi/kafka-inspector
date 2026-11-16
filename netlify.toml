@@ -11,6 +11,16 @@
 # Every /app route is pre-rendered as <route>/index.html (trailingSlash) and detail pages use query
 # params (/app/topics/view/?name=…), so no SPA rewrite is needed. Unknown paths get out/404.html.
 
+# Site-wide: no framing, no MIME sniffing, no full URLs (with query params) sent to other sites.
+# ponytail: no full page CSP yet — Next's static export needs inline-script allowances that only a deploy can verify.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
