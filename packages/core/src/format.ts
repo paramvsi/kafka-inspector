@@ -81,6 +81,16 @@ export function formatClock(t: number | string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** 14:05 today · 19 Nov 14:05 otherwise (a forecast two days out mustn't read as today) */
+export function formatWhen(t: number, now = Date.now()): string {
+  const d = new Date(t),
+    n = new Date(now);
+  if (Number.isNaN(d.getTime())) return '—';
+  const today = d.toDateString() === n.toDateString();
+  return today ? formatClock(t) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${formatClock(t)}`;
+}
+
 /** 2026-11-16 06:00:01.234 in local time (message timestamps; the table shows the time part) */
 export function formatTimestamp(t: number | string): string {
   const d = new Date(t);

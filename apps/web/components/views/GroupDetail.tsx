@@ -1,6 +1,7 @@
 'use client';
 import {
   formatClock,
+  formatWhen,
   formatEta,
   formatForecast,
   formatInt,
@@ -339,7 +340,7 @@ function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> })
       actions={
         <span className="font-mono text-[10px] text-ink-muted">
           {zeroAt
-            ? `Lag is zero again by ~${formatClock(zeroAt)}`
+            ? `Lag is zero again by ~${formatWhen(zeroAt)}`
             : f.kind === 'never'
               ? 'Won’t catch up at current rates'
               : f.kind === 'caught-up'

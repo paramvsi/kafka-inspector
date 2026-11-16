@@ -27,7 +27,7 @@ test('formatters', () => {
   expect(formatDelta(-3.1)).toBe('−3.1%');
 });
 
-import { formatClock, formatPct, shownName } from '../src/format';
+import { formatClock, formatPct, formatWhen, shownName } from '../src/format';
 test('more formatters', () => {
   expect(formatBytes(1_250_000_000_000)).toBe('1.3 TB');
   expect(formatCount(2_500_000_000)).toBe('2.5B');
@@ -83,4 +83,10 @@ test('shownName makes bidi overrides and zero-width characters visible; ordinary
   expect(shownName('fraud​scorer')).toBe('fraud\\u{200B}scorer');
   expect(shownName('order-service_v2.east')).toBe('order-service_v2.east');
   expect(shownName('naïve-grüppe')).toBe('naïve-grüppe');
+});
+
+test('formatWhen shows the date when the time is not today', () => {
+  const now = new Date(2026, 10, 17, 10, 0).getTime();
+  expect(formatWhen(new Date(2026, 10, 17, 12, 5).getTime(), now)).toBe('12:05');
+  expect(formatWhen(new Date(2026, 10, 19, 12, 0).getTime(), now)).toBe('19 Nov 12:00');
 });
