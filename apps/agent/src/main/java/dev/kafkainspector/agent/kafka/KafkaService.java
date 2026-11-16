@@ -49,6 +49,9 @@ public class KafkaService implements DisposableBean {
         // read-only: asking for a misspelled topic must never create it (the consumer default is true)
         p.put(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, false);
         p.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafka-inspector-browse");
+        // a tail rechecks its partitions every 30 s from this metadata: the 5-minute default would hide an added
+        // partition (or a deleted topic) for up to 5 minutes
+        p.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, 20_000);
         p.remove(ConsumerConfig.GROUP_ID_CONFIG);
         if (readCommitted) p.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         return new KafkaConsumer<>(p);

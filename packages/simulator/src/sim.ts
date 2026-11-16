@@ -1321,6 +1321,7 @@ export class Simulator {
     // same as the agent (AGENT_API): at most 20 matching topics, results newest first whichever end is read
     const topics = [...this.topics.keys()]
       .filter((n) => re.test(n) && !this.topics.get(n)!.internal)
+      .sort() // by name, as the agent picks them
       .slice(0, 20);
     const limit = Math.min(req.limit ?? 100, 500);
     const out: RawMessage[] = [];

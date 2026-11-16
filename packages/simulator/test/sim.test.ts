@@ -937,3 +937,15 @@ test('a batch that fails part-way leaves nothing behind for later traffic to sho
   }).messages;
   expect(new TextDecoder().decode(new Uint8Array(m!.value!))).not.toBe('1');
 });
+
+test('search reads the first 20 matching topics by name, as the agent does', async () => {
+  const h = make();
+  await h.init();
+  const names = h.sim
+    .listTopics({ size: 500 })
+    .items.map((t) => t.name)
+    .sort()
+    .slice(0, 20);
+  const page = h.sim.search({ topicRegex: '.*', from: 'newest', limit: 500 });
+  expect(page.messages.every((m) => names.includes(m.topic))).toBe(true);
+});

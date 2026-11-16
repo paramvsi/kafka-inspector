@@ -181,7 +181,7 @@ public class MessageService {
 
     public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Map<String, ClusterState.TopicSnap> topics) {
         Pattern p = dev.kafkainspector.agent.api.SafeRegex.compile(topicRegex, 0);
-        List<String> matched = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).limit(20).toList();
+        List<String> matched = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).sorted().limit(20).toList(); // by name: the same 20 as the demo, whatever the map order
         int max = Math.max(1, Math.min(limit, 500));
         List<Dto.RawMessage> out = new ArrayList<>();
         int scanned = 0;
@@ -223,7 +223,8 @@ public class MessageService {
                 long next = System.currentTimeMillis() + 1000;
                 long recheck = System.currentTimeMillis() + 30_000;
                 while (!Thread.currentThread().isInterrupted()) {
-                    // partitions added while tailing join from their end
+                    // partitions added while tailing are new logs: read from their start, or what reached them before
+                    // this check (up to 30 s) would be skipped
                     if (System.currentTimeMillis() >= recheck) {
                         recheck += 30_000;
                         List<TopicPartition> now;
@@ -240,7 +241,7 @@ public class MessageService {
                         if (!added.isEmpty()) {
                             tps.addAll(added);
                             c.assign(tps);
-                            c.seekToEnd(added);
+                            c.seekToBeginning(added);
                             added.forEach(c::position);
                         }
                     }

@@ -1055,4 +1055,25 @@ class AgentIntegrationTest {
         HttpResponse<String> far = send("GET", "/api/clusters/local/topics/orders/messages?from=timestamp&timestamp=%2B999999999-12-31T23:59:59Z&cursor=0:1", null);
         assertTrue(far.statusCode() < 500, () -> far.statusCode() + " " + far.body());
     }
+
+    @Test
+    @Order(51)
+    void aPartitionAddedDuringATailIsReadFromItsStart() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic("grow", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            List<String> got = java.util.Collections.synchronizedList(new ArrayList<>());
+            var ws = openStream(http, "http://localhost:" + port, got, new java.util.concurrent.CountDownLatch(1));
+            ws.sendText("{\"op\":\"tail\",\"id\":\"g\",\"cluster\":\"local\",\"topic\":\"grow\",\"partition\":\"all\",\"maxRate\":50}", true).get(5, TimeUnit.SECONDS);
+            Thread.sleep(2000);
+            admin.createPartitions(Map.of("grow", org.apache.kafka.clients.admin.NewPartitions.increaseTo(2))).all().get(30, TimeUnit.SECONDS);
+            try (KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+                p.send(new ProducerRecord<>("grow", 1, "k", "early-on-p1")).get(10, TimeUnit.SECONDS);
+            }
+            long end = System.currentTimeMillis() + 50_000;
+            while (System.currentTimeMillis() < end && got.stream().noneMatch(x -> x.contains("\"channel\":\"tail\"") && x.contains("\"partition\":1"))) Thread.sleep(500);
+            ws.abort();
+            assertTrue(got.stream().anyMatch(x -> x.contains("\"channel\":\"tail\"") && x.contains("\"partition\":1")), () -> "the new partition's first record was skipped: " + got);
+        }
+    }
 }
