@@ -3,8 +3,6 @@ import {
   applyMasks,
   topicMatches,
   maskEncodedJson,
-  toBase64,
-  toHex,
   cachedLookup,
   decode,
   DEFAULT_MASKS,
@@ -87,9 +85,7 @@ export async function decodeMessage(
   // (A body that fails to decode keeps its raw hex — needed to diagnose it; see DECISIONS.)
   if (value.ok && (value.format === 'hex' || value.format === 'base64') && m.value)
     masked =
-      maskEncodedJson(m.value, value.format, m.topic, rules, { hex: toHex, base64: toBase64 }) ??
-      rawHidden(m.topic, rules) ??
-      masked;
+      maskEncodedJson(m.value, value.format, m.topic, rules) ?? rawHidden(m.topic, rules) ?? masked;
   const headers: Record<string, string> = {};
   for (const h of m.headers) headers[h.key] = td.decode(h.value);
   return {

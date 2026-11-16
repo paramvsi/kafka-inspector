@@ -353,12 +353,11 @@ test('a hex or base64 view of a JSON body does not leak masked fields as bytes',
     },
   ];
   const bytes = new TextEncoder().encode('{"orderId":"o1","email":"secret@example.com"}');
-  const enc = { hex: toHex, base64: toBase64 };
-  const hex = maskEncodedJson(bytes, 'hex', 'orders', rules as never, enc)!;
+  const hex = maskEncodedJson(bytes, 'hex', 'orders', rules as never)!;
   expect(String(hex.value)).not.toContain(toHex(new TextEncoder().encode('secret@example.com')));
-  const b64 = maskEncodedJson(bytes, 'base64', 'orders', rules as never, enc)!;
+  const b64 = maskEncodedJson(bytes, 'base64', 'orders', rules as never)!;
   expect(atob(String(b64.value))).not.toContain('secret@example.com');
   expect(
-    maskEncodedJson(new Uint8Array([0, 1, 2]), 'hex', 'orders', rules as never, enc),
+    maskEncodedJson(new Uint8Array([0, 1, 2]), 'hex', 'orders', rules as never),
   ).toBeUndefined();
 });

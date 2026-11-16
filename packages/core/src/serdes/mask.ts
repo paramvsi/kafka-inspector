@@ -1,3 +1,4 @@
+import { toBase64, toHex } from './decode';
 // Data masking (F-47): applied after decoding, on JSON paths. A display feature, not a security control.
 export interface MaskRule {
   id: string;
@@ -120,10 +121,9 @@ export function maskEncodedJson(
   format: 'hex' | 'base64',
   topic: string,
   rules: MaskRule[],
-  encode: { hex: (b: Uint8Array) => string; base64: (b: Uint8Array) => string },
 ): MaskResult | undefined {
   const r = applyMasks(new TextDecoder().decode(bytes), topic, rules);
   if (!r.applied.length) return undefined;
   const out = new TextEncoder().encode(r.value as string);
-  return { value: encode[format](out), applied: r.applied };
+  return { value: format === 'hex' ? toHex(out) : toBase64(out), applied: r.applied };
 }

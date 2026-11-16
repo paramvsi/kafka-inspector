@@ -54,6 +54,7 @@ import {
   type TopicQuery,
   type TopicSummary,
   type Topology,
+  TOPIC_NAME,
 } from '@ki/core';
 import { checkCompatibility } from '@ki/core/schema-compat';
 import { History } from './history';
@@ -1860,7 +1861,7 @@ export class Simulator {
   }
 
   async createTopic(spec: NewTopic): Promise<void> {
-    if (!/^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/.test(spec.name))
+    if (!TOPIC_NAME.test(spec.name))
       throw new Error(
         'Topic names use letters, digits, ".", "_" and "-" (max 249 characters), and can\'t be "." or "..".',
       );
@@ -1874,7 +1875,8 @@ export class Simulator {
       spec.replicationFactor > online
     )
       throw new Error(`Replication factor must be between 1 and ${online} (brokers online).`);
-    const minIsr = Number(spec.configs?.['min.insync.replicas'] ?? 1);
+    // only an override the user chose is checked: like Kafka, a topic may be created under the cluster default
+    const minIsr = Number(spec.configs?.['min.insync.replicas'] ?? 0);
     if (minIsr > spec.replicationFactor)
       throw new Error(
         `min.insync.replicas (${minIsr}) can't exceed the replication factor (${spec.replicationFactor}): every acks=all write would fail.`,

@@ -1,5 +1,5 @@
 'use client';
-import { formatInt } from '@ki/core';
+import { formatInt, TOPIC_NAME } from '@ki/core';
 import { Button, Dialog, Select, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,7 @@ const RETENTION = [
   { value: '2592000000', label: '30 days' },
   { value: '-1', label: 'Infinite' },
 ];
-const NAME = /^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/; // Kafka refuses "." and ".."
+const NAME = TOPIC_NAME;
 
 export function CreateTopicDialog({
   open,

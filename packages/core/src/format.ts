@@ -100,3 +100,6 @@ export function formatDelta(pct: number): string {
   const v = Math.abs(pct).toFixed(1);
   return pct >= 0 ? `+${v}%` : `−${v}%`;
 }
+
+/** Kafka's topic-name rule: letters, digits, ".", "_", "-", at most 249 characters, and not "." or "..". */
+export const TOPIC_NAME = /^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/;
