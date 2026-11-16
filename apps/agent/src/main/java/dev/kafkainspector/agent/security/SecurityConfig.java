@@ -49,6 +49,16 @@ public class SecurityConfig {
         return f;
     }
 
+    /** A request the firewall refuses (e.g. "%25" or ";" in the path) answers in the API's error envelope, not Boot's. */
+    @Bean
+    org.springframework.security.web.firewall.RequestRejectedHandler requestRejectedHandler() {
+        return (request, response, ex) -> {
+            response.setStatus(400);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":{\"code\":\"BAD_REQUEST\",\"message\":\"The address has characters the agent refuses (such as an encoded % or ;).\",\"details\":{}}}");
+        };
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

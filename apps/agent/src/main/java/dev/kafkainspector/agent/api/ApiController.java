@@ -212,6 +212,15 @@ public class ApiController {
         boolean first = cursor == null || cursor.isBlank();
         if (first && "offset".equals(from) && (offset == null || offset < 0)) throw new IllegalArgumentException("Enter an offset of 0 or more to read from.");
         if (first && "timestamp".equals(from) && (timestamp == null || timestamp.isBlank())) throw new IllegalArgumentException("Pick a date and time to read from.");
+        if (first && "timestamp".equals(from)) {
+            // checked here, before any Kafka call: a bad value is a 400 even while Kafka is down, and a year like
+            // +999999999 (which overflows epoch millis) isn't a 500
+            try {
+                java.time.Instant.parse(timestamp).toEpochMilli();
+            } catch (java.time.format.DateTimeParseException | ArithmeticException e) {
+                throw new IllegalArgumentException("Pick a date and time as an ISO instant, e.g. 2026-11-16T12:00:00Z.");
+            }
+        }
         Map<Integer, Long> groupOffsets = new HashMap<>();
         if (first && "group".equals(from)) {
             if (group == null || group.isBlank()) throw new IllegalArgumentException("Pick a consumer group to read from.");

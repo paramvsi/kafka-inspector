@@ -824,6 +824,23 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(46)
+    void oddRequestsGetTheEnvelope() throws Exception {
+        signIn();
+        // a year that overflows epoch millis: 400, not 500
+        HttpResponse<String> far = send("GET", "/api/clusters/local/topics/orders/messages?from=timestamp&timestamp=%2B999999999-12-31T23:59:59Z", null);
+        assertEquals(400, far.statusCode(), far::body);
+        assertTrue(far.body().contains("\"code\":\"BAD_REQUEST\""), far::body);
+        // the firewall's refusal answers in the API envelope (the web client reads error.code)
+        HttpResponse<String> pct = send("GET", "/api/clusters/local/groups/a%25b", null);
+        assertEquals(400, pct.statusCode(), pct::body);
+        assertTrue(pct.body().contains("\"code\":\"BAD_REQUEST\""), pct::body);
+        // an oversized body is refused before it's read, even on the open sign-in endpoint
+        HttpResponse<String> big = send("POST", "/api/auth/login", "{\"password\":\"" + "x".repeat(1_100_000) + "\"}");
+        assertEquals(413, big.statusCode(), () -> big.statusCode() + " " + big.body().substring(0, Math.min(200, big.body().length())));
+    }
+
+    @Test
     @Order(45)
     void theLagStreamMatchesTheGroupsEndpointAndAnUnknownChannelIsAnError() throws Exception {
         signIn();
