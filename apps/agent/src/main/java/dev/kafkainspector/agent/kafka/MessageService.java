@@ -237,6 +237,9 @@ public class MessageService {
                 }
             } catch (org.apache.kafka.common.errors.InterruptException e) {
                 // stopped
+            } catch (org.apache.kafka.clients.consumer.OffsetOutOfRangeException e) {
+                // the offsets being read are gone: the topic was deleted and re-created, or retention removed them
+                onError.accept("Topic " + topic + " was deleted and re-created, or retention removed the messages being read. The live tail stopped; start it again.");
             } catch (RuntimeException e) {
                 Throwable r = e;
                 while (r.getCause() != null) r = r.getCause();

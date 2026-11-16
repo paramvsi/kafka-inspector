@@ -111,10 +111,10 @@ public class AlertService {
      */
     private record Hit(String target, String title, String evidence, String href) {
         Hit {
-            target = cut(target, 300);
-            title = cut(title, 400);
+            target = cut(target, 2000);
+            title = cut(title, 2000);
             evidence = cut(evidence, 400);
-            if (href.length() > 400) href = "/app/";
+            if (href.length() > 2000) href = "/app/";
         }
     }
 

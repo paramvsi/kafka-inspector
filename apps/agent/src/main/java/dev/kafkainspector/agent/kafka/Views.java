@@ -192,9 +192,10 @@ public final class Views {
     private static String since(ClusterState s, String groupId, String status, String now) {
         ClusterState.GroupSnap g = s.groups.get(groupId);
         if (g == null) return now;
-        if (status.equals("stopped") && g.lastCommitAt > 0) return iso(g.lastCommitAt);
-        if (status.equals("stalled")) {
-            long frozen = g.partStatus.entrySet().stream().filter(e -> e.getValue() == Lag.Status.stalled)
+        // the onset is when the partitions with that status last moved (another partition may still be moving)
+        if (status.equals("stalled") || status.equals("stopped")) {
+            Lag.Status want = Lag.Status.valueOf(status);
+            long frozen = g.partStatus.entrySet().stream().filter(e -> e.getValue() == want)
                     .mapToLong(e -> s.lastChange.getOrDefault(groupId + "|" + e.getKey(), 0L)).filter(x -> x > 0).min().orElse(0);
             if (frozen > 0) return iso(frozen);
         }
@@ -210,7 +211,7 @@ public final class Views {
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
             String detail = String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
-            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), now), "/app/groups/view/?id=" + g.groupId(), "Investigate " + g.groupId()));
+            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), now), "/app/groups/view/?id=" + java.net.URLEncoder.encode(g.groupId(), java.nio.charset.StandardCharsets.UTF_8), "Investigate " + g.groupId()));
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (t.internal) continue;

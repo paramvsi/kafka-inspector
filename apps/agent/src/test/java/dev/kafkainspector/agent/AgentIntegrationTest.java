@@ -387,6 +387,32 @@ class AgentIntegrationTest {
         Integer n = 0;
         while (System.currentTimeMillis() < until && (n = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE rule_id = 'r-long' AND target LIKE 'ggggg%' AND state = 'firing'", Integer.class)) == 0) Thread.sleep(1000);
         assertEquals(1, n, "no alert for the group with a 500-character id");
+        // its history is stored, and a rule can be scoped to it
+        until = System.currentTimeMillis() + 15_000;
+        Integer h = 0;
+        while (System.currentTimeMillis() < until && (h = jdbc.queryForObject("SELECT COUNT(*) FROM metric_sample WHERE skey LIKE 'ggggg%'", Integer.class)) == 0) Thread.sleep(1000);
+        assertTrue(h > 0, "no history for the group with a 500-character id");
+        signIn();
+        String rule = "{\"name\":\"long\",\"metric\":\"lag\",\"scope\":{\"kind\":\"specific\",\"target\":\"" + longId + "\"},\"threshold\":1,\"durationSec\":0,\"severity\":\"warn\",\"channels\":[\"in-app\"],\"enabled\":false}";
+        HttpResponse<String> r = send("POST", "/api/alerts/rules", rule);
+        assertEquals(200, r.statusCode(), r::body);
+    }
+
+    @Test
+    @Order(37)
+    void attentionLinksEncodeGroupIds() throws Exception {
+        signIn();
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "q&a+b", "key.deserializer", StringDeserializer.class.getName(), "value.deserializer", StringDeserializer.class.getName(), ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"))) {
+            c.commitSync(Map.of(new org.apache.kafka.common.TopicPartition("orders", 0), new OffsetAndMetadata(0)));
+        }
+        long until = System.currentTimeMillis() + 40_000;
+        String href = null;
+        while (System.currentTimeMillis() < until && href == null) {
+            for (JsonNode a : get("/api/clusters/local/overview").path("attention"))
+                if (a.path("id").asString().equals("group-q&a+b")) href = a.path("href").asString();
+            if (href == null) Thread.sleep(1000);
+        }
+        assertEquals("/app/groups/view/?id=q%26a%2Bb", href);
     }
 
     @Test
