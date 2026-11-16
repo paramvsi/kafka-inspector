@@ -1,0 +1,2 @@
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  dev.kafkainspector.agent.config.ConfigErrorAnalyzer
