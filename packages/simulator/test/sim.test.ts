@@ -949,3 +949,28 @@ test('search reads the first 20 matching topics by name, as the agent does', asy
   const page = h.sim.search({ topicRegex: '.*', from: 'newest', limit: 500 });
   expect(page.messages.every((m) => names.includes(m.topic))).toBe(true);
 });
+
+test('a tab asleep for two hours wakes without a lag jump from one giant step', async () => {
+  let worst = 0;
+  for (let i = 0; i < 16; i++) {
+    let now = LOAD;
+    const sim = new Simulator({ store: new MemoryStore(), now: () => now });
+    await sim.init();
+    const before = sim.getOverview().groups.find((g) => g.groupId === 'payments-sink')!.totalLag;
+    now += 2 * 3600e3 + i * 60_000; // wake at a different point of the 16-minute dip cycle each time
+    sim.tick(now);
+    const after = sim.getOverview().groups.find((g) => g.groupId === 'payments-sink')!.totalLag;
+    worst = Math.max(worst, after - before);
+  }
+  expect(worst).toBeLessThan(200_000);
+});
+
+test('a deleted group leaves no topology edge behind', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'crash-consumer', target: 'fraud-scorer' });
+  await h.sim.deleteGroup('fraud-scorer');
+  const t = h.sim.getTopology();
+  const ids = new Set(t.nodes.map((n) => n.id));
+  expect(t.edges.filter((e) => !ids.has(e.from) || !ids.has(e.to))).toEqual([]);
+});

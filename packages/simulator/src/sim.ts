@@ -416,10 +416,14 @@ export class Simulator {
   tick(now = this.now()): void {
     const gap = now - this.lastTick;
     if (gap <= 0) return;
-    // A sleeping tab can come back minutes later: catch up in 1 s steps (cap 120), then one big step.
+    // A sleeping tab can come back hours later: catch up in 1 s steps (up to 2 min), then 60 s steps, like
+    // the back-fill. One giant step would sample the payments-sink dip once for the whole gap (a lag jump of
+    // ~1M that takes a day to drain) and leave a straight line across the history.
+    // ponytail: a week asleep is ~10k steps; cap the replay if that ever shows
     if (gap > 2000) {
       const steps = Math.min(120, Math.floor(gap / 1000) - 1);
       for (let i = 1; i <= steps; i++) this.step(this.lastTick + 1000);
+      while (now - this.lastTick > 60_000) this.step(this.lastTick + 60_000);
     }
     this.step(now);
     this.tickCount++;
@@ -1507,7 +1511,10 @@ export class Simulator {
       });
       const isDlq = def.name.endsWith('.dlq');
       if (isDlq) {
-        edges.push({ from: `group:${def.producer}`, to: `topic:${def.name}`, rate, kind: 'dlq' });
+        const g = this.groups.get(def.producer!);
+        // a deleted group has no node: its DLQ edge would dangle
+        if (g && !g.deleted)
+          edges.push({ from: `group:${def.producer}`, to: `topic:${def.name}`, rate, kind: 'dlq' });
       } else {
         producers.add(def.producer!);
         edges.push({
