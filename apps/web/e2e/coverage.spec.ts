@@ -915,3 +915,42 @@ test('the scanned count adds up across Load more pages', async ({ page }) => {
   await expect(page.getByText(/^200 messages/)).toBeVisible({ timeout: 15_000 });
   expect(await scanned()).toBeGreaterThan(before);
 });
+
+test('a DLQ rule carries no hidden threshold from the lag default', async ({ page }) => {
+  await page.goto('/app/alerts/?tab=rules');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog', { name: 'New alert rule' });
+  await d.getByLabel('Metric').selectOption('dlq-receiving');
+  await d.getByLabel('Name').fill('dlq-check');
+  await d.getByRole('button', { name: 'Create rule' }).click();
+  await expect(d).toHaveCount(0);
+  // read the saved rule from the simulator's IndexedDB
+  const threshold = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const open = indexedDB.open('kafka-inspector-demo');
+        open.onsuccess = () => {
+          const get = open.result.transaction('kv').objectStore('kv').get('rules');
+          get.onsuccess = () =>
+            resolve(
+              (get.result.v as Array<{ name: string; threshold?: number }>).find(
+                (r) => r.name === 'dlq-check',
+              )?.threshold ?? null,
+            );
+        };
+      }),
+  );
+  expect(threshold).toBeNull();
+});
+
+test('turning Live tail off and on again starts a running tail, not a paused one', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await page.getByLabel('Live tail').click();
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+  await page.getByLabel('Live tail').click();
+  await page.getByLabel('Live tail').click();
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+});

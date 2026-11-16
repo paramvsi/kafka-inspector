@@ -336,9 +336,11 @@ function RuleDialog({
     meta.unit && (!thresholdText.trim() || !Number.isFinite(thresholdValue) || thresholdValue < 0)
       ? 'Enter a number of 0 or more.'
       : undefined;
+  // a metric without a threshold field (e.g. DLQ receiving) carries none, not a hidden leftover 5000
+  const input: typeof r = meta.unit ? r : { ...r, threshold: undefined };
   const preview = useKafkaQuery(
-    ['rule-preview', r.metric, JSON.stringify(r.scope), r.threshold, r.durationSec],
-    (c) => c.previewAlertRule?.(r) ?? Promise.resolve({ firings: 0 }),
+    ['rule-preview', input.metric, JSON.stringify(input.scope), input.threshold, input.durationSec],
+    (c) => c.previewAlertRule?.(input) ?? Promise.resolve({ firings: 0 }),
     false,
   );
   const target = r.scope.kind === 'specific' ? r.scope.target : undefined;
@@ -383,7 +385,7 @@ function RuleDialog({
 
   const save = async () => {
     try {
-      await client.saveAlertRule(r);
+      await client.saveAlertRule(input);
       await qc.invalidateQueries({ queryKey: [clusterId, 'alert-rules'] });
       toast({ tone: 'ok', title: rule ? `Saved “${r.name}”` : `Created “${r.name}”` });
       onClose();

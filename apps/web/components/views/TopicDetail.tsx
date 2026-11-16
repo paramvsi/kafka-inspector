@@ -144,7 +144,9 @@ export function TopicDetailView() {
       {/* keyed by topic: no edit dialog or drafts carry over from the previous topic */}
       {tab === 'config' && <ConfigTab key={name} name={name} />}
       {d && tab === 'schema' && <SchemaTab d={d} />}
-      {tab === 'messages' && <MessagesTab topic={name} partitions={d?.partitions.length ?? 0} />}
+      {tab === 'messages' && (
+        <MessagesTab key={name} topic={name} partitions={d?.partitions.length ?? 0} />
+      )}
       <ProduceDrawer
         topic={name}
         partitions={d?.partitions.length ?? 1}

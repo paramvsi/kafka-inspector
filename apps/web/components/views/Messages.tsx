@@ -134,6 +134,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   useEffect(() => {
     setRing([]);
     setTailError(undefined);
+    setPaused(false); // a new tail runs; only Resume continues a paused one
+    setUnseen(0);
   }, [live, topic, p]);
   useEffect(() => {
     if (!live || paused) return;

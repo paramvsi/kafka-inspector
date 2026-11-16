@@ -1,4 +1,5 @@
 'use client';
+import { pickVersions } from '../../lib/versions';
 import {
   checkCompatibility,
   diffFields,
@@ -74,13 +75,7 @@ export function SchemasView() {
   const subject = url.get('subject') ?? subjects.data?.[0]?.subject;
   const s = subjects.data?.find((x) => x.subject === subject);
   const latest = s?.latestVersion ?? 1;
-  // a version outside 1..latest (or not a number) in the link falls back to the default pair
-  const version = (v: string | undefined, fallback: number) => {
-    const n = Number(v);
-    return Number.isInteger(n) && n >= 1 && n <= latest ? n : fallback;
-  };
-  const to = version(url.get('to'), latest);
-  const from = version(url.get('from'), Math.max(1, to - 1));
+  const [from, to] = pickVersions(s?.versions ?? [latest], url.get('to'), url.get('from'));
   const versions = useKafkaQuery(
     ['schema-pair', subject, from, to],
     async (c, id) =>
