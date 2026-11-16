@@ -23,6 +23,7 @@ public class Clusters {
         if (props.adminPassword() == null || props.adminPassword().isBlank()) {
             throw new IllegalStateException("KI_ADMIN_PASSWORD is required. Set it to the password you will use to sign in as admin.");
         }
+        checkPasswordLength(props.adminPassword());
         if (!props.readOnly()) {
             throw new IllegalStateException("KI_READ_ONLY=false is not supported in this version: the agent is read-only. Remove the variable to start.");
         }
@@ -140,5 +141,11 @@ public class Clusters {
             super(message);
             this.code = code;
         }
+    }
+
+    /** bcrypt hashes at most 72 bytes and Spring Security refuses longer input: say so by name, not with a stack trace. */
+    public static void checkPasswordLength(String password) {
+        if (password != null && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
+            throw new IllegalStateException("KI_ADMIN_PASSWORD is longer than 72 bytes, which bcrypt can't hash. Use a shorter password (72 bytes; fewer characters if it has non-ASCII ones).");
     }
 }

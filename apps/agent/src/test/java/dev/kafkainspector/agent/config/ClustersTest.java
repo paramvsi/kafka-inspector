@@ -70,4 +70,11 @@ class ClustersTest {
         assertTrue(msg.contains("KI_CLUSTERS_n_SCHEMA_REGISTRY"), msg);
         assertFalse(msg.contains("s3cret"), msg);
     }
+
+    @Test
+    void anAdminPasswordOverBcryptsLimitStopsStartupNamingTheVariable() {
+        var c = c("a", "PLAINTEXT", null);
+        String msg = assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("p".repeat(80), true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage();
+        assertTrue(msg.contains("KI_ADMIN_PASSWORD"), msg);
+    }
 }

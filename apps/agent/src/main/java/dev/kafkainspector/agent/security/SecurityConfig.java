@@ -65,6 +65,7 @@ public class SecurityConfig {
     @Bean
     AdminCredentials adminCredentials(KiProperties props, PasswordEncoder encoder) {
         // only a hash is kept in memory; the plain password is never logged
+        dev.kafkainspector.agent.config.Clusters.checkPasswordLength(props.adminPassword()); // this bean may be built first
         return new AdminCredentials("admin", encoder.encode(props.adminPassword()));
     }
 
