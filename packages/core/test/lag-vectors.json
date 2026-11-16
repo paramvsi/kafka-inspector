@@ -163,7 +163,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "caught-up"
+        "kind": "caught-up",
+        "consumeRate": 100,
+        "produceRate": 100
       }
     }
   },
@@ -213,7 +215,9 @@
       "status": "healthy",
       "forecast": {
         "kind": "eta",
-        "seconds": 120
+        "seconds": 120,
+        "consumeRate": 150,
+        "produceRate": 100
       }
     }
   },
@@ -262,7 +266,9 @@
     "expect": {
       "status": "warn",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 80,
+        "produceRate": 100
       }
     }
   },
@@ -311,7 +317,9 @@
     "expect": {
       "status": "warn",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 83.33333333333333,
+        "produceRate": 100
       }
     }
   },
@@ -360,7 +368,9 @@
     "expect": {
       "status": "stalled",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 100
       }
     }
   },
@@ -409,7 +419,9 @@
     "expect": {
       "status": "stopped",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 100
       }
     }
   },
@@ -458,7 +470,9 @@
     "expect": {
       "status": "stopped",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 0
       }
     }
   },
@@ -507,7 +521,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "caught-up"
+        "kind": "caught-up",
+        "consumeRate": 0,
+        "produceRate": 0
       }
     }
   },
@@ -556,7 +572,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 5
       }
     }
   },
@@ -605,7 +623,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "caught-up"
+        "kind": "caught-up",
+        "consumeRate": 100,
+        "produceRate": 100
       }
     }
   },
@@ -654,7 +674,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 100,
+        "produceRate": 100
       }
     }
   },
@@ -703,7 +725,9 @@
     "expect": {
       "status": "stalled",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 50
       }
     }
   },
@@ -867,7 +891,9 @@
     "expect": {
       "status": "warn",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 90,
+        "produceRate": 100
       }
     }
   },
@@ -916,7 +942,9 @@
     "expect": {
       "status": "stalled",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 0,
+        "produceRate": 10
       }
     }
   },
@@ -965,7 +993,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "caught-up"
+        "kind": "caught-up",
+        "consumeRate": 0,
+        "produceRate": 0
       }
     }
   },
@@ -1014,7 +1044,9 @@
     "expect": {
       "status": "healthy",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 10,
+        "produceRate": 15.833333333333334
       }
     }
   },
@@ -1064,7 +1096,9 @@
       "status": "healthy",
       "forecast": {
         "kind": "eta",
-        "seconds": 9940.0
+        "seconds": 9940,
+        "consumeRate": 20,
+        "produceRate": 10
       }
     }
   },
@@ -1113,7 +1147,9 @@
     "expect": {
       "status": "warn",
       "forecast": {
-        "kind": "never"
+        "kind": "never",
+        "consumeRate": 30,
+        "produceRate": 31.666666666666668
       }
     }
   },
@@ -1163,7 +1199,9 @@
       "status": "healthy",
       "forecast": {
         "kind": "eta",
-        "seconds": 119.99999999999999
+        "seconds": 119.99999999999999,
+        "consumeRate": 40,
+        "produceRate": 23.333333333333332
       }
     }
   }

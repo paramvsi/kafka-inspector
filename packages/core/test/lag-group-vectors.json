@@ -1,0 +1,156 @@
+{
+  "rollup": [
+    {
+      "statuses": [],
+      "expect": "unknown"
+    },
+    {
+      "statuses": ["healthy", "healthy"],
+      "expect": "healthy"
+    },
+    {
+      "statuses": ["healthy", "warn"],
+      "expect": "warn"
+    },
+    {
+      "statuses": ["warn", "stalled", "healthy"],
+      "expect": "stalled"
+    },
+    {
+      "statuses": ["stalled", "stopped"],
+      "expect": "stopped"
+    },
+    {
+      "statuses": ["unknown", "healthy"],
+      "expect": "healthy"
+    },
+    {
+      "statuses": ["unknown"],
+      "expect": "unknown"
+    }
+  ],
+  "combine": [
+    {
+      "name": "all unknown",
+      "parts": [
+        {
+          "lag": 5,
+          "forecast": {
+            "kind": "unknown"
+          }
+        }
+      ],
+      "expect": {
+        "kind": "unknown"
+      }
+    },
+    {
+      "name": "caught up, unknown ignored",
+      "parts": [
+        {
+          "lag": 0,
+          "forecast": {
+            "kind": "caught-up",
+            "consumeRate": 10,
+            "produceRate": 10
+          }
+        },
+        {
+          "lag": 9,
+          "forecast": {
+            "kind": "unknown"
+          }
+        }
+      ],
+      "expect": {
+        "kind": "caught-up",
+        "consumeRate": 10,
+        "produceRate": 10
+      }
+    },
+    {
+      "name": "slowest partition wins",
+      "parts": [
+        {
+          "lag": 100,
+          "forecast": {
+            "kind": "eta",
+            "seconds": 30,
+            "consumeRate": 20,
+            "produceRate": 10
+          }
+        },
+        {
+          "lag": 50,
+          "forecast": {
+            "kind": "eta",
+            "seconds": 90,
+            "consumeRate": 5,
+            "produceRate": 4
+          }
+        }
+      ],
+      "expect": {
+        "kind": "eta",
+        "seconds": 90,
+        "consumeRate": 25,
+        "produceRate": 14
+      }
+    },
+    {
+      "name": "one never with lag",
+      "parts": [
+        {
+          "lag": 100,
+          "forecast": {
+            "kind": "eta",
+            "seconds": 30,
+            "consumeRate": 20,
+            "produceRate": 10
+          }
+        },
+        {
+          "lag": 1,
+          "forecast": {
+            "kind": "never",
+            "consumeRate": 0,
+            "produceRate": 3
+          }
+        }
+      ],
+      "expect": {
+        "kind": "never",
+        "consumeRate": 20,
+        "produceRate": 13
+      }
+    },
+    {
+      "name": "never without lag is not never",
+      "parts": [
+        {
+          "lag": 100,
+          "forecast": {
+            "kind": "eta",
+            "seconds": 30,
+            "consumeRate": 20,
+            "produceRate": 10
+          }
+        },
+        {
+          "lag": 0,
+          "forecast": {
+            "kind": "never",
+            "consumeRate": 0,
+            "produceRate": 0
+          }
+        }
+      ],
+      "expect": {
+        "kind": "eta",
+        "seconds": 30,
+        "consumeRate": 20,
+        "produceRate": 10
+      }
+    }
+  ]
+}

@@ -8,6 +8,8 @@ import {
   rollupStatus,
   type LagSample,
 } from '../src/lag';
+import type { LagStatus } from '../src/types';
+import group from './lag-group-vectors.json';
 import vectors from './lag-vectors.json';
 
 type Vector = {
@@ -16,7 +18,10 @@ type Vector = {
   lastCommitAt: number | null;
   now: number;
   windowMs: number;
-  expect: { status: string; forecast: { kind: string; seconds?: number } };
+  expect: {
+    status: string;
+    forecast: { kind: string; seconds?: number; consumeRate?: number; produceRate?: number };
+  };
 };
 
 describe('lag vectors (shared with the Java agent)', () => {
@@ -35,7 +40,17 @@ describe('lag vectors (shared with the Java agent)', () => {
     expect(f.kind).toBe(v.expect.forecast.kind);
     if (v.expect.forecast.seconds !== undefined)
       expect(f.seconds).toBeCloseTo(v.expect.forecast.seconds, 3);
+    for (const k of ['consumeRate', 'produceRate'] as const)
+      if (v.expect.forecast[k] !== undefined) expect(f[k]).toBeCloseTo(v.expect.forecast[k]!, 6);
   });
+
+  test.each(group.rollup.map((r) => [r.statuses.join(',') || '(none)', r] as const))(
+    'rollup %s',
+    (_n, r) => expect(rollupStatus(r.statuses as LagStatus[])).toBe(r.expect),
+  );
+  test.each(group.combine.map((c) => [c.name, c] as const))('combine: %s', (_n, c) =>
+    expect(combineForecasts(c.parts as never)).toEqual(c.expect),
+  );
 });
 
 test('group roll-up: stopped > stalled > warn > healthy; unknown only when nothing else', () => {

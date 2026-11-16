@@ -92,8 +92,8 @@ describe('auto-detect order: registry header → JSON → text → hex', () => {
 });
 
 describe('decode errors are values with annotated hex (F-46)', () => {
-  test('unknown schema id', async () => {
-    const r = await decode(frame(131, Uint8Array.of(1, 2)), 'auto', lookup);
+  test('unknown schema id (Avro chosen)', async () => {
+    const r = await decode(frame(131, Uint8Array.of(1, 2)), 'avro', lookup);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.detail).toContain('schema id 131');
@@ -115,7 +115,7 @@ describe('decode errors are values with annotated hex (F-46)', () => {
     expect(r).toMatchObject({ schema: { id: 112 } });
   });
   test('an unknown id carries no schema', async () => {
-    const r = await decode(frame(131, Uint8Array.of(1, 2)), 'auto', lookup);
+    const r = await decode(frame(131, Uint8Array.of(1, 2)), 'avro', lookup);
     expect(r).not.toHaveProperty('schema');
   });
   test('short buffer with magic byte falls back to content detection; forced Avro explains the header', async () => {
@@ -366,4 +366,9 @@ test('a hex or base64 view of a JSON body does not leak masked fields as bytes',
   expect(
     maskEncodedJson(new Uint8Array([0, 1, 2]), 'hex', 'orders', rules as never),
   ).toBeUndefined();
+});
+
+test('with a Schema Registry, auto still shows an int64 key (leading 0x00, unknown id) as data', async () => {
+  const int64Key = Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 5);
+  expect(await decode(int64Key, 'auto', lookup)).toMatchObject({ ok: true, format: 'hex' });
 });

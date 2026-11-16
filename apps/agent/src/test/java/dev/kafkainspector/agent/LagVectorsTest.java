@@ -29,9 +29,40 @@ class LagVectorsTest {
                 assertEquals(v.path("expect").path("status").asString(), Lag.evaluate(samples, lastCommitAt, v.path("now").asLong(), v.path("windowMs").asLong()).name());
                 Lag.Forecast f = Lag.forecast(samples);
                 assertEquals(v.path("expect").path("forecast").path("kind").asString(), f.kind());
-                if (v.path("expect").path("forecast").has("seconds")) assertEquals(v.path("expect").path("forecast").path("seconds").asDouble(), f.seconds(), 1e-3);
+                JsonNode ef = v.path("expect").path("forecast");
+                if (ef.has("seconds")) assertEquals(ef.path("seconds").asDouble(), f.seconds(), 1e-3);
+                if (ef.has("consumeRate")) assertEquals(ef.path("consumeRate").asDouble(), f.consumeRate(), 1e-6);
+                if (ef.has("produceRate")) assertEquals(ef.path("produceRate").asDouble(), f.produceRate(), 1e-6);
+            }));
+        }
+        // group roll-up and combined forecast (lag-group-vectors.json, next to the partition vectors)
+        JsonNode group = JsonMapper.builder().build().readTree(Files.readString(file.resolveSibling("lag-group-vectors.json")));
+        for (JsonNode r : group.path("rollup")) {
+            tests.add(DynamicTest.dynamicTest("rollup " + r.path("statuses"), () -> {
+                List<Lag.Status> st = new ArrayList<>();
+                for (JsonNode s : r.path("statuses")) st.add(Lag.Status.valueOf(s.asString()));
+                assertEquals(r.path("expect").asString(), Lag.rollup(st).name());
+            }));
+        }
+        for (JsonNode c : group.path("combine")) {
+            tests.add(DynamicTest.dynamicTest("combine: " + c.path("name").asString(), () -> {
+                List<Lag.Part> parts = new ArrayList<>();
+                for (JsonNode p : c.path("parts")) parts.add(new Lag.Part(p.path("lag").asLong(), forecastOf(p.path("forecast"))));
+                Lag.Forecast got = Lag.combine(parts), want = forecastOf(c.path("expect"));
+                assertEquals(want.kind(), got.kind());
+                assertEquals(want.seconds(), got.seconds());
+                assertEquals(want.consumeRate(), got.consumeRate());
+                assertEquals(want.produceRate(), got.produceRate());
             }));
         }
         return tests.stream();
+    }
+
+    private static Lag.Forecast forecastOf(JsonNode f) {
+        return new Lag.Forecast(f.path("kind").asString(), num(f, "seconds"), num(f, "consumeRate"), num(f, "produceRate"));
+    }
+
+    private static Double num(JsonNode f, String k) {
+        return f.has(k) ? f.path(k).asDouble() : null;
     }
 }

@@ -358,8 +358,12 @@ export async function decode(
         return fail(bytes, 'Text', "Couldn't decode as text", 'The bytes are not valid UTF-8.');
       }
     case 'auto': {
-      // without a registry a leading 0x00 is just data (e.g. an int64 key 00 00 … 05)
-      if (lookup && bytes.length >= 5 && bytes[0] === 0) return viaRegistry(bytes, lookup);
+      // a leading 0x00 is a registry frame only if the registry knows the id; otherwise it's just data
+      // (e.g. an int64 key 00 00 … 05). Choosing Avro explicitly still explains the unknown id.
+      if (lookup && bytes.length >= 5 && bytes[0] === 0) {
+        const r = await viaRegistry(bytes, lookup);
+        if (r.ok || r.schema) return r;
+      }
       let s: string;
       try {
         s = utf8.decode(bytes);

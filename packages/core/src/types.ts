@@ -52,7 +52,14 @@ export interface Forecast {
 }
 
 export interface HealthFinding {
-  id: 'offline' | 'rf1' | 'low-min-isr' | 'no-consumers' | 'infinite-retention' | 'skew' | 'disk-fill';
+  id:
+    | 'offline'
+    | 'rf1'
+    | 'low-min-isr'
+    | 'no-consumers'
+    | 'infinite-retention'
+    | 'skew'
+    | 'disk-fill';
   severity: 'warn' | 'crit' | 'info';
   message: string;
   fix: string;
