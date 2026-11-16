@@ -376,6 +376,20 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(32)
+    void aGroupIdLongerThanTheAlertColumnsStillGetsItsAlert() throws Exception {
+        String longId = "g".repeat(500);
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", longId, "key.deserializer", StringDeserializer.class.getName(), "value.deserializer", StringDeserializer.class.getName(), ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"))) {
+            c.commitSync(Map.of(new org.apache.kafka.common.TopicPartition("orders", 0), new OffsetAndMetadata(0)));
+        }
+        jdbc.update("INSERT INTO alert_rule VALUES ('r-long', 'long ids', 'group-status', 'any', NULL, NULL, 0, 'warn', 'in-app', TRUE, FALSE, FALSE)");
+        long until = System.currentTimeMillis() + 45_000;
+        Integer n = 0;
+        while (System.currentTimeMillis() < until && (n = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE rule_id = 'r-long' AND target LIKE 'ggggg%' AND state = 'firing'", Integer.class)) == 0) Thread.sleep(1000);
+        assertEquals(1, n, "no alert for the group with a 500-character id");
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AlertService {
     private static final Set<String> METRICS = Set.of("lag", "group-status", "topic-silent", "under-replicated", "broker-offline", "dlq-receiving");
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AlertService.class);
     private final JdbcTemplate jdbc;
     private final Map<String, Long> pending = new ConcurrentHashMap<>();
 
@@ -104,7 +105,26 @@ public class AlertService {
         return Instant.ofEpochMilli(t).toString();
     }
 
-    private record Hit(String target, String title, String evidence, String href) {}
+    /**
+     * Group ids come from anyone who can join a group on the cluster: values are cut to their columns (an
+     * over-long one must not fail the insert and silence alerting) and names in links are URL-encoded.
+     */
+    private record Hit(String target, String title, String evidence, String href) {
+        Hit {
+            target = cut(target, 300);
+            title = cut(title, 400);
+            evidence = cut(evidence, 400);
+            if (href.length() > 400) href = "/app/";
+        }
+    }
+
+    private static String cut(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
+    }
+
+    private static String enc(String s) {
+        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    }
 
     private List<Hit> conditions(Rule r, ClusterState s, long now) {
         List<Hit> out = new ArrayList<>();
@@ -114,12 +134,12 @@ public class AlertService {
             case "lag" -> s.groups.values().forEach(g -> {
                 long lag = Views.groupLag(s, g);
                 if (!g.type.equals("share") && !g.members.isEmpty() && inScope.test(g.groupId) && lag > threshold) {
-                    out.add(new Hit(g.groupId, g.groupId + " lag above " + String.format("%,d", (long) threshold), String.format("%,d behind", lag), "/app/groups/view/?id=" + g.groupId));
+                    out.add(new Hit(g.groupId, g.groupId + " lag above " + String.format("%,d", (long) threshold), String.format("%,d behind", lag), "/app/groups/view/?id=" + enc(g.groupId)));
                 }
             });
             case "group-status" -> s.groups.values().forEach(g -> {
                 if (inScope.test(g.groupId) && (g.status == Lag.Status.stalled || g.status == Lag.Status.stopped)) {
-                    out.add(new Hit(g.groupId, g.groupId + " " + g.status, String.format("%,d behind", Views.groupLag(s, g)), "/app/groups/view/?id=" + g.groupId));
+                    out.add(new Hit(g.groupId, g.groupId + " " + g.status, String.format("%,d behind", Views.groupLag(s, g)), "/app/groups/view/?id=" + enc(g.groupId)));
                 }
             });
             case "under-replicated" -> {
@@ -133,12 +153,12 @@ public class AlertService {
                 long last = t.partitions.stream().mapToLong(p -> p.lastMessageAt).max().orElse(0);
                 boolean consumed = s.groups.values().stream().anyMatch(g -> g.committed.containsKey(t.name));
                 if (!t.internal && consumed && inScope.test(t.name) && last > 0 && now - last > r.durationSec() * 1000L) {
-                    out.add(new Hit(t.name, t.name + " is silent", "No messages for " + ((now - last) / 60000) + " min", "/app/topics/view/?name=" + t.name));
+                    out.add(new Hit(t.name, t.name + " is silent", "No messages for " + ((now - last) / 60000) + " min", "/app/topics/view/?name=" + enc(t.name)));
                 }
             });
             case "dlq-receiving" -> s.topics.values().forEach(t -> {
                 if ((t.name.endsWith(".dlq") || t.name.endsWith("-dlq")) && inScope.test(t.name) && t.rate() > threshold) {
-                    out.add(new Hit(t.name, t.name + " is receiving messages", String.format("%.1f/s", t.rate()), "/app/topics/view/?name=" + t.name + "&tab=messages"));
+                    out.add(new Hit(t.name, t.name + " is receiving messages", String.format("%.1f/s", t.rate()), "/app/topics/view/?name=" + enc(t.name) + "&tab=messages"));
                 }
             });
             default -> {
@@ -173,12 +193,16 @@ public class AlertService {
                 String k = cid + "|" + r.id() + "|" + h.target();
                 active.add(k);
                 pending.putIfAbsent(k, now);
-                List<String> firing = jdbc.queryForList("SELECT id FROM alert_event WHERE cluster = ? AND rule_id = ? AND target = ? AND state = 'firing'", String.class, cid, r.id(), h.target());
-                if (!firing.isEmpty()) {
-                    jdbc.update("UPDATE alert_event SET title = ?, evidence = ? WHERE id = ?", h.title(), h.evidence(), firing.get(0));
-                } else if (!Boolean.TRUE.equals(r.muted()) && ("topic-silent".equals(r.metric()) || now - pending.get(k) >= r.durationSec() * 1000L)) {
-                    String id = "al_" + Long.toString(now, 36) + Integer.toString(Math.abs(k.hashCode()), 36);
-                    jdbc.update("INSERT INTO alert_event VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", id, cid, r.id(), r.severity(), h.title(), h.evidence(), h.target(), h.href(), "firing", now, null, null, false);
+                try { // one hit that can't be stored must not stop the other hits and rules
+                    List<String> firing = jdbc.queryForList("SELECT id FROM alert_event WHERE cluster = ? AND rule_id = ? AND target = ? AND state = 'firing'", String.class, cid, r.id(), h.target());
+                    if (!firing.isEmpty()) {
+                        jdbc.update("UPDATE alert_event SET title = ?, evidence = ? WHERE id = ?", h.title(), h.evidence(), firing.get(0));
+                    } else if (!Boolean.TRUE.equals(r.muted()) && ("topic-silent".equals(r.metric()) || now - pending.get(k) >= r.durationSec() * 1000L)) {
+                        String id = "al_" + Long.toString(now, 36) + Integer.toString(Math.abs(k.hashCode()), 36);
+                        jdbc.update("INSERT INTO alert_event VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", id, cid, r.id(), r.severity(), h.title(), h.evidence(), h.target(), h.href(), "firing", now, null, null, false);
+                    }
+                } catch (RuntimeException e) {
+                    log.warn("Alert rule {}: couldn't record {}: {}", r.id(), h.target(), e.getMessage());
                 }
             }
             for (String target : jdbc.queryForList("SELECT target FROM alert_event WHERE cluster = ? AND rule_id = ? AND state = 'firing'", String.class, cid, r.id())) {
