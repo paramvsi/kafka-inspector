@@ -202,7 +202,7 @@ public class Sampler {
                 ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
                 // any change counts as activity: a deleted and re-created topic restarts below the old end
                 ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high != pp.high ? now : pp.lastMessageAt;
-                ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? 0 : pp.sizeBytes);
+                ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? -1 : pp.sizeBytes);
                 if (pp != null && pp.isr.size() != ps.isr.size()) {
                     boolean shrink = ps.isr.size() < pp.isr.size();
                     event(s, now, shrink ? "isr-shrink" : "isr-expand", shrink ? "warn" : "info", (shrink ? "ISR shrank on " : "ISR expanded on ") + d.name() + "-" + p.partition(), "ISR " + ps.isr);

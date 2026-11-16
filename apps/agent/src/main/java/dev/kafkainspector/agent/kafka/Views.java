@@ -80,7 +80,8 @@ public final class Views {
 
     public static Dto.TopicSummary topic(ClusterState s, ClusterState.TopicSnap t, List<Double> trend) {
         int rf = t.partitions.isEmpty() ? 0 : t.partitions.get(0).replicas.size();
-        long size = t.partitions.stream().mapToLong(p -> p.sizeBytes).sum();
+        // unknown when no partition's size was ever reported (the UI shows "—", not 0 B)
+        Long size = t.partitions.stream().anyMatch(p -> p.sizeBytes >= 0) ? t.partitions.stream().mapToLong(p -> Math.max(0, p.sizeBytes)).sum() : null;
         long last = t.partitions.stream().mapToLong(p -> p.lastMessageAt).max().orElse(0);
         int urp = (int) t.partitions.stream().filter(p -> p.isr.size() < p.replicas.size()).count();
         return new Dto.TopicSummary(t.name, t.internal, t.partitions.size(), rf, size, t.rate(), consumersOf(s, t.name), iso(last), urp, health(s, t), trend);

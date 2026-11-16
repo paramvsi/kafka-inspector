@@ -37,7 +37,8 @@ public class ClusterState {
         public long low, high;
         public double rate;
         public long lastMessageAt;
-        public long sizeBytes;
+        /** -1: never reported (DescribeLogDirs refused or failed) — shown as unknown, not 0 B */
+        public long sizeBytes = -1;
     }
 
     public static class TopicSnap {
