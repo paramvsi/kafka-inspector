@@ -933,10 +933,10 @@ function useSavedFilters(): [SavedFilter[], (f: SavedFilter) => void] {
     fromAgent.data ?? [],
     (f) =>
       void remote
-            .save(f)
-            .then(() => qc.invalidateQueries({ queryKey: [clusterId, 'saved-filters'] }))
-            .catch((e: Error) =>
-              toast({ tone: 'crit', title: `Couldn't save filter ${f.name}`, body: e.message }),
-            ),
+        .save(f)
+        .then(() => qc.invalidateQueries({ queryKey: [clusterId, 'saved-filters'] }))
+        .catch((e: Error) =>
+          toast({ tone: 'crit', title: `Couldn't save filter ${f.name}`, body: e.message }),
+        ),
   ];
 }

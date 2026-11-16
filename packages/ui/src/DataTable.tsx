@@ -56,8 +56,8 @@ export function DataTable<T>({
       <div className="overflow-x-auto">
         <table
           className={cx(
-            'w-full border-separate border-spacing-0 text-[13px] transition-opacity duration-base ease-standard',
-            stale && 'opacity-50',
+            'w-full border-separate border-spacing-0 text-[13px]',
+            stale && '[&_td]:text-ink-muted', // muted, not faded: opacity fails AA contrast
           )}
         >
           <caption className="sr-only">{caption}</caption>
