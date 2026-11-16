@@ -90,7 +90,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 ## Message browser
 
 **F-40 Browse — MVP.** Start from oldest / newest / offset / timestamp / group position; partition picker; decode-as picker (per key and value); table: offset, partition, time, key, value preview.
-**F-41 Live tail — MVP.** Streams new messages with a max display rate (default 50/s), shows actual rate, pause/resume.
+**F-41 Live tail — MVP.** Streams new messages with a max display rate (default 50/s; messages you produce always appear), shows actual rate, pause/resume.
 **F-42 Filters — MVP.** JavaScript expression over `{key, value, headers, partition, offset, timestamp}`, run in a sandboxed Web Worker with a time budget; shows "N of M scanned match". Plus key/header/text quick filters.
 **F-43 Multi-topic search and sample mode — MVP.** Search a regex of topics at once; "sample" spreads reads across partitions.
 **F-44 Message drawer — MVP.** Key, partition/offset, timestamp, schema (subject, version, id), headers, size, pretty JSON tree, masked-field note; actions: Copy JSON, Reprocess to topic (Demo), Trace key (v2).
@@ -102,7 +102,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 ## Produce (Demo in v1)
 
-**F-50 Produce drawer — MVP.** Partition (auto by key), key, value editor, schema badge, "Generate from schema" (random valid data), validation against schema, headers, send N messages. Per `ProduceMessage`.
+**F-50 Produce drawer — MVP.** Partition (auto by key), key, value editor, schema badge, "Generate from schema" (random valid data), validation against schema, headers, send N messages. Refused with the reason when the partition has fewer in-sync replicas than `min.insync.replicas` or the message exceeds `max.message.bytes`. Per `ProduceMessage`.
 **F-51 Reprocess — MVP.** Send a message (edited or not) to another topic; DLQ shortcut.
 
 ## Consumer groups
@@ -135,7 +135,7 @@ Alert rules are app data, not Kafka writes, so they are allowed in read-only Sel
 ## Schemas
 
 **F-87 Subjects — MVP.** List with latest version, type, compatibility.
-**F-88 Version diff — MVP.** Pick two versions; side-by-side field diff (added/removed/changed), compatibility verdict (backward/forward/full) with per-field explanation; Protobuf pairs show "Not checked" (v2); a JSON Schema verdict covers top-level properties, types and required only. Per `Schemas`.
+**F-88 Version diff — MVP.** Pick two versions; side-by-side field diff (added/removed/changed), compatibility verdict (backward/forward/full) with per-field explanation; Protobuf pairs show "Not checked" (v2) and their source lines instead of a field table; a JSON Schema verdict covers top-level properties, types and required only. Per `Schemas`.
 **F-89 Compatibility check — MVP.** Paste a candidate schema and check against the registry (read-only call; allowed in Self).
 
 ## Read-only mode and sign-in (Self)

@@ -90,7 +90,25 @@ public class MessageService {
             done.removeAll(ranges.keySet());
             int scanned = 0;
             long bytes = 0;
-            while (done.size() < tps.size() && System.nanoTime() < deadline && bytes < PAGE_BYTES) {
+            while (done.size() < tps.size() && System.nanoTime() < deadline) {
+                if (bytes >= PAGE_BYTES) {
+                    // oldest-first: stop, the cursor continues after the last record kept. Newest-first reads each
+                    // range upward, so a cut-off range is missing its newest records and would be retried forever:
+                    // halve each unfinished range towards its newest end, drop what was read of it, read again.
+                    if (!desc) break;
+                    boolean shrunk = false;
+                    for (var e : ranges.entrySet()) {
+                        TopicPartition tp = e.getKey();
+                        long[] rg = e.getValue();
+                        if (done.contains(tp) || rg[1] - rg[0] <= 1) continue;
+                        rg[0] = rg[1] - Math.max(1, (rg[1] - rg[0]) / 2);
+                        got.removeIf(r -> r.partition() == tp.partition());
+                        c.seek(tp, rg[0]);
+                        shrunk = true;
+                    }
+                    if (!shrunk) break;
+                    bytes = got.stream().mapToLong(r -> Math.max(0, r.serializedKeySize()) + Math.max(0, r.serializedValueSize())).sum();
+                }
                 for (ConsumerRecord<byte[], byte[]> r : c.poll(Duration.ofMillis(200))) {
                     TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                     long[] rg = ranges.get(tp);

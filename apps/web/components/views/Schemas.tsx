@@ -1,4 +1,5 @@
 'use client';
+import { isNoRegistry } from '../../lib/poll';
 import { fieldsOf, type Field } from '../../lib/schemaFields';
 import { pickVersions } from '../../lib/versions';
 import {
@@ -91,7 +92,7 @@ export function SchemasView() {
         </ul>
       </nav>
       <div className="flex min-w-0 grow flex-col gap-4 p-6">
-        {subjects.error && (subjects.error as { status?: number }).status === 404 ? (
+        {subjects.error && isNoRegistry(subjects.error) ? (
           // no registry configured (NO_SCHEMA_REGISTRY): its message says which variable to set
           <EmptyState title="No Schema Registry">{(subjects.error as Error).message}</EmptyState>
         ) : subjects.error ? (

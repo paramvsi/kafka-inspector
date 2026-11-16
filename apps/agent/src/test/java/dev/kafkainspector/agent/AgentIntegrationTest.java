@@ -546,6 +546,27 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(42)
+    void newestPagesOfLargeRecordsStillMoveForward() throws Exception {
+        signIn();
+        String big = "x".repeat(900_000);
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+                KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("bulky", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            for (int i = 0; i < 40; i++) p.send(new ProducerRecord<>("bulky", 0, "k" + i, big)).get(30, TimeUnit.SECONDS);
+        }
+        // 40 × 0.9 MB is over the 16 MB page budget: the page must still show the newest records and move on
+        JsonNode page = null;
+        for (long end = System.currentTimeMillis() + 20_000; System.currentTimeMillis() < end; Thread.sleep(500)) {
+            HttpResponse<String> r = send("GET", "/api/clusters/local/topics/bulky/messages?partition=0&from=newest&limit=40", null);
+            if (r.statusCode() == 200) { page = JSON.readTree(r.body()); if (page.path("messages").size() > 0) break; }
+        }
+        final JsonNode got = page;
+        assertTrue(got != null && got.path("messages").size() > 0, () -> "empty page: " + (got == null ? null : got.path("nextCursor")));
+        assertEquals(39, got.path("messages").get(0).path("offset").asLong(), "newest first");
+    }
+
+    @Test
     @Order(41)
     void newestAcrossPartitionsIsTheGlobalNewestAndABlankCursorIsTheFirstPage() throws Exception {
         signIn();

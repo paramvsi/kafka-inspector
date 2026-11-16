@@ -21,7 +21,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 - `GET /api/clusters` → `ClusterSummary[]` `{ id, name, color, status: "connected"|"degraded"|"disconnected", brokers, kafkaVersion, schemaRegistry: boolean }`
 - `GET /api/clusters/{c}/overview` → `Overview` (KPIs, needs-attention list, recent events)
 - `GET /api/clusters/{c}/brokers` → `Broker[]`
-- `GET /api/clusters/{c}/brokers/{id}/config` → `ConfigEntry[]` `{ name, value, source, isDefault, isSensitive, readOnly }` (sensitive values masked as `"******"`)
+- `GET /api/clusters/{c}/brokers/{id}/config` → `ConfigEntry[]` `{ name, value, source, isDefault, isSensitive, readOnly }` (sensitive values masked as `"******"`; `source` is `default`, `dynamic-topic`, `dynamic-broker`, `static-broker` or `unknown` — the UI calls only `dynamic-topic` an override)
 
 ## Topics
 
@@ -31,10 +31,10 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## Messages (raw bytes; browser decodes)
 
-- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100&cursor=` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`. Pass `nextCursor` back as `cursor` for the next page; it is absent when nothing is left. Per partition a page keeps only the unbroken run of offsets from where reading started (records cut by the timestamp sort, or a range the 4 s read budget didn't finish, come on a later page), so paging reaches every record exactly once. A request that can't mean anything is refused, never answered with an empty page: 400 for an unknown `from`, a `partition` that isn't `all` or a number, a missing `group`/`offset`/`timestamp` for that `from` on a first page (a page with a `cursor` needs only the cursor), a negative offset, `limit` < 1 or a malformed cursor; 404 `PARTITION_NOT_FOUND` / `GROUP_NOT_FOUND`
+- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100&cursor=` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`. Pass `nextCursor` back as `cursor` for the next page; it is absent when nothing is left, and an empty `cursor=` is the first page. `limit` is a ceiling: a page also stops at 16 MB of keys and values (the cursor continues). `from=newest` over all partitions reads up to `limit` from each and keeps the newest `limit` overall. Per partition a page keeps only the unbroken run of offsets from where reading started (records cut by the timestamp sort, or a range the 4 s read budget didn't finish, come on a later page), so paging reaches every record exactly once. A request that can't mean anything is refused, never answered with an empty page: 400 for an unknown `from`, a `partition` that isn't `all` or a number, a missing `group`/`offset`/`timestamp` for that `from` on a first page (a page with a `cursor` needs only the cursor), a negative offset, `limit` < 1 or a malformed cursor; 404 `PARTITION_NOT_FOUND` / `GROUP_NOT_FOUND`
   - `RawMessageDto`: `{ topic, partition, offset, timestamp, key: base64|null, value: base64|null, headers: [{key, value: base64}], sizeBytes }`
   - Max `limit` 500. The agent uses a dedicated consumer per request with `enable.auto.commit=false`, no `group.id` (assign + seek); it **never commits offsets**.
-- `POST /api/clusters/{c}/messages/search` `{ topicRegex, from, limit, sample: boolean }` → `RawMessagePage` (multi-topic). Up to 20 matching topics; per topic it reads the busiest partition, or every partition when `sample` is true; a topic deleted mid-search is skipped; results are listed newest first by timestamp (`from` picks which end of each partition is read)
+- `POST /api/clusters/{c}/messages/search` `{ topicRegex, from, limit, sample: boolean }` → `RawMessagePage` (multi-topic). Up to 20 matching topics (names starting with `_` are skipped), each with a quota of ceil(limit / topics); per topic it reads the busiest partition, or every partition when `sample` is true; a topic deleted mid-search is skipped; results are listed newest first by timestamp (`from` picks which end of each partition is read)
 
 ## Consumer groups
 

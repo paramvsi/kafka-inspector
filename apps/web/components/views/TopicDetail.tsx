@@ -33,7 +33,7 @@ import { axisTime } from '../../lib/axis';
 import { hourAgoValue } from '../../lib/baseline';
 import { useUrl, pick } from '../../lib/url';
 import { sourceLabel } from '../../lib/configSource';
-import { isNotFound } from '../../lib/poll';
+import { isNoRegistry, isNotFound } from '../../lib/poll';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
@@ -630,7 +630,7 @@ function SchemaTab({ d }: { d: Detail }) {
   );
   // no subject may only mean the registry is down: same query as the Schemas page (cached)
   const subjects = useKafkaQuery(['subjects'], (c, id) => c.listSubjects(id), false);
-  if (!subject && subjects.error && (subjects.error as { status?: number }).status !== 404)
+  if (!subject && subjects.error && !isNoRegistry(subjects.error))
     return (
       <Card>
         <EmptyState title="Couldn't reach the Schema Registry">

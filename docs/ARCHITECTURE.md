@@ -192,7 +192,7 @@ Rules, evaluated in order (Burrow-style):
 5. Committed offset advanced and lag strictly increased across the window (or net increase with a positive least-squares slope) → `warn`.
 6. Otherwise → `healthy`.
 
-Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; else any `warn` → `warn`; else every partition `unknown` → `unknown`; else `healthy`. Neutral states (Empty, rebalancing) come from `GroupState` and are shown with the neutral badge.
+Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; else any `warn` → `warn`; else every partition `unknown` → `unknown`; else `healthy`. Neutral states (Empty, rebalancing) come from `GroupState` and are shown with the neutral badge. A group event is raised only when a group becomes stalled or stopped from another state (`becameStuck`), not on stopped → stalled while it recovers.
 
 **Forecast** over the same window: `consumeRate = Σ Δcommitted / Δt`, `produceRate = Σ Δend / Δt`.
 - lag = 0 → `caught-up` (still with consumeRate/produceRate when the window has length; a group's rates sum every partition, caught-up ones included)
@@ -213,7 +213,7 @@ Ship **test vectors** (`packages/core/test/lag-vectors.json` — status, forecas
 - 24 h of history is back-filled on first load (sampled every 60 s for older data, 1 s for the last 15 min).
 - **Messages are a pure function of `(topic, partition, offset)`** via a seeded PRNG — nothing stored. Avro topics produce real Confluent wire-format bytes (magic 0, schema id, avro payload) using the simulator's own schema registry, so the real decoder path is exercised. When the "poison message" scenario is active, the payments message at fraud-scorer's committed offset on partition 7 is malformed (the offset follows the run, it isn't fixed).
 - Writes (create topic, delete topic, config edits, produce, reset offsets, delete group) and saved state go to IndexedDB as an action log replayed during back-fill; "Reset demo" clears it. A live reset that moves fraud-scorer past the opening poison message also records `poison-fixed { since }` (when that poison started); back-fill replays the stall from `since` and the saved reset clears it at its original time, so a reload shows the same recovery (a reset that doesn't skip it isn't a fix; an older `poison-fixed` without `since` leaves the poison out).
-- **Chaos actions** (each returns an incident id and can be stopped): crash consumer (group → Empty, commits stop), slow consumer (consume rate × 0.6), traffic spike (× 10 for 2 min), broker down (broker offline, ISR shrinks, leaders move), rebalance (group → rebalancing 8 s), hot partition (one partition gets 40 % of a topic), poison message (fraud-scorer stalls on payments-7 at its committed offset; failures written to payments.dlq).
+- **Chaos actions** (each returns an incident id and can be stopped): crash consumer (group → Empty, commits stop), slow consumer (consume rate × 0.6), traffic spike (× 10 for 2 min), broker down (broker offline, ISR shrinks, leaders move), rebalance (group → rebalancing 8 s; stopping it settles the group at once), hot partition (one partition gets 40 % of a topic), poison message (fraud-scorer stalls on payments-7 at its committed offset; failures written to payments.dlq).
 - The opening state reproduces the designs: `payments-sink` builds lag and drains it on a 16-minute saw-tooth, `fraud-scorer` stalled, `clickstream` skewed.
 
 ## Serdes (packages/core/serdes)

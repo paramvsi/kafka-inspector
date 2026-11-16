@@ -4,7 +4,7 @@ export const isNotFound = (e: unknown) =>
   /not found\.?$/i.test((e as Error)?.message ?? '');
 
 /** How often a not-found is re-checked: a topic created a moment ago appears after the agent's next sample. */
-export const NOT_FOUND_RECHECK_MS = 10_000;
+const NOT_FOUND_RECHECK_MS = 10_000;
 
 /**
  * Polling after a failure: a not-found with nothing to show re-checks slowly (it may exist soon — a link to a
@@ -19,3 +19,6 @@ export function nextPoll(
     ? Math.max(refreshMs, NOT_FOUND_RECHECK_MS)
     : refreshMs;
 }
+
+/** 404 from the schema endpoints means no registry is configured (NO_SCHEMA_REGISTRY), not an outage. */
+export const isNoRegistry = (e: unknown) => (e as { status?: number } | null)?.status === 404;
