@@ -8,6 +8,7 @@ import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
+import { LoadingRows } from '../Shell';
 
 const W = 1040,
   NODE_W = 200,
@@ -104,9 +105,7 @@ export function TopologyView() {
               {(failed as Error).message} It retries every few seconds.
             </EmptyState>
           ) : (
-            <p className="m-0 p-4 text-[13px] text-ink-muted" role="status">
-              Loading topology…
-            </p>
+            <LoadingRows label="Loading topology…" />
           )}
         </Card>
       </>

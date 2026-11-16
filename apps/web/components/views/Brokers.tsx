@@ -6,6 +6,7 @@ import { useKafkaQuery } from '../../lib/kafka';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
+import { LoadingRows } from '../Shell';
 
 const KEY = [
   'num.partitions',
@@ -53,7 +54,7 @@ export function BrokersView() {
               {(brokersFailed as Error).message} It retries every few seconds.
             </EmptyState>
           ) : (
-            <EmptyState title="Loading brokers…">{'\u00a0'}</EmptyState>
+            <LoadingRows label="Loading brokers…" />
           )
         }
         rowKey={(b) => String(b.id)}

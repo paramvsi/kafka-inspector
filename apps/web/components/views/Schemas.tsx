@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
+import { LoadingRows } from '../Shell';
 
 function align(a: Field[], b: Field[], changes: FieldChange[]) {
   const kind = (n: string) => changes.find((c) => c.field === n)?.change ?? 'same';
@@ -105,7 +106,7 @@ export function SchemasView() {
         ) : subjects.error ? (
           <EmptyState title="Couldn't load schemas">{(subjects.error as Error).message}</EmptyState>
         ) : !subjects.data ? (
-          <EmptyState title="Loading subjects…">{'\u00a0'}</EmptyState>
+          <LoadingRows label="Loading subjects…" />
         ) : !s && subject && subjects.data?.length ? (
           <EmptyState title={`Subject ${subject} not found`}>
             It may have been deleted. Pick a subject from the list.

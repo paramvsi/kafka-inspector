@@ -60,6 +60,20 @@ export function BootStatus({ text, failed }: { text: string; failed?: boolean })
   );
 }
 
+/** First load of a list (SCREENS "States"): rows shaped like the table, and a status line saying what's happening. */
+export function LoadingRows({ label, rows = 6 }: { label: string; rows?: number }) {
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <p className="m-0 text-[13px] text-ink-muted" role="status">
+        {label}
+      </p>
+      {Array.from({ length: rows }, (_, i) => (
+        <Skeleton key={i} className="h-4 w-full" />
+      ))}
+    </div>
+  );
+}
+
 /** Skeleton shaped like the Overview (01b). */
 export function PageSkeleton() {
   return (

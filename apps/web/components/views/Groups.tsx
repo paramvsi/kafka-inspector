@@ -22,6 +22,7 @@ import { useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
 import { useUrl, useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
+import { LoadingRows } from '../Shell';
 
 const TYPES: readonly GroupType[] = ['classic', 'consumer', 'share', 'streams', 'unknown'];
 
@@ -114,7 +115,7 @@ export function GroupsView() {
                 {(fallback.error as Error).message} Reload the page to try again.
               </EmptyState>
             ) : (
-              <EmptyState title="Loading consumer groups…">{'\u00a0'}</EmptyState>
+              <LoadingRows label="Loading consumer groups…" />
             )
           ) : (
             <EmptyState title={q || type ? 'No groups match' : 'No consumer groups yet'}>
