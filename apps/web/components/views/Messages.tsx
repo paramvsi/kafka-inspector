@@ -6,7 +6,6 @@ import {
   toHex,
   formatTimestamp,
   toLocalInput,
-  type DecodeAs,
   type RawMessage,
   type RawMessagePage,
   type SavedFilter,
@@ -41,7 +40,9 @@ const FROM = [
   { value: 'group', label: 'Group position' },
 ];
 
-type From = 'newest' | 'oldest' | 'offset' | 'timestamp' | 'group';
+const FROMS = ['newest', 'oldest', 'offset', 'timestamp', 'group'] as const;
+const pick = <T extends string>(v: string | undefined, allowed: readonly T[], fallback: T): T =>
+  allowed.includes(v as T) ? (v as T) : fallback;
 
 const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
 
@@ -67,15 +68,17 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const { client, clusterId } = useKafka();
   const lookup = useSchemaLookup();
   const [rules, setRules] = useMaskRules();
-  const from = (url.get('from') as From) ?? 'newest';
-  const p = url.get('p') ?? 'all';
-  const valueAs = (url.get('dv') as DecodeAs) ?? 'auto';
-  const keyAs = (url.get('dk') as DecodeAs) ?? 'auto';
+  // a hand-edited or stale link falls back to the defaults instead of crashing the tab
+  const from = pick(url.get('from'), FROMS, 'newest');
+  const p = /^\d+$/.test(url.get('p') ?? '') ? url.get('p')! : 'all';
+  const decoders = DECODE_OPTIONS.map((o) => o.value);
+  const valueAs = pick(url.get('dv'), decoders, 'auto');
+  const keyAs = pick(url.get('dk'), decoders, 'auto');
   const live = url.get('live') === '1';
   const expr = url.get('filter') ?? '';
   const cols = (url.get('cols') ?? '').split(',').filter(Boolean);
   const regex = url.get('search');
-  const msgParam = url.get('msg');
+  const msgParam = /^\d+:\d+$/.test(url.get('msg') ?? '') ? url.get('msg')! : undefined;
   const [draftExpr, setDraftExpr] = useState(expr);
   const [offset, setOffset] = useState(url.get('offset') ?? '');
   const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));

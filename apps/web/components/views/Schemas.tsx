@@ -74,8 +74,13 @@ export function SchemasView() {
   const subject = url.get('subject') ?? subjects.data?.[0]?.subject;
   const s = subjects.data?.find((x) => x.subject === subject);
   const latest = s?.latestVersion ?? 1;
-  const to = Number(url.get('to') ?? latest);
-  const from = Number(url.get('from') ?? Math.max(1, to - 1));
+  // a version outside 1..latest (or not a number) in the link falls back to the default pair
+  const version = (v: string | undefined, fallback: number) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 1 && n <= latest ? n : fallback;
+  };
+  const to = version(url.get('to'), latest);
+  const from = version(url.get('from'), Math.max(1, to - 1));
   const versions = useKafkaQuery(
     ['schema-pair', subject, from, to],
     async (c, id) =>
@@ -116,7 +121,11 @@ export function SchemasView() {
         </ul>
       </nav>
       <div className="flex min-w-0 grow flex-col gap-4 p-6">
-        {!s ? (
+        {!s && subject && subjects.data?.length ? (
+          <EmptyState title={`Subject ${subject} not found`}>
+            It may have been deleted. Pick a subject from the list.
+          </EmptyState>
+        ) : !s ? (
           <EmptyState title="No schemas">This cluster has no Schema Registry subjects.</EmptyState>
         ) : (
           <>

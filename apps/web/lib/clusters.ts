@@ -12,4 +12,15 @@ export interface SavedCluster {
   readOnly: boolean;
 }
 
-export const useSavedClusters = () => useLocal<SavedCluster[]>('ki-saved-clusters', []);
+/** Drops a user name/password from a URL saved before that was refused, so it is neither shown nor kept. */
+const clean = (c: SavedCluster): SavedCluster =>
+  c.url && /^[a-z][a-z0-9+.-]*:\/\/[^/?#\s]*@/i.test(c.url)
+    ? { ...c, url: c.url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#\s]*@/i, '$1') }
+    : c;
+
+export function useSavedClusters() {
+  const [saved, setSaved] = useLocal<SavedCluster[]>('ki-saved-clusters', []);
+  const list = saved.map(clean);
+  if (list.some((c, i) => c !== saved[i])) setTimeout(() => setSaved(list)); // rewrite the stored copy too
+  return [list, setSaved] as const;
+}

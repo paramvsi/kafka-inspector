@@ -156,6 +156,7 @@ export function ClustersView() {
           open={url.get('add') === '1'}
           onClose={() => url.set({ add: undefined })}
           onSave={(c) => setSaved([...saved, c])}
+          taken={[...info.clusters.map((c) => c.name), ...saved.map((s) => s.name)]}
         />
       )}
     </>
@@ -172,10 +173,12 @@ function AddClusterDialog({
   open,
   onClose,
   onSave,
+  taken,
 }: {
   open: boolean;
   onClose: () => void;
   onSave: (c: SavedCluster) => void;
+  taken: string[];
 }) {
   const toast = useToast();
   const { client } = useKafka();
@@ -253,14 +256,36 @@ function AddClusterDialog({
     }
   };
 
+  const finalName = name.trim() || (mode === 'simulated' ? `sim-${seed.trim()}` : 'local-agent');
+  const nameError = taken.includes(finalName)
+    ? `A cluster named ${finalName} already exists. Pick another name.`
+    : undefined;
+  const agentError = (() => {
+    if (mode !== 'local-agent') return undefined;
+    let u: URL;
+    try {
+      u = new URL(agent.trim());
+    } catch {
+      return 'Enter a full URL, like http://localhost:8080.';
+    }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'Use an http:// or https:// URL.';
+    // rule 6: a password typed into the URL would be stored in this browser
+    if (u.username || u.password)
+      return 'Leave the user name and password out of the URL: you sign in on the agent itself.';
+    return undefined;
+  })();
+  const seedError = mode === 'simulated' && !seed.trim() ? 'Enter a seed.' : undefined;
+  const invalid = !!(nameError || agentError || seedError);
+
   const save = async (connect: boolean) => {
+    if (invalid) return;
     const c: SavedCluster = {
       id: `c_${Date.now()}`,
-      name: name || (mode === 'simulated' ? `sim-${seed}` : 'local-agent'),
+      name: finalName,
       color,
       mode: mode === 'simulated' ? 'simulated' : 'local-agent',
-      url: mode === 'local-agent' ? agent : undefined,
-      seed: mode === 'simulated' ? seed : undefined,
+      url: mode === 'local-agent' ? agent.trim() : undefined,
+      seed: mode === 'simulated' ? seed.trim() : undefined,
       readOnly: mode !== 'simulated',
     };
     if (connect && !(await test())) return;
@@ -300,10 +325,14 @@ function AddClusterDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => save(false)} disabled={mode === 'rest-proxy'}>
+          <Button onClick={() => save(false)} disabled={mode === 'rest-proxy' || invalid}>
             Save without connecting
           </Button>
-          <Button variant="primary" onClick={() => save(true)} disabled={mode === 'rest-proxy'}>
+          <Button
+            variant="primary"
+            onClick={() => save(true)}
+            disabled={mode === 'rest-proxy' || invalid}
+          >
             Save and connect
           </Button>
         </>
@@ -317,6 +346,7 @@ function AddClusterDialog({
               mono
               value={name}
               onChange={(e) => setName(e.target.value)}
+              error={nameError}
               placeholder="prod-us-2"
               data-autofocus
             />
@@ -368,6 +398,7 @@ function AddClusterDialog({
                 mono
                 value={agent}
                 onChange={(e) => setAgent(e.target.value)}
+                error={agentError}
                 hint="The self-hosted agent serves this UI and talks to your Kafka. Bootstrap servers, SASL and TLS are set in its environment, never in the browser."
               />
               <Checkbox label="Read-only (always, in this version)" checked readOnly disabled />
@@ -379,6 +410,7 @@ function AddClusterDialog({
               mono
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
+              error={seedError}
               hint="Reseeds the simulated cluster in this browser: same shape, different data."
             />
           )}

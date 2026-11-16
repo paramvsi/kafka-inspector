@@ -381,6 +381,12 @@ html.theme-switching * {
     min-height: 44px;
     min-width: 44px;
   }
+  /* nav links, tabs and text fields too (inline links inside sentences are exempt, WCAG 2.5.8) */
+  nav a,
+  [role='tab'],
+  input:not([type='checkbox'], [type='radio']) {
+    min-height: 44px;
+  }
 }
 
 .ki-spinner {

@@ -35,6 +35,9 @@ export function SelfHostView() {
   );
   const warn = warnings(f);
   const set = <K extends keyof SelfHostForm>(k: K, v: SelfHostForm[K]) => setF({ ...f, [k]: v });
+  // the port as typed; the files use the last valid one (1–65535)
+  const [portText, setPortText] = useState(String(f.port));
+  const portOk = /^\d+$/.test(portText) && Number(portText) >= 1 && Number(portText) <= 65535;
   if (info.mode !== 'demo')
     return (
       <PageHeader
@@ -149,8 +152,13 @@ export function SelfHostView() {
               label="Port"
               mono
               inputMode="numeric"
-              value={String(f.port)}
-              onChange={(e) => set('port', Number(e.target.value.replace(/\D/g, '')) || 8080)}
+              value={portText}
+              error={portOk ? undefined : 'Enter a port from 1 to 65535.'}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, '');
+                setPortText(v);
+                if (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 65535) set('port', Number(v));
+              }}
             />
             <div className="flex flex-col gap-1">
               <span className="text-[12px] font-medium text-ink-muted">Access</span>

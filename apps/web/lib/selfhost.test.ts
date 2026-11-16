@@ -63,3 +63,22 @@ test('credentials in a registry URL never reach the files; YAML-ish values stay 
   expect(compose(g)).toContain('KI_CLUSTERS_0_NAME: "yes"');
   expect(warnings(g).join(' ')).toContain('left out of the files');
 });
+
+test('registry credentials never leak, even with @ in the password or no scheme; $ is escaped for Compose', () => {
+  const base = {
+    name: 'prod$HOME',
+    bootstrap: 'b:9092',
+    security: 'PLAINTEXT',
+    mechanism: 'PLAIN',
+    registryAuth: false,
+    port: 8080,
+  } as const;
+  for (const url of ['https://user:p@ss@reg:8081', 'user:secret@reg:8081']) {
+    const f = { ...base, schemaRegistry: url };
+    for (const out of [compose(f), dockerRun(f)]) {
+      expect(out).not.toMatch(/ss@reg|secret@|user:p|user:secret/);
+      expect(out).toContain('reg:8081');
+    }
+  }
+  expect(compose({ ...base, schemaRegistry: '' })).toContain('"prod$$HOME"');
+});

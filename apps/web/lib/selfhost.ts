@@ -12,12 +12,15 @@ export interface SelfHostForm {
 export const IMAGE = 'ghcr.io/paramvsi/kafka-inspector:1.0.0';
 
 const sasl = (f: SelfHostForm) => f.security.startsWith('SASL');
-// always double-quoted: YAML would turn yes/no/on/null/123 into booleans, null or numbers
-const yamlStr = (s: string) => JSON.stringify(s);
+// always double-quoted: YAML would turn yes/no/on/null/123 into booleans, null or numbers;
+// `$` doubled so Compose doesn't interpolate it
+const yamlStr = (s: string) => JSON.stringify(s).replace(/\$/g, '$$$$');
 
-/** Rule 6: credentials typed into a URL never reach a generated file. */
-const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]*@/i;
-const withoutUserinfo = (url: string) => url.replace(USERINFO, '$1');
+/** Rule 6: credentials typed into a URL never reach a generated file. Everything up to the authority's
+ * last `@` is userinfo (a password may contain `@`), with or without a scheme. */
+const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^/?#\s]*@/i;
+const withoutUserinfo = (url: string) =>
+  url.replace(USERINFO, (_, scheme?: string) => scheme ?? '');
 
 /** Non-secret settings, shared by compose and docker run. */
 function envSettings(f: SelfHostForm): Array<[string, string]> {

@@ -18,7 +18,9 @@ export function BrokersView() {
   const url = useUrl();
   const brokers = useKafkaQuery(['brokers'], (c, id) => c.listBrokers(id), 2000);
   const overview = useKafkaQuery(['overview-static'], (c, id) => c.getOverview(id), 10_000);
-  const selected = Number(url.get('broker') ?? brokers.data?.find((b) => b.isController)?.id ?? 1);
+  // an unknown broker in the link (?broker=abc or 99) falls back to the controller
+  const asked = brokers.data?.find((b) => String(b.id) === url.get('broker'))?.id;
+  const selected = asked ?? brokers.data?.find((b) => b.isController)?.id ?? 1;
   const config = useKafkaQuery(['broker-config', selected], (c, id) =>
     c.getBrokerConfig(id, selected),
   );

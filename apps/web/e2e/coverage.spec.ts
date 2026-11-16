@@ -805,3 +805,90 @@ test('pausing Live stays paused across pages and tabs', async ({ page }) => {
   });
   await expect(page.getByRole('button', { name: 'Paused' })).toBeVisible();
 });
+
+test('Add cluster refuses credentials in the URL, bad URLs, blank seeds and duplicate names; old stored passwords are dropped', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'ki-saved-clusters',
+      JSON.stringify([
+        {
+          id: 'c_1',
+          name: 'old',
+          color: 'chart-2',
+          mode: 'local-agent',
+          url: 'http://admin:hunter2@localhost:9999',
+          readOnly: true,
+        },
+      ]),
+    ),
+  );
+  await page.goto('/app/clusters/?add=1');
+  const d = page.getByRole('dialog', { name: 'Add cluster' });
+  const save = d.getByRole('button', { name: 'Save without connecting' });
+  await d.getByLabel('Agent URL').fill('http://admin:hunter2@localhost:9999');
+  await expect(d.getByText('Leave the user name and password out of the URL')).toBeVisible();
+  await expect(save).toBeDisabled();
+  await d.getByLabel('Agent URL').fill('not a url');
+  await expect(save).toBeDisabled();
+  await d.getByLabel('Agent URL').fill('http://localhost:9999');
+  await d.getByLabel('Name').fill('old');
+  await expect(d.getByText('A cluster named old already exists')).toBeVisible();
+  await expect(save).toBeDisabled();
+  await d.getByLabel('Name').fill('new-one');
+  await expect(save).toBeEnabled();
+  await expect(page.getByText('hunter2')).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('ki-saved-clusters')))
+    .not.toContain('hunter2');
+});
+
+test('hand-edited links fall back instead of crashing or showing NaN', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  for (const q of ['dk=bogus', 'dv=bogus', 'from=bogus&p=abc', 'msg=abc']) {
+    await page.goto(`/app/topics/view/?name=orders&tab=messages&${q}`);
+    await expect(page.getByRole('table', { name: 'Messages in orders' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/NaN|undefined/)).toHaveCount(0);
+  }
+  for (const q of ['from=abc', 'to=abc', 'from=99&to=-1']) {
+    await page.goto(`/app/schemas/?subject=orders-value&${q}`);
+    await expect(page.getByRole('heading', { name: 'orders-value' }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+  await page.goto('/app/schemas/?subject=nope');
+  await expect(page.getByText('Subject nope not found')).toBeVisible({ timeout: 15_000 });
+  await page.goto('/app/brokers/?broker=abc');
+  await expect(page.getByText(/Broker \d+/).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/NaN/)).toHaveCount(0);
+  await page.goto('/app/self-host/');
+  const port = page.getByLabel('Port');
+  await port.fill('');
+  await expect(page.getByText('Enter a port from 1 to 65535.')).toBeVisible();
+  await port.fill('9000');
+  await expect(port).toHaveValue('9000');
+  await port.fill('99999');
+  await expect(page.getByText('Enter a port from 1 to 65535.')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test.describe('touch layout', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 768, height: 1024 } });
+  test('nav links and the search box are at least 44px tall on a coarse pointer', async ({
+    page,
+  }) => {
+    await page.goto('/app/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await expect(nav.getByRole('link').first()).toBeVisible({ timeout: 15_000 });
+    const heights = await nav
+      .getByRole('link')
+      .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+    const search = page.locator('header input').first();
+    expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  });
+});
