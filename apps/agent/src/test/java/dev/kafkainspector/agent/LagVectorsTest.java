@@ -65,4 +65,11 @@ class LagVectorsTest {
     private static Double num(JsonNode f, String k) {
         return f.has(k) ? f.path(k).asDouble() : null;
     }
+
+    @org.junit.jupiter.api.Test
+    void stoppedToStalledIsNotANewProblem() {
+        assertTrue(Lag.becameStuck(Lag.Status.healthy, Lag.Status.stalled));
+        assertFalse(Lag.becameStuck(Lag.Status.stopped, Lag.Status.stalled));
+        assertFalse(Lag.becameStuck(null, Lag.Status.stopped));
+    }
 }

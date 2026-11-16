@@ -59,6 +59,15 @@ public final class Lag {
         return Status.healthy;
     }
 
+    /** A group event is raised when a group turns stalled or stopped — not when it moves between the two (recovery). Same as lag.ts. */
+    public static boolean becameStuck(Status prev, Status next) {
+        return prev != null && stuck(next) && !stuck(prev);
+    }
+
+    private static boolean stuck(Status s) {
+        return s == Status.stalled || s == Status.stopped;
+    }
+
     public static Status rollup(List<Status> statuses) {
         for (Status s : List.of(Status.stopped, Status.stalled, Status.warn, Status.healthy)) if (statuses.contains(s)) return s;
         return Status.unknown;

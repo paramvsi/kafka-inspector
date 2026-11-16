@@ -55,6 +55,7 @@ import {
   type TopicSummary,
   type Topology,
   TOPIC_NAME,
+  becameStuck,
 } from '@ki/core';
 import { checkCompatibility } from '@ki/core/schema-compat';
 import { History } from './history';
@@ -571,7 +572,7 @@ export class Simulator {
     // Share groups (KIP-932) have in-flight records, not a committed position to catch up: no forecast.
     g.forecast = g.def.type === 'share' ? { kind: 'unknown' } : combineForecasts(fparts);
     if (!this.replaying || t > this.loadedAt - FINE_MS) {
-      if (prev !== g.status && (g.status === 'stalled' || g.status === 'stopped')) {
+      if (becameStuck(prev, g.status)) {
         this.pushEvent({
           ts: new Date(t).toISOString(),
           kind: 'chaos',

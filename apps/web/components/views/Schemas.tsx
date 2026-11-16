@@ -116,7 +116,16 @@ export function SchemasView() {
         </ul>
       </nav>
       <div className="flex min-w-0 grow flex-col gap-4 p-6">
-        {!s && subject && subjects.data?.length ? (
+        {subjects.error && (subjects.error as { status?: number }).status === 404 ? (
+          // no registry configured (NO_SCHEMA_REGISTRY): its message says which variable to set
+          <EmptyState title="No Schema Registry">{(subjects.error as Error).message}</EmptyState>
+        ) : subjects.error ? (
+          <EmptyState title="Couldn't reach the Schema Registry">
+            {(subjects.error as Error).message}
+          </EmptyState>
+        ) : !subjects.data ? (
+          <EmptyState title="Loading subjects…">{'\u00a0'}</EmptyState>
+        ) : !s && subject && subjects.data?.length ? (
           <EmptyState title={`Subject ${subject} not found`}>
             It may have been deleted. Pick a subject from the list.
           </EmptyState>

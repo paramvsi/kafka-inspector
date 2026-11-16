@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  becameStuck,
   combineForecasts,
   evaluateLag,
   forecast,
@@ -97,4 +98,12 @@ test('group rates include caught-up partitions (payments-sink-style: lag on a fe
   ]);
   expect(g.produceRate).toBeCloseTo(200);
   expect(g.consumeRate).toBeCloseTo(200);
+});
+
+test('a group event fires when a group gets stuck, not when it moves between stopped and stalled', () => {
+  expect(becameStuck('healthy', 'stalled')).toBe(true);
+  expect(becameStuck('warn', 'stopped')).toBe(true);
+  expect(becameStuck('stopped', 'stalled')).toBe(false); // consumers restarting from stopped
+  expect(becameStuck('stalled', 'stalled')).toBe(false);
+  expect(becameStuck(undefined, 'stalled')).toBe(false);
 });

@@ -32,6 +32,7 @@ import { groupBadge } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { hourAgoValue } from '../../lib/baseline';
 import { useUrl, pick } from '../../lib/url';
+import { sourceLabel } from '../../lib/configSource';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
 import { ProduceDrawer } from './Produce';
@@ -119,9 +120,9 @@ export function TopicDetailView() {
         actions={
           <>
             <CopyButton text={() => location.href} label="Copy link" />
-            <Button variant="ghost" onClick={() => url.set({ tab: 'config' })}>
+            <WriteButton variant="ghost" onClick={() => url.set({ tab: 'config' })}>
               Edit config
-            </Button>
+            </WriteButton>
             <WriteButton onClick={() => url.set({ produce: 1 })}>Produce message</WriteButton>
             <Button variant="primary" onClick={() => url.set({ tab: 'messages' })}>
               Browse messages
@@ -439,7 +440,7 @@ function ConfigTab({ name }: { name: string }) {
   const rows = [...(cfg.data ?? [])].sort(
     (a, b) => Number(a.isDefault) - Number(b.isDefault) || a.name.localeCompare(b.name),
   );
-  const overrides = rows.filter((r) => !r.isDefault).length;
+  const overrides = rows.filter((r) => sourceLabel(r) === 'override').length;
   return (
     <>
       <DataTable
@@ -476,12 +477,12 @@ function ConfigTab({ name }: { name: string }) {
             key: 's',
             header: 'Source',
             cell: (c) =>
-              c.isDefault ? (
-                <span className="text-ink-muted">default</span>
-              ) : (
+              sourceLabel(c) === 'override' ? (
                 <StatusBadge status="info" dot={false}>
                   override
                 </StatusBadge>
+              ) : (
+                <span className="text-ink-muted">{sourceLabel(c)}</span>
               ),
           },
           ...(writes
@@ -613,6 +614,17 @@ function SchemaTab({ d }: { d: Detail }) {
   const latest = useKafkaQuery(['schema', subject, 'latest'], (c, id) =>
     subject ? c.getSchema(id, subject, 'latest') : Promise.resolve(undefined),
   );
+  // no subject may only mean the registry is down: same query as the Schemas page (cached)
+  const subjects = useKafkaQuery(['subjects'], (c, id) => c.listSubjects(id), false);
+  if (!subject && subjects.error && (subjects.error as { status?: number }).status !== 404)
+    return (
+      <Card>
+        <EmptyState title="Couldn't reach the Schema Registry">
+          {(subjects.error as Error).message} Whether this topic has a schema isn&apos;t known until
+          it answers.
+        </EmptyState>
+      </Card>
+    );
   if (!subject)
     return (
       <Card>

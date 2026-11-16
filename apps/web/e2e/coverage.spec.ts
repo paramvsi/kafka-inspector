@@ -1246,3 +1246,24 @@ test('the page behind an open dialog does not scroll', async ({ page }) => {
     'hidden',
   );
 });
+
+test('on a read-only cluster "Edit config" is disabled with the read-only hint, like the other writes', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&preview=readonly');
+  await expect(page.getByRole('button', { name: 'Produce message' })).toBeDisabled({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('button', { name: 'Edit config' })).toBeDisabled();
+});
+
+test('a start offset past the end says so, not "no messages in its retention window"', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=audit-log&tab=messages&from=offset&offset=999999999999');
+  await expect(
+    page.getByText(/No messages at or after offset 999,999,999,999 in any partition/),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+});

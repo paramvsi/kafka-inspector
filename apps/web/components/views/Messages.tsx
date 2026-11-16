@@ -806,7 +806,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                     ? needs
                     : page.error
                       ? `${(page.error as Error).message} Try another start position, or try again.`
-                      : 'This partition has no messages in its retention window.'}
+                      : from === 'offset'
+                        ? `No messages at or after offset ${formatInt(Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0))} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier offset or Newest.`
+                        : `${p === 'all' ? 'This topic has' : `Partition ${p} has`} no messages in its retention window.`}
             </EmptyState>
           )}
         </div>
