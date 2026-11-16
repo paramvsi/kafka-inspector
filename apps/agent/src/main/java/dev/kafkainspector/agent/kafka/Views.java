@@ -46,10 +46,14 @@ public final class Views {
                 .count();
     }
 
+    private static String offlineLabel(long n) {
+        return n + (n == 1 ? " partition" : " partitions") + " offline";
+    }
+
     public static List<Dto.HealthFinding> health(ClusterState s, ClusterState.TopicSnap t) {
         List<Dto.HealthFinding> out = new ArrayList<>();
         long offline = t.partitions.stream().filter(p -> p.leader == null).count();
-        if (offline > 0) out.add(new Dto.HealthFinding("offline", "crit", offline + (offline == 1 ? " partition" : " partitions") + " offline", "Bring the brokers holding its replicas back; until then nothing can be produced to or read from those partitions."));
+        if (offline > 0) out.add(new Dto.HealthFinding("offline", "crit", offlineLabel(offline), "Bring the brokers holding its replicas back; until then nothing can be produced to or read from those partitions."));
         if (t.internal) return out;
         int rf = t.partitions.isEmpty() ? 0 : t.partitions.get(0).replicas.size();
         int minIsr = parseInt(t.configs.get("min.insync.replicas"), 1);
@@ -212,7 +216,7 @@ public final class Views {
         String now = iso(s.ts);
         List<Dto.AttentionItem> items = new ArrayList<>();
         s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port(), now, "/app/brokers/", "Investigate broker " + b.id())));
-        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offline + (offline == 1 ? " partition offline" : " partitions offline"), "No in-sync replica can lead them", now, "/app/topics/?view=attention", null));
+        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), "No in-sync replica can lead them", now, "/app/topics/?view=attention", null));
         if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + " partitions under-replicated", "ISR is smaller than the replica set", now, "/app/topics/?view=attention", null));
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;

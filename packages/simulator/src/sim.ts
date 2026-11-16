@@ -213,6 +213,8 @@ export const SEEDED_RULES: AlertRule[] = [
   },
 ];
 
+const offlineLabel = (n: number) => `${n} ${n === 1 ? 'partition' : 'partitions'} offline`;
+
 export class Simulator {
   readonly seed: string;
   private now: () => number;
@@ -860,7 +862,7 @@ export class Simulator {
       items.push({
         id: 'offline',
         severity: 'crit',
-        title: `${offline} ${offline === 1 ? 'partition' : 'partitions'} offline`,
+        title: offlineLabel(offline),
         detail: 'No in-sync replica can lead them',
         since: new Date(t).toISOString(),
         href: '/app/topics/?view=attention',
@@ -1020,7 +1022,7 @@ export class Simulator {
       out.push({
         id: 'offline',
         severity: 'crit',
-        message: `${offline} ${offline === 1 ? 'partition' : 'partitions'} offline`,
+        message: offlineLabel(offline),
         fix: 'Bring the brokers holding its replicas back; until then nothing can be produced to or read from those partitions.',
       });
     if (def.internal) return out;

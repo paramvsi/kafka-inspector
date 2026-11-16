@@ -162,7 +162,7 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 self.set(stop);
                 Runnable old = ended.get() ? tails.remove(prefix + id) : tails.put(prefix + id, stop);
                 if (old != null) old.run(); // same id re-sent: replace, don't leak the old consumer
-                if (ended.get()) tails.remove(prefix + id, stop); // ended between the check and the put
+                if (ended.get()) tails.remove(prefix + id, stop); // the put branch: it ended between the check and the put
                 if (!raw.isOpen() && tails.remove(prefix + id) != null) stop.run(); // closed while we registered
             }
             case "unsub" -> {
