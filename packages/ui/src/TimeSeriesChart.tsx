@@ -146,7 +146,7 @@ export function TimeSeriesChart({
                   strokeWidth={2}
                   fill={`url(#fill-${s.key})`}
                   strokeDasharray={s.dashed ? '5 5' : undefined}
-                  dot={false}
+                  dot={s.points.length === 1 ? { r: 3, fill: `var(--${s.color})` } : false} // one point has no line to draw
                   connectNulls
                   isAnimationActive={animate}
                   animationDuration={duration}
@@ -159,7 +159,7 @@ export function TimeSeriesChart({
                   stroke={`var(--${s.color})`}
                   strokeWidth={2}
                   strokeDasharray={s.dashed ? '5 5' : undefined}
-                  dot={false}
+                  dot={s.points.length === 1 ? { r: 3, fill: `var(--${s.color})` } : false} // one point has no line to draw
                   connectNulls
                   isAnimationActive={animate}
                   animationDuration={duration}

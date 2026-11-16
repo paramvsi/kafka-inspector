@@ -66,7 +66,7 @@ export function Sidebar({
       <button
         type="button"
         popoverTarget={clusterMenu ? 'ki-cluster-menu' : undefined}
-        aria-label={`Cluster ${cluster.name}, ${statusWord[cluster.status]}. Switch cluster`}
+        aria-label={`Cluster ${cluster.name}, ${statusWord[cluster.status]}${clusterMenu ? '. Switch cluster' : ''}`}
         className="mb-[14px] flex h-control-md cursor-pointer items-center gap-2 rounded-md border border-line bg-surface px-[10px] font-mono text-[11px] text-ink"
       >
         <span

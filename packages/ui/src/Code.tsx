@@ -216,6 +216,8 @@ export function HexDump({
       {caption && <figcaption className="mb-2 text-[12px] text-ink-muted">{caption}</figcaption>}
       <div
         tabIndex={0}
+        role="region"
+        aria-label="Hex dump"
         className="overflow-x-auto rounded-md border border-line bg-surface-sunken p-3 font-mono text-[11px] leading-[18px]"
       >
         {lines.map((l) => (
@@ -225,7 +227,11 @@ export function HexDump({
               {l.bytes.map((b, j) => {
                 const a = toneOf(l.offset + j);
                 return (
-                  <span key={j} className={cx(a >= 0 && tone[a % tone.length], 'px-[1px]')}>
+                  <span
+                    key={j}
+                    title={a >= 0 ? annotations[a]!.label : undefined} // names the range, not only its colour
+                    className={cx(a >= 0 && tone[a % tone.length], 'px-[1px]')}
+                  >
                     {b.toString(16).padStart(2, '0')}
                     {j === 7 ? '  ' : ' '}
                   </span>
@@ -239,7 +245,7 @@ export function HexDump({
       {annotations.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-ink-muted">
           {annotations.map((a, i) => (
-            <span key={a.label} className="inline-flex items-center gap-1">
+            <span key={`${i}-${a.label}`} className="inline-flex items-center gap-1">
               <span
                 aria-hidden="true"
                 className={cx('inline-block size-[10px] rounded-[2px]', tone[i % tone.length])}
