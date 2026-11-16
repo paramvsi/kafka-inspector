@@ -12,7 +12,6 @@ import dev.kafkainspector.agent.kafka.Views;
 import dev.kafkainspector.agent.prefs.SavedFilters;
 import dev.kafkainspector.agent.schemas.SchemaRegistry;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.kafka.clients.admin.Config;
@@ -75,11 +74,6 @@ public class ApiController {
         ClusterState s = sampler.state(cid);
         if (s.ts == 0 && !s.connected) throw new IllegalStateException("Still connecting to " + clusters.get(cid).name() + (s.error != null ? ": " + s.error : "") + ". Retry in a few seconds.");
         return s;
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Double> trend(String cid, String scope, String key, String metric) {
-        return trends.of(cid, scope, key, metric);
     }
 
     // ── cluster ──
@@ -181,7 +175,7 @@ public class ApiController {
         int sz = Math.max(1, Math.min(size, 500)), pg = Math.max(1, page);
         long from = (long) (pg - 1) * sz, to = (long) pg * sz; // long: page=2147483647 must not overflow
         List<Dto.TopicSummary> slice = items.subList((int) Math.min(items.size(), from), (int) Math.min(items.size(), to)).stream()
-                .map(t -> Views.topic(s, s.topics.get(t.name()), trend(c, "topic", t.name(), "messagesIn"))).toList();
+                .map(t -> Views.topic(s, s.topics.get(t.name()), trends.of(c, "topic", t.name(), "messagesIn"))).toList();
         return new Dto.Page<>(slice, items.size(), pg, sz);
     }
 
@@ -194,7 +188,7 @@ public class ApiController {
     @GetMapping("/clusters/{c}/topics/{name}")
     public Dto.TopicDetail topic(@PathVariable String c, @PathVariable String name) {
         ClusterState s = state(c);
-        return Views.topicDetail(s, topicSnap(s, name), trend(c, "topic", name, "messagesIn"), registry.subjectNames(c));
+        return Views.topicDetail(s, topicSnap(s, name), trends.of(c, "topic", name, "messagesIn"), registry.subjectNames(c));
     }
 
     @GetMapping("/clusters/{c}/topics/{name}/config")
@@ -241,7 +235,7 @@ public class ApiController {
     public List<Dto.GroupSummary> groups(@PathVariable String c, @RequestParam(required = false) String type, @RequestParam(required = false) String query) {
         ClusterState s = state(c);
         // worst first, as the overview and the simulator list them (the web list doesn't re-sort)
-        return s.groups.values().stream().filter(g -> type == null || type.isBlank() || g.type.equals(type)).filter(g -> query == null || g.groupId.contains(query)).map(g -> Views.group(s, g, trend(c, "group", g.groupId, "lag")))
+        return s.groups.values().stream().filter(g -> type == null || type.isBlank() || g.type.equals(type)).filter(g -> query == null || g.groupId.contains(query)).map(g -> Views.group(s, g, trends.of(c, "group", g.groupId, "lag")))
                 .sorted(Views.WORST_FIRST).toList();
     }
 
@@ -250,7 +244,7 @@ public class ApiController {
         ClusterState s = state(c);
         ClusterState.GroupSnap g = s.groups.get(id);
         if (g == null) throw new Clusters.NotFound("GROUP_NOT_FOUND", "Consumer group " + id + " not found.");
-        return Views.groupDetail(s, g, trend(c, "group", id, "lag"));
+        return Views.groupDetail(s, g, trends.of(c, "group", id, "lag"));
     }
 
     // ── history ──
