@@ -83,6 +83,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [offset, setOffset] = useState(url.get('offset') ?? '');
   const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));
   const [extra, setExtra] = useState<RawMessage[]>([]);
+  const [extraScanned, setExtraScanned] = useState(0); // scanned by Load more pages
   const [cursor, setCursor] = useState<string | undefined>();
 
   const groups = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
@@ -119,6 +120,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   useEffect(() => {
     pageRef.current = page.data;
     setExtra([]);
+    setExtraScanned(0);
     setCursor(page.data?.nextCursor);
   }, [page.data]);
 
@@ -282,6 +284,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       });
       if (pageRef.current !== base) return;
       setExtra((x) => [...x, ...next.messages]);
+      setExtraScanned((n) => n + next.scanned);
       setCursor(next.nextCursor);
     } catch (e) {
       setLoadError(`Couldn't load more messages: ${(e as Error).message}`);
@@ -777,7 +780,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         {!live && regex === undefined && (
           <div className="flex items-center gap-3 border-t border-line-subtle px-4 py-2 text-[12px] text-ink-muted">
             <span>
-              {formatInt(raws.length)} messages · {formatInt(page.data?.scanned ?? 0)} scanned
+              {formatInt(raws.length)} messages ·{' '}
+              {formatInt((page.data?.scanned ?? 0) + extraScanned)} scanned
             </span>
             <div className="grow" />
             <Button size="sm" variant="ghost" onClick={() => url.set({ search: '' })}>

@@ -28,10 +28,12 @@ import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { useUrl } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
+import { sinceRising } from '../../lib/trend';
 import { ResetOffsetsDialog } from './ResetOffsets';
 
 export function GroupDetailView() {
   const url = useUrl();
+  const canWrite = useWrites();
   const id = url.get('id') ?? '';
   const tab = url.get('tab') === 'members' ? 'members' : 'partitions';
   const { range } = useApp();
@@ -133,7 +135,7 @@ export function GroupDetailView() {
         <Members d={d} />
       )}
       <ResetOffsetsDialog
-        open={url.get('reset') === '1'}
+        open={url.get('reset') === '1' && !!canWrite} // a deep link can't open it on a read-only cluster
         onClose={() => url.set({ reset: undefined })}
         group={d}
       />
@@ -185,17 +187,21 @@ function Actions({ d }: { d: Detail }) {
   );
 }
 
-function sinceRising(points: Array<[number, number]>): number | undefined {
-  if (points.length < 3) return undefined;
-  for (let i = points.length - 1; i > 0; i--)
-    if (points[i - 1]![1] > points[i]![1]) return points[i]![0];
-  return points[0]![0];
-}
-
 function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
   const s = d.summary;
   const f = s.forecast;
-  const rising = s.status === 'warn' || f.kind === 'never';
+  // direction from the rates (the forecast's numbers); flat when they match, e.g. a stopped group
+  const known = f.consumeRate !== undefined && f.produceRate !== undefined;
+  const trend: 'rising' | 'falling' | 'flat' = known
+    ? f.produceRate! > f.consumeRate!
+      ? 'rising'
+      : f.produceRate! < f.consumeRate!
+        ? 'falling'
+        : 'flat'
+    : s.status === 'warn' || f.kind === 'never'
+      ? 'rising'
+      : 'falling';
+  const rising = trend === 'rising';
   const from = rising ? sinceRising(points) : undefined;
   const topics = s.topics.length > 2 ? `${s.topics.length} topics` : s.topics.join(' + ');
   return (
@@ -211,7 +217,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
               ? from
                 ? `rising since ${formatClock(from)}`
                 : 'rising'
-              : 'falling'
+              : trend
         }
         deltaTone={s.totalLag === 0 ? 'ok' : rising ? 'warn' : 'ok'}
       />
@@ -227,7 +233,9 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
           f.consumeRate !== undefined && f.produceRate !== undefined
             ? f.produceRate > f.consumeRate
               ? 'faster than consumption'
-              : 'slower than consumption'
+              : f.produceRate < f.consumeRate
+                ? 'slower than consumption'
+                : 'same as consumption'
             : undefined
         }
         deltaTone={

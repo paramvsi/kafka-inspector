@@ -299,7 +299,7 @@ function RuleDialog({
   rule?: AlertRule;
   onClose: () => void;
 }) {
-  const { client, clusterId } = useKafka();
+  const { client, clusterId, info } = useKafka();
   const qc = useQueryClient();
   const toast = useToast();
   const groups = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
@@ -408,7 +408,11 @@ function RuleDialog({
       open={open}
       onClose={onClose}
       title={rule ? 'Edit alert rule' : 'New alert rule'}
-      description="Checked every second against live metrics."
+      description={
+        info.mode === 'demo'
+          ? 'Checked every second against live metrics.'
+          : 'Checked on every metrics sample (every few seconds).'
+      }
       className="w-[620px]"
       footer={
         <>

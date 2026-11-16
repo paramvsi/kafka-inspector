@@ -29,7 +29,8 @@ export function BrokersView() {
   const totalLeaders = list.reduce((a, b) => a + b.leaders, 0) || 1;
   const controller = list.find((b) => b.isController);
   const online = list.filter((b) => b.online).length;
-  const flagged = list.filter((b) => b.leaders / totalLeaders > 0.4);
+  // with 1–2 online brokers someone always leads more than 40%: the check only means something from 3 up
+  const flagged = online >= 3 ? list.filter((b) => b.leaders / totalLeaders > 0.4) : [];
   const all = config.data ?? [];
   return (
     <>
@@ -37,7 +38,7 @@ export function BrokersView() {
         title="Brokers"
         subtitle={
           list.length
-            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'} · Kafka ${overview.data?.cluster.kafkaVersion ?? ''}`
+            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'} ${overview.data?.cluster.kafkaVersion && overview.data.cluster.kafkaVersion !== 'unknown' ? ` · Kafka ${overview.data.cluster.kafkaVersion}` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />
@@ -138,7 +139,9 @@ export function BrokersView() {
           <p className="m-0 mt-4 text-[12px] text-ink-muted">
             {flagged.length
               ? `Broker ${flagged.map((b) => b.id).join(', ')} leads more than 40% of partitions. Run a preferred leader election to rebalance.`
-              : 'Balanced. A broker leading more than 40% of partitions is flagged.'}
+              : online < 3
+                ? 'Leader balance is checked from 3 online brokers up.'
+                : 'Balanced. A broker leading more than 40% of partitions is flagged.'}
           </p>
         </Card>
         <Card

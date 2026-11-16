@@ -39,6 +39,9 @@ const WORD = {
   saved: 'Saved',
 };
 
+/** The agent can't always tell the broker version (the Admin API doesn't report it): then say nothing. */
+const kafkaLabel = (v?: string) => (v && v !== 'unknown' ? ` · Kafka ${v}` : '');
+
 export function ClustersView() {
   const url = useUrl();
   const { info } = useKafka();
@@ -50,7 +53,9 @@ export function ClustersView() {
       name: c.name,
       color: 'chart-1',
       mode: c.simulated ? 'Simulated (in this browser)' : 'Agent',
-      target: c.simulated ? 'Web Worker' : `${c.brokers} brokers · Kafka ${c.kafkaVersion}`,
+      target: c.simulated
+        ? 'Web Worker'
+        : `${c.brokers} ${c.brokers === 1 ? 'broker' : 'brokers'}${kafkaLabel(c.kafkaVersion)}`,
       status: c.status,
       readOnly: info.readOnly,
     })),

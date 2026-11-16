@@ -192,8 +192,14 @@ function Throughput({
   const markers = events
     .filter(
       (e) =>
-        ['rebalance', 'chaos', 'broker-down', 'broker-up', 'offsets-reset'].includes(e.kind) &&
-        Date.parse(e.ts) >= from,
+        [
+          'rebalance',
+          'chaos',
+          'group-stalled',
+          'broker-down',
+          'broker-up',
+          'offsets-reset',
+        ].includes(e.kind) && Date.parse(e.ts) >= from,
     )
     .slice(0, 6)
     .map((e) => ({
@@ -203,9 +209,11 @@ function Throughput({
           ? 'rebalance'
           : e.kind === 'offsets-reset'
             ? 'reset'
-            : e.kind.startsWith('broker')
-              ? e.kind.replace('-', ' ')
-              : 'chaos',
+            : e.kind === 'group-stalled'
+              ? 'stalled'
+              : e.kind.startsWith('broker')
+                ? e.kind.replace('-', ' ')
+                : 'chaos',
     }));
   const peak = inn.reduce<[number, number] | null>((m, p) => (!m || p[1] > m[1] ? p : m), null);
   const legend = (color: string, label: string) => (

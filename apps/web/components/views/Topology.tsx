@@ -12,7 +12,8 @@ const W = 1040,
   NODE_H = 44,
   ROW = 80,
   TOP = 64;
-const COL = { producer: 30, topic: 420, group: 810 } as const;
+const COLS3 = { producer: 30, topic: 420, group: 810 };
+const COLS2 = { producer: -1, topic: 30, group: 420 };
 const GROUP_ORDER = [
   'order-service',
   'payments-sink',
@@ -25,6 +26,8 @@ const GROUP_ORDER = [
 function layout(t: Topology) {
   const pos = new Map<string, { x: number; y: number }>();
   const topics = t.nodes.filter((n) => n.kind === 'topic');
+  // no producer nodes (self-hosted: the Admin API doesn't expose them) → two columns that fit at 1280
+  const COL = t.nodes.some((n) => n.kind === 'producer') ? COLS3 : COLS2;
   topics.sort((a, b) => Number(a.label.endsWith('.dlq')) - Number(b.label.endsWith('.dlq')));
   topics.forEach((n, i) => pos.set(n.id, { x: COL.topic, y: TOP + i * ROW }));
   const producers = t.nodes.filter((n) => n.kind === 'producer');
@@ -39,7 +42,12 @@ function layout(t: Topology) {
     );
   groups.forEach((n, i) => pos.set(n.id, { x: COL.group, y: TOP + i * ROW }));
   const rows = Math.max(topics.length, groups.length, producers.length);
-  return { pos, height: TOP + rows * ROW + 30 };
+  return {
+    pos,
+    height: TOP + rows * ROW + 30,
+    col: COL,
+    w: COL === COLS3 ? W : COLS2.group + NODE_W + 30,
+  };
 }
 
 const STATUS_BOX: Record<string, string> = {
@@ -75,7 +83,10 @@ export function TopologyView() {
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
   const t = data.data;
-  const { pos, height } = useMemo(() => (t ? layout(t) : { pos: new Map(), height: 400 }), [t]);
+  const { pos, height, col, w } = useMemo(
+    () => (t ? layout(t) : { pos: new Map(), height: 400, col: COLS3, w: W }),
+    [t],
+  );
   if (!t)
     return (
       <PageHeader
@@ -94,7 +105,7 @@ export function TopologyView() {
     <>
       <PageHeader
         title="Topology"
-        subtitle={`Producers → topics → consumer groups · line width = messages per second${info.mode !== 'demo' ? ' · producers are inferred from client ids where the broker reports them' : ''}`}
+        subtitle={`${info.mode !== 'demo' ? 'Topics → consumer groups (the Admin API doesn’t expose producers)' : 'Producers → topics → consumer groups'} · line width = messages per second`}
         actions={
           <>
             <SearchInput
@@ -144,17 +155,19 @@ export function TopologyView() {
             className="origin-top-left"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
           >
-            <div className="relative mx-auto" style={{ width: W, height }}>
-              {(['producer', 'topic', 'group'] as const).map((k) => (
-                <div
-                  key={k}
-                  className="absolute top-6 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-muted"
-                  style={{ left: COL[k] }}
-                >
-                  {k === 'producer' ? 'Producers' : k === 'topic' ? 'Topics' : 'Consumer groups'}
-                </div>
-              ))}
-              <svg width={W} height={height} className="absolute inset-0" aria-hidden="true">
+            <div className="relative mx-auto" style={{ width: w, height }}>
+              {(['producer', 'topic', 'group'] as const)
+                .filter((k) => col[k] >= 0)
+                .map((k) => (
+                  <div
+                    key={k}
+                    className="absolute top-6 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-muted"
+                    style={{ left: col[k] }}
+                  >
+                    {k === 'producer' ? 'Producers' : k === 'topic' ? 'Topics' : 'Consumer groups'}
+                  </div>
+                ))}
+              <svg width={w} height={height} className="absolute inset-0" aria-hidden="true">
                 {t.edges.map((e) => {
                   const a = pos.get(e.from),
                     b = pos.get(e.to);
@@ -297,7 +310,7 @@ export function TopologyView() {
               {dlq && (
                 <div
                   className="absolute text-[12px] text-crit-text"
-                  style={{ left: COL.group + 20, top: (pos.get(dlq.to)?.y ?? 0) + NODE_H + 14 }}
+                  style={{ left: col.group + 20, top: (pos.get(dlq.to)?.y ?? 0) + NODE_H + 14 }}
                 >
                   {nodeById.get(dlq.from)?.label} writes failures to {nodeById.get(dlq.to)?.label}
                 </div>

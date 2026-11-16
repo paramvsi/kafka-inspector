@@ -338,7 +338,7 @@ public class Sampler {
             gs.lastCommitAt = lastCommit;
             gs.status = Lag.rollup(statuses);
             gs.forecast = gs.type.equals("share") ? Lag.Forecast.of("unknown") : Lag.combine(parts);
-            if (prev != null && prev.status != gs.status && (gs.status == Lag.Status.stalled || gs.status == Lag.Status.stopped)) event(s, now, "chaos", "crit", gs.groupId + " " + gs.status, null);
+            if (prev != null && prev.status != gs.status && (gs.status == Lag.Status.stalled || gs.status == Lag.Status.stopped)) event(s, now, "group-stalled", "crit", gs.groupId + " " + gs.status, null);
         }
 
         // deleted groups/topics/partitions drop their windows

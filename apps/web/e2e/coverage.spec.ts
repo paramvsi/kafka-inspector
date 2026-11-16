@@ -892,3 +892,26 @@ test.describe('touch layout', () => {
     expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   });
 });
+
+test('a ?reset=1 deep link does not open Reset offsets on a read-only cluster (rule 5)', async ({
+  page,
+}) => {
+  await page.goto('/app/groups/view/?id=fraud-scorer&reset=1&preview=readonly');
+  await expect(page.locator('h1', { hasText: 'fraud-scorer' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('the scanned count adds up across Load more pages', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const footer = page.getByText(/[\d,]+ messages · [\d,]+ scanned/);
+  await expect(footer).toBeVisible({ timeout: 15_000 });
+  const scanned = async () =>
+    Number((await footer.innerText()).match(/· ([\d,]+) scanned/)![1]!.replace(/,/g, ''));
+  const before = await scanned();
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await expect(page.getByText(/^200 messages/)).toBeVisible({ timeout: 15_000 });
+  expect(await scanned()).toBeGreaterThan(before);
+});

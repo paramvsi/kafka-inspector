@@ -268,6 +268,7 @@ export interface ClusterEvent {
     | 'alert-resolved'
     | 'config'
     | 'chaos'
+    | 'group-stalled' // a real group stopped consuming (agent); chaos is simulator-only (rule 7)
     | 'offsets-reset'
     | 'topic-created'
     | 'topic-deleted';
