@@ -18,7 +18,7 @@ cleanup() {
 trap cleanup EXIT
 docker rm -f ki-smoke-agent >/dev/null 2>&1 || true # left over from a killed run
 docker compose -p $P -f deploy/docker-compose.dev.yml up -d --wait kafka
-for c in snappy zstd; do
+for c in snappy zstd lz4 gzip; do
   docker compose -p $P -f deploy/docker-compose.dev.yml exec -T kafka sh -c \
     "printf 'a\nb\nc\n' | /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic comp-$c --compression-codec $c"
 done
@@ -37,8 +37,8 @@ curl -fs -c "$J" -b "$J" localhost:$PORT/api/info >/dev/null
 T=$(awk '$6=="KI_CSRF"{print $7}' "$J")
 curl -fs -c "$J" -b "$J" -H "X-KI-CSRF: $T" -H 'Content-Type: application/json' -d '{"username":"admin","password":"smoke"}' localhost:$PORT/api/auth/login
 sleep 5 # first sample sees the topics
-for c in snappy zstd; do
+for c in snappy zstd lz4 gzip; do
   body=$(curl -s -b "$J" "localhost:$PORT/api/clusters/default/topics/comp-$c/messages?limit=5")
   echo "$body" | grep -q '"offset"' || { echo "FAIL: comp-$c: $body"; exit 1; }
 done
-echo "PASS: hardened image healthy as 10001, reads snappy and zstd topics"
+echo "PASS: hardened image healthy as 10001, reads snappy, zstd, lz4 and gzip topics"
