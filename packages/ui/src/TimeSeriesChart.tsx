@@ -84,12 +84,15 @@ export function TimeSeriesChart({
     return [...byT.values()].sort((a, b) => a.t! - b.t!);
   }, [series]);
   const duration = tokenMs('--dur-slow');
+  const tMin = rows[0]?.t ?? 0,
+    tMax = rows.at(-1)?.t ?? 0;
 
   return (
     <figure className="m-0" aria-label={label}>
       <div style={{ height }} className="font-mono text-[10px] text-ink-muted">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart data={rows} margin={{ top: 8, right: 32, bottom: 0, left: 0 }}>
+            {/* right: half a date label */}
             <defs>
               {series
                 .filter((s) => s.area)
@@ -174,7 +177,8 @@ export function TimeSeriesChart({
                 strokeDasharray="2 3"
                 label={{
                   value: m.label,
-                  position: 'insideTopLeft',
+                  // near the right edge the label goes to the line's left, so it isn't cut off
+                  position: m.t > tMin + 0.8 * (tMax - tMin) ? 'insideTopRight' : 'insideTopLeft',
                   fill: 'var(--ink-muted)',
                   fontSize: 9,
                 }}

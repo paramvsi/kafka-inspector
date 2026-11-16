@@ -70,7 +70,7 @@ export function KpiCard({
       <div className="relative text-[13px] text-ink-muted">{label}</div>
       <div
         // stale reads muted (not faded with opacity, which fails AA contrast) and says "stale" in words
-        className="relative mt-2 flex items-baseline gap-2"
+        className="relative mt-2 flex flex-wrap items-baseline gap-x-2"
       >
         {loading ? (
           <span className="ki-skeleton block h-7 w-28 rounded-sm" />
@@ -78,7 +78,7 @@ export function KpiCard({
           <>
             <span
               className={cx(
-                'font-mono text-[22px] font-medium leading-7 tabular-nums',
+                'whitespace-nowrap font-mono text-[22px] font-medium leading-7 tabular-nums', // "3 of 3" stays on one line
                 stale && 'text-ink-muted',
               )}
             >

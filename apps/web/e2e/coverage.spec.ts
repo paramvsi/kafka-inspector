@@ -1364,3 +1364,22 @@ test('the theme switch in Settings shows which theme is selected', async ({ page
   const fill = await pressed.evaluate((b) => getComputedStyle(b).backgroundColor);
   expect(indicatorWidth > 0 || (fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent')).toBe(true);
 });
+
+test('chart axis labels and the brokers-online value fit their boxes at 1280', async ({ page }) => {
+  await page.goto('/app/');
+  await expect
+    .poll(() => page.locator('.recharts-cartesian-axis-tick-value').count(), { timeout: 15_000 })
+    .toBeGreaterThan(3);
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll('.recharts-wrapper')].some((w) => {
+      const box = w.getBoundingClientRect();
+      return [...w.querySelectorAll('.recharts-cartesian-axis-tick-value')].some(
+        (t) => t.getBoundingClientRect().right > box.right + 0.5,
+      );
+    }),
+  );
+  expect(clipped).toBe(false);
+  const value = page.getByText(/^\d+ of \d+$/).first();
+  const h = await value.evaluate((e) => e.getBoundingClientRect().height);
+  expect(h).toBeLessThan(40); // one 28 px line, not two
+});
