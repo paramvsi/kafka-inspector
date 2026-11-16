@@ -100,6 +100,10 @@ export function TopicsView() {
   const parts = everything.reduce((a, t) => a + t.partitions, 0);
   const data = list.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE)) : 1;
+  // a stale link or a list that shrank: go to the last page that exists instead of an empty table
+  useEffect(() => {
+    if (data && page > pages) url.set({ page: pages === 1 ? undefined : pages });
+  }, [data, page, pages]);
   const toggleStar = (name: string) =>
     setStarred(starred.includes(name) ? starred.filter((s) => s !== name) : [...starred, name]);
 
@@ -109,7 +113,7 @@ export function TopicsView() {
         title="Topics"
         subtitle={
           all.data
-            ? `${everything.length} topics · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention`
+            ? `${formatInt(all.data.total)} topics · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention${all.data.total > everything.length ? ` (totals cover the first ${formatInt(everything.length)})` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
         actions={
@@ -154,7 +158,10 @@ export function TopicsView() {
             hideLabel
             value={sort}
             onChange={(e) =>
-              url.set({ sort: e.target.value === 'issues' ? undefined : e.target.value })
+              url.set({
+                sort: e.target.value === 'issues' ? undefined : e.target.value,
+                page: undefined,
+              })
             }
             options={[
               { value: 'issues', label: 'Sorted by: issues first' },
@@ -288,7 +295,7 @@ export function TopicsView() {
               key: 'size',
               header: 'Size',
               kind: 'num',
-              cell: (t) => formatBytes(t.sizeBytes ?? 0),
+              cell: (t) => (t.sizeBytes == null ? '—' : formatBytes(t.sizeBytes)), // unknown isn't 0 B
             },
             {
               key: 'rate',

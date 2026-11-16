@@ -1122,3 +1122,15 @@ test('a hex view on a masked topic never shows the masked field as bytes', async
   await expect(drawer.getByText(/Raw bytes hidden: masking rule/)).toBeVisible();
   await expect(drawer.getByText(/\b40 [0-9a-f]{2} [0-9a-f]{2}/)).toHaveCount(0); // no "@" byte run
 });
+
+test('a stale page number lands on the last real page; the groups filter ignores case', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/?page=9');
+  await expect(page.getByRole('link', { name: /^[a-z]/ }).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Page (\d+) of \1$/)).toBeVisible();
+  await page.goto('/app/groups/?q=ORDER');
+  await expect(page.getByRole('link', { name: 'order-service', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+});

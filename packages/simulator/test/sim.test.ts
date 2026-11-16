@@ -635,3 +635,18 @@ test('create topic refuses "." / ".." and a min.insync.replicas above the replic
     }),
   ).rejects.toThrow("can't exceed the replication factor");
 });
+
+test('the default topic order is stable across live updates (ties break by name, not the live rate)', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  const order = () =>
+    a.sim
+      .listTopics({ size: 500 })
+      .items.map((t) => t.name)
+      .join(',');
+  const before = order();
+  for (let i = 0; i < 5; i++) {
+    a.advance(2);
+    expect(order()).toBe(before);
+  }
+});

@@ -170,10 +170,10 @@ public class ApiController {
         }
         Comparator<Dto.TopicSummary> cmp = switch (sort) {
             case "name" -> Comparator.comparing(Dto.TopicSummary::name);
-            case "size" -> Comparator.comparingLong((Dto.TopicSummary t) -> t.sizeBytes() == null ? 0 : t.sizeBytes()).reversed();
-            case "rate" -> Comparator.comparingDouble(Dto.TopicSummary::messagesInPerSec).reversed();
+            case "size" -> Comparator.comparingLong((Dto.TopicSummary t) -> t.sizeBytes() == null ? -1 : t.sizeBytes()).reversed().thenComparing(Dto.TopicSummary::name); // unknown last
+            case "rate" -> Comparator.comparingDouble(Dto.TopicSummary::messagesInPerSec).reversed().thenComparing(Dto.TopicSummary::name);
             default -> Comparator.comparingInt((Dto.TopicSummary t) -> -(t.health().stream().anyMatch(h -> h.severity().equals("crit")) ? 3 : t.health().stream().anyMatch(h -> h.severity().equals("warn")) ? 2 : Views.needsAttention(t) ? 1 : 0))
-                    .thenComparing(Comparator.comparingDouble(Dto.TopicSummary::messagesInPerSec).reversed()).thenComparing(Dto.TopicSummary::name);
+                    .thenComparing(Dto.TopicSummary::name); // not the live rate: rows mustn't swap on every refresh
         };
         items.sort(cmp);
         int sz = Math.max(1, Math.min(size, 500)), pg = Math.max(1, page);

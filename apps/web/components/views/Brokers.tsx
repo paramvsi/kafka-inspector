@@ -83,7 +83,7 @@ export function BrokersView() {
             key: 'in',
             header: 'In / s',
             kind: 'num',
-            cell: (b) => formatBytes(b.bytesInPerSec ?? 0),
+            cell: (b) => (b.bytesInPerSec == null ? '—' : formatBytes(b.bytesInPerSec)),
           },
           {
             key: 'disk',

@@ -1117,12 +1117,11 @@ export class Simulator {
       sort === 'name'
         ? a.name.localeCompare(b.name)
         : sort === 'size'
-          ? (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0)
+          ? (b.sizeBytes ?? -1) - (a.sizeBytes ?? -1) || a.name.localeCompare(b.name) // unknown last
           : sort === 'rate'
-            ? b.messagesInPerSec - a.messagesInPerSec
-            : score(b) - score(a) ||
-              b.messagesInPerSec - a.messagesInPerSec ||
-              a.name.localeCompare(b.name),
+            ? b.messagesInPerSec - a.messagesInPerSec || a.name.localeCompare(b.name)
+            : // ties by name, not the live rate, so rows don't swap places on every refresh
+              score(b) - score(a) || a.name.localeCompare(b.name),
     );
     const size = Math.min(q.size ?? 50, 500);
     const page = Math.max(1, q.page ?? 1);

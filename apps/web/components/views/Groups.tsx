@@ -34,7 +34,9 @@ export function GroupsView() {
   const fallback = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
   const events = useStream<ClusterEvent[]>('events');
   const all = live ?? fallback.data ?? [];
-  const rows = all.filter((g) => (!type || g.type === type) && (!q || g.groupId.includes(q)));
+  const rows = all.filter(
+    (g) => (!type || g.type === type) && (!q || g.groupId.toLowerCase().includes(q.toLowerCase())),
+  );
   const count = (s: string[]) => all.filter((g) => s.includes(g.status)).length;
   const rebalances = (events ?? []).filter(
     (e) => e.kind === 'rebalance' && Date.now() - Date.parse(e.ts) < 3600e3,
