@@ -60,7 +60,8 @@ public class MessageService {
             // the page with old records while the hot one's newest wait for Load more); the cursor keeps the rest
             int per = max;
             Map<TopicPartition, long[]> ranges = new HashMap<>(); // [start, stopExclusive]
-            Map<TopicPartition, OffsetAndTimestamp> byTime = "timestamp".equals(from) && timestamp != null ? c.offsetsForTimes(tpsMap(tps, Instant.parse(timestamp).toEpochMilli()), Duration.ofSeconds(10)) : Map.of();
+            // a later page continues from its cursor: the timestamp isn't read (or re-validated) there
+            Map<TopicPartition, OffsetAndTimestamp> byTime = (cursor == null || cursor.isBlank()) && "timestamp".equals(from) && timestamp != null ? c.offsetsForTimes(tpsMap(tps, Instant.parse(timestamp).toEpochMilli()), Duration.ofSeconds(10)) : Map.of();
             for (TopicPartition tp : tps) {
                 long lo = begin.get(tp), hi = end.get(tp);
                 long start;

@@ -182,6 +182,7 @@ public class SchemaRegistry {
     }
 
     public Dto.CompatibilityResult compatibility(String cid, String subject, String schema, String type) {
+        if (schema == null || schema.isBlank()) throw new IllegalArgumentException("Send the candidate schema.");
         // a candidate is checked as the subject's own type (JSON, PROTOBUF), not assumed Avro
         if (type == null || type.isBlank()) type = get(cid, subject, "latest").type();
         String body = json.writeValueAsString(Map.of("schema", schema, "schemaType", type == null ? "AVRO" : type));

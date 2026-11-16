@@ -1043,4 +1043,16 @@ class AgentIntegrationTest {
         assertEquals(302, root.statusCode());
         assertEquals("/app/", URI.create(root.headers().firstValue("location").orElseThrow()).getPath());
     }
+
+    @Test
+    @Order(50)
+    void incompleteBodiesAndLaterPagesGetA400NotA500() throws Exception {
+        signIn();
+        HttpResponse<String> noSchema = send("POST", "/api/clusters/local/schemas/subjects/orders-value/compatibility", "{\"schemaType\":\"AVRO\"}");
+        assertEquals(400, noSchema.statusCode(), noSchema::body);
+        HttpResponse<String> noKind = send("POST", "/api/alerts/rules", "{\"name\":\"x\",\"metric\":\"lag\",\"scope\":{},\"threshold\":1,\"durationSec\":60,\"severity\":\"info\",\"channels\":[],\"enabled\":true}");
+        assertEquals(400, noKind.statusCode(), noKind::body);
+        HttpResponse<String> far = send("GET", "/api/clusters/local/topics/orders/messages?from=timestamp&timestamp=%2B999999999-12-31T23:59:59Z&cursor=0:1", null);
+        assertTrue(far.statusCode() < 500, () -> far.statusCode() + " " + far.body());
+    }
 }
