@@ -56,4 +56,10 @@ class ClustersTest {
     void aReadWriteConfigRefusesToStart() {
         refused("KI_READ_ONLY", () -> new Clusters(new KiProperties("pw", false, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c("a", "PLAINTEXT", null))), new MockEnvironment()));
     }
+
+    @Test
+    void aBlankClusterNameGetsTheDefaultIdNotAnEmptyOne() {
+        Clusters cs = of(c("  ", "PLAINTEXT", null));
+        assertDoesNotThrow(() -> cs.get("default"));
+    }
 }

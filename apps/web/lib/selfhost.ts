@@ -21,6 +21,9 @@ const yamlStr = (s: string) => JSON.stringify(s).replace(/\$/g, '$$$$');
 export const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^/?#\s]*@/i;
 export const withoutUserinfo = (url: string) =>
   url.replace(USERINFO, (_, scheme?: string) => scheme ?? '');
+/** A query string or fragment (e.g. ?api_key=…) can carry a token too: it's left out as well. */
+const QUERY = /[?#].*$/;
+const registryUrl = (url: string) => withoutUserinfo(url).replace(QUERY, '');
 
 /** Non-secret settings, shared by compose and docker run. */
 function envSettings(f: SelfHostForm): Array<[string, string]> {
@@ -30,8 +33,7 @@ function envSettings(f: SelfHostForm): Array<[string, string]> {
     ['KI_CLUSTERS_0_SECURITY', f.security],
   ];
   if (sasl(f)) out.push(['KI_CLUSTERS_0_SASL_MECHANISM', f.mechanism]);
-  if (f.schemaRegistry)
-    out.push(['KI_CLUSTERS_0_SCHEMA_REGISTRY', withoutUserinfo(f.schemaRegistry)]);
+  if (f.schemaRegistry) out.push(['KI_CLUSTERS_0_SCHEMA_REGISTRY', registryUrl(f.schemaRegistry)]);
   out.push(['KI_READ_ONLY', 'true']);
   return out;
 }
@@ -76,6 +78,7 @@ export function compose(f: SelfHostForm): string {
 export function dotenv(f: SelfHostForm): string {
   return [
     '# Fill these in on your server. Never commit this file.',
+    '# With docker compose, write a $ in a value as $$ (compose reads $ as a variable).',
     ...secretNames(f).map((n) => `${n}=`),
     '',
   ].join('\n');
@@ -83,7 +86,7 @@ export function dotenv(f: SelfHostForm): string {
 
 export function dockerRun(f: SelfHostForm): string {
   return [
-    `docker run -d --name kafka-inspector -p ${f.port}:8080 \\`,
+    `docker run -d --name kafka-inspector --restart unless-stopped -p ${f.port}:8080 \\`,
     '  --read-only --tmpfs /tmp:exec --security-opt no-new-privileges --cap-drop ALL \\',
     '  --env-file .env \\',
     ...envSettings(f).map(
@@ -103,6 +106,12 @@ export function warnings(f: SelfHostForm): string[] {
     );
   if (!/^[^,\s]+:\d+(,\s*[^,\s]+:\d+)*$/.test(f.bootstrap.trim()))
     w.push('Bootstrap servers are host:port pairs separated by commas.');
+  if (!f.name.trim())
+    w.push('Give the cluster a name: it labels the cluster in the app and in its URLs.');
+  if (QUERY.test(withoutUserinfo(f.schemaRegistry)))
+    w.push(
+      'The Schema Registry URL had a query string or fragment, which can carry a token; it was left out of the files. Use registry authentication and put the values in .env.',
+    );
   if (USERINFO.test(f.schemaRegistry))
     w.push(
       'The Schema Registry URL contained a username or password; it was left out of the files. Turn on registry authentication and put the values in .env.',

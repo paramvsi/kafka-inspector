@@ -43,7 +43,7 @@ public class Clusters {
         }
         for (KiProperties.Cluster c : list) {
             if (c.bootstrap() == null || c.bootstrap().isBlank()) throw new IllegalStateException("Cluster " + c.name() + " has no bootstrap servers (KI_CLUSTERS_n_BOOTSTRAP).");
-            String id = c.name() == null ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
+            String id = c.name() == null || c.name().isBlank() ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
             // fail fast on settings that would otherwise fail every request (or silently replace a cluster)
             if (byId.containsKey(id))
                 throw new IllegalStateException("Two clusters resolve to the id \"" + id + "\" (" + byId.get(id).name() + ", " + c.name() + "). Give each cluster a distinct KI_CLUSTERS_n_NAME.");

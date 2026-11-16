@@ -82,3 +82,21 @@ test('registry credentials never leak, even with @ in the password or no scheme;
   }
   expect(compose({ ...base, schemaRegistry: '' })).toContain('"prod$$HOME"');
 });
+
+describe('generator edge cases', () => {
+  test('an empty cluster name is warned about', () => {
+    expect(warnings({ ...f, name: '  ' }).join(' ')).toMatch(/Give the cluster a name/);
+  });
+  test('docker run restarts like compose does', () => {
+    expect(dockerRun(f)).toContain('--restart unless-stopped');
+  });
+  test('a registry URL with a query-string token never reaches a generated file', () => {
+    const g = { ...f, schemaRegistry: 'https://sr.example.com/api?api_key=s3cret' };
+    expect(compose(g)).not.toContain('s3cret');
+    expect(dockerRun(g)).not.toContain('s3cret');
+    expect(warnings(g).join(' ')).toMatch(/query/i);
+  });
+  test('the .env says how compose reads a $ in a value', () => {
+    expect(dotenv(f)).toContain('$$');
+  });
+});
