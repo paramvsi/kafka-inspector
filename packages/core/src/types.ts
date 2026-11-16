@@ -378,8 +378,15 @@ export interface Topology {
   edges: TopologyEdge[];
 }
 
-export type AlertMetric =
-  'lag' | 'group-status' | 'topic-silent' | 'under-replicated' | 'broker-offline' | 'dlq-receiving';
+export const ALERT_METRICS = [
+  'lag',
+  'group-status',
+  'topic-silent',
+  'under-replicated',
+  'broker-offline',
+  'dlq-receiving',
+] as const;
+export type AlertMetric = (typeof ALERT_METRICS)[number];
 export type Severity = 'crit' | 'warn' | 'info';
 
 export interface AlertRuleInput {

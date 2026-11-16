@@ -128,3 +128,6 @@ export const shownName = (s: string): string =>
     INVISIBLE,
     (c) => `\\u{${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}}`,
   );
+
+/** "1 partition" · "3 partitions" */
+export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;

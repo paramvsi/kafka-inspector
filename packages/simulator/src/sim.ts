@@ -55,7 +55,9 @@ import {
   type TopicSummary,
   type Topology,
   TOPIC_NAME,
+  ALERT_METRICS,
   becameStuck,
+  plural,
   safeRegex,
 } from '@ki/core';
 import { checkCompatibility } from '@ki/core/schema-compat';
@@ -215,8 +217,7 @@ export const SEEDED_RULES: AlertRule[] = [
   },
 ];
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const offlineLabel = (n: number) => `${n} ${n === 1 ? 'partition' : 'partitions'} offline`;
+const offlineLabel = (n: number) => `${plural(n, 'partition')} offline`;
 
 export class Simulator {
   readonly seed: string;
@@ -1691,19 +1692,11 @@ export class Simulator {
 
   async saveAlertRule(input: AlertRuleInput & { id?: string }): Promise<AlertRule> {
     // the agent's checks and messages (AlertService.validate), so the demo refuses the same rules
-    const METRICS = [
-      'lag',
-      'group-status',
-      'topic-silent',
-      'under-replicated',
-      'broker-offline',
-      'dlq-receiving',
-    ];
     if (!input.name.trim()) throw new Error('Give the rule a name.');
     if (!input.metric) throw new Error('Choose a metric.');
     if (!input.severity) throw new Error('Choose a severity: info, warn or crit.');
-    if (!METRICS.includes(input.metric))
-      throw new Error(`Unknown metric ${input.metric}. Use one of [${METRICS.join(', ')}].`);
+    if (!(ALERT_METRICS as readonly string[]).includes(input.metric))
+      throw new Error(`Unknown metric ${input.metric}. Use one of [${ALERT_METRICS.join(', ')}].`);
     if (!(input.durationSec >= 0)) throw new Error("Duration can't be negative.");
     if (input.name.length > 200) throw new Error('Rule names are limited to 200 characters.');
     if (!['info', 'warn', 'crit'].includes(input.severity))
