@@ -549,3 +549,19 @@ test('a reload right after fixing the poison shows the same catch-up, not an ins
   await second.init();
   expect(Math.abs(lagOf(second) - live) / live).toBeLessThan(0.1);
 });
+
+test('deleting the stalled topic: overview still renders, the poison and its DLQ trickle end, a re-created topic has no phantom consumers', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  expect(a.sim.getGroup('fraud-scorer').summary.status).toBe('stalled');
+  await a.sim.deleteTopic('payments');
+  expect(() => a.sim.getOverview()).not.toThrow();
+  const dlqEnd = () =>
+    a.sim.getTopic('payments.dlq').partitions.reduce((s, p) => s + p.highWatermark, 0);
+  a.advance(2);
+  const before = dlqEnd();
+  a.advance(30);
+  expect(dlqEnd() - before).toBeLessThan(10); // its ~0.03/s background, not the poison's ~1/s
+  await a.sim.createTopic({ name: 'payments', partitions: 2, replicationFactor: 1 });
+  expect(a.sim.getTopic('payments').consumers).toEqual([]);
+});

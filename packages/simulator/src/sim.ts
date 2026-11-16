@@ -869,7 +869,11 @@ export class Simulator {
       if (g.status === 'stalled' || g.status === 'stopped' || g.status === 'warn') {
         const since =
           g.status === 'stalled'
-            ? Math.min(...gs.parts.filter((p) => p.status === 'stalled').map((p) => p.frozenSince))
+            ? // its stalled partition may be gone (topic deleted before the next step re-rates the group)
+              Math.min(
+                t,
+                ...gs.parts.filter((p) => p.status === 'stalled').map((p) => p.frozenSince),
+              )
             : g.status === 'stopped'
               ? gs.lastCommitAt
               : t;
@@ -993,7 +997,10 @@ export class Simulator {
   }
 
   private consumersOf(topic: string): GState[] {
-    return [...this.groups.values()].filter((g) => !g.deleted && g.def.topics.includes(topic));
+    // by assignment, not the seed definition: a deleted and re-created topic has no consumers until one joins
+    return [...this.groups.values()].filter(
+      (g) => !g.deleted && g.parts.some((p) => p.topic === topic),
+    );
   }
 
   private health(def: TopicDef, ps: PState[]): HealthFinding[] {
@@ -1657,7 +1664,10 @@ export class Simulator {
 
   async saveAlertRule(input: AlertRuleInput & { id?: string }): Promise<AlertRule> {
     if (!input.name.trim()) throw new Error('Give the rule a name.');
-    if (input.threshold !== undefined && !(Number.isFinite(input.threshold) && input.threshold >= 0))
+    if (
+      input.threshold !== undefined &&
+      !(Number.isFinite(input.threshold) && input.threshold >= 0)
+    )
       throw new Error('The threshold must be a number of 0 or more.');
     const rule: AlertRule = {
       ...input,
@@ -1796,6 +1806,7 @@ export class Simulator {
         for (const g of this.groups.values()) g.parts = g.parts.filter((gp) => gp.topic !== name);
         for (const k of this.produced.keys()) if (k.startsWith(`${name}:`)) this.produced.delete(k);
         for (const k of this.poisoned) if (k.startsWith(`${name}:`)) this.poisoned.delete(k);
+        if (this.poison?.topic === name) this.endPoison(); // no topic, no poison message, no DLQ trickle
         // a re-created topic of the same name starts a fresh history (timeOf assumes a rising series)
         this.history.drop((k) => k.startsWith(`end:${name}:`) || k.startsWith(`topic:${name}:`));
         this.pushEvent({
@@ -1835,6 +1846,7 @@ export class Simulator {
       case 'delete-group': {
         const g = this.groups.get(a.payload as string);
         if (g) g.deleted = true;
+        if (this.poison?.group === a.payload) this.endPoison();
         break;
       }
     }
@@ -2005,7 +2017,11 @@ export class Simulator {
           if (this.poison.incident) this.incidents.delete(this.poison.incident);
           // the opening scenario must not re-stall it on reload (a chaos-made poison isn't replayed)
           if (!this.replaying && !this.poison.incident)
-            void this.store.append({ t, kind: 'poison-fixed', payload: { since: this.poison.since } });
+            void this.store.append({
+              t,
+              kind: 'poison-fixed',
+              payload: { since: this.poison.since },
+            });
           this.poison = null;
         }
       }
@@ -2188,6 +2204,11 @@ export class Simulator {
     return strip(inc);
   }
 
+  private endPoison(): void {
+    if (this.poison?.incident) this.incidents.delete(this.poison.incident);
+    this.poison = null;
+  }
+
   private startPoison(t: number, incident?: string): void {
     const g = this.group(POISON.group);
     const gp = g.parts.find((p) => p.topic === POISON.topic && p.p === POISON.partition);
@@ -2227,12 +2248,7 @@ export class Simulator {
       if (inc.until && t >= inc.until) this.stopChaos(inc.id);
     }
     // the opening poison scenario starts 6m 12s before load
-    if (
-      !this.poisonStarted &&
-      !this.poisonFixed &&
-      this.replaying &&
-      t >= this.poisonStartAt
-    ) {
+    if (!this.poisonStarted && !this.poisonFixed && this.replaying && t >= this.poisonStartAt) {
       this.poisonStarted = true;
       if (!this.poison) this.startPoison(t);
     }
