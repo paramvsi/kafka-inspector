@@ -95,7 +95,7 @@ and a `docker run` line, entirely in your browser.
 | `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD`                | —                                      | Custom CA (JKS or PKCS12) for the brokers and an HTTPS Schema Registry; without it the JVM's CAs apply. Client certificates (mTLS) aren't supported yet |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                                      | Schema Registry URL and basic auth                                                                                                                      |
 | `KI_DB_URL` / `KI_DB_USER` / `KI_DB_PASSWORD`                        | `jdbc:h2:file:/data/ki` / `sa` / empty | History and alerts. The PostgreSQL driver is included (set user and password too), but only H2 is tested                                                |
-| `KI_SAMPLE_INTERVAL`                                                 | `10s`                                  | How often the agent samples the cluster                                                                                                                 |
+| `KI_SAMPLE_INTERVAL`                                                 | `10s`                                  | How often the agent samples the cluster (at least `1s`)                                                                                                 |
 | `KI_PORT`                                                            | `8080`                                 | HTTP port                                                                                                                                               |
 
 Use `KI_CLUSTERS_1_…` for more clusters. The same keys work in `/config/kafka-inspector.yml`.

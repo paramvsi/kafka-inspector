@@ -1294,7 +1294,8 @@ test('duration utilities come from the motion tokens (rule 11), including under 
 });
 
 test.describe('touch layout tables', () => {
-  test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true });
+  // 390 px: the partitions table overflows whatever fonts the runner has (820 px was too close to call)
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
   test('a table that scrolls sideways can be reached by keyboard; one that fits adds no tab stop', async ({
     page,
   }) => {

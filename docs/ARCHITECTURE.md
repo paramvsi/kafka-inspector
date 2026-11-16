@@ -239,7 +239,7 @@ Run user expressions in a dedicated Worker with no DOM, compiled once per expres
 - Live updates batched to 1 per second per channel; charts update without re-mounting.
 - Message pages ≤ 500 rows; live tail ring buffer 2,000 rows; tables virtualised beyond 200 rows.
 - Worker tick ≤ 10 ms for the seed cluster on a mid-range laptop.
-- Initial JS for the dashboard route ≤ 250 kB gzip (Recharts loads lazily).
+- Initial JS for the dashboard route ≤ 250 kB gzip (Recharts loads lazily). Measured 2026-11-16: 221 kB gzip for the scripts in `out/app/index.html`; the simulator worker and prefetched routes come on top.
 
 ## Testing strategy
 

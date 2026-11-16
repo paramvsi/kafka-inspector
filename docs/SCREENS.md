@@ -6,7 +6,7 @@ All app screens share **Sidebar** + **Topbar** (`Sidebar.dc.html`, `Topbar.dc.ht
 
 ## Routes
 
-Static export cannot pre-render unknown topic/group names, so detail pages use query parameters. Every app route accepts `c=<clusterId>` (defaults to the first cluster).
+Static export cannot pre-render unknown topic/group names, so detail pages use query parameters. Every app route accepts `c=<clusterId>`; without it the cluster picked earlier in this tab is used (sessionStorage `ki-cluster`, gone when the tab closes), else the first cluster. Switching cluster opens the current section's list page. A table wider than its box scrolls sideways and becomes a focusable region labelled with its caption while it overflows.
 
 | # | Screen | Route | Reference | Features |
 | --- | --- | --- | --- | --- |

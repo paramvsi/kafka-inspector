@@ -14,6 +14,8 @@ Motion in Kafka Inspector has one job: **show what changed and where it went**. 
 
 ## Tokens (add to `tokens.json` → `motion`, compiled to CSS vars)
 
+In components use `duration-instant`, `duration-fast`, `duration-base` and `duration-slow` (`@utility` rules in `apps/web/app/globals.css`), never a number.
+
 | Token | Value | Use |
 | --- | --- | --- |
 | `--dur-instant` | 80ms | Hover, press, focus ring, toggles |

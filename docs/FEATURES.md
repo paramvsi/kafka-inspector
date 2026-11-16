@@ -102,7 +102,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 ## Produce (Demo in v1)
 
-**F-50 Produce drawer — MVP.** Partition (auto by key), key, value editor, schema badge, "Generate from schema" (random valid data), validation against schema, headers, send N messages. Refused with the reason when the partition has fewer in-sync replicas than `min.insync.replicas` or the message exceeds `max.message.bytes`. Per `ProduceMessage`.
+**F-50 Produce drawer — MVP.** Partition (auto by key), key, value editor, schema badge, "Generate from schema" (random valid data), validation against schema, headers, send N messages. If a multi-send fails midway, the error says how many were already produced and the lists refresh. Refused with the reason when the partition has fewer in-sync replicas than `min.insync.replicas` or the message exceeds `max.message.bytes`. Per `ProduceMessage`.
 **F-51 Reprocess — MVP.** Send a message (edited or not) to another topic; DLQ shortcut.
 
 ## Consumer groups
@@ -123,7 +123,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 **F-80 Alerts page — MVP.** Firing list (severity, title, evidence, actions: open, mute 1 h, acknowledge), history table, rules list with state.
 **F-81 Rule builder — MVP.** Metric (lag, group status, topic silent, under-replicated, broker offline, DLQ receiving), scope (any / specific), threshold, duration, severity, channels; 24 h preview "would have fired N times" (demo only; self-hosted says "Preview isn't available on this cluster"). Per `AlertRule`.
-**F-82 Delivery — MVP.** In-app bell + toast, browser notification. v2: Slack/webhook (Self).
+**F-82 Delivery — MVP.** In-app bell + toast, browser notification (clicking it focuses the tab and opens the alert). v2: Slack/webhook (Self).
 **F-83 Ready-made rules — MVP.** Seeded: group stalled/stopped, lag > 5,000 for 5 min, under-replicated > 0, broker offline, topic silent 10 min, DLQ receiving (muted).
 
 Alert rules are app data, not Kafka writes, so they are allowed in read-only Self mode.

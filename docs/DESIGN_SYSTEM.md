@@ -61,4 +61,4 @@ Rules: borders not shadows (shadow only for popovers/dialogs); one primary butto
 
 ## Motion
 
-See `docs/MOTION.md`. Map motion tokens in Tailwind: `transitionDuration: { instant: 'var(--dur-instant)', fast: 'var(--dur-fast)', base: 'var(--dur-base)', slow: 'var(--dur-slow)' }`, `transitionTimingFunction: { standard: 'var(--ease-standard)', enter: 'var(--ease-enter)', exit: 'var(--ease-exit)' }`. Presence animations go through `packages/ui/motion`.
+See `docs/MOTION.md`. Motion tokens in Tailwind 4: `@utility duration-instant|fast|base|slow` in `apps/web/app/globals.css` read the `--dur-*` tokens (Tailwind 4 has no `--duration-*` theme namespace, so a `transitionDuration` config does nothing); easings are `--ease-*` theme variables (`ease-standard`).
