@@ -53,6 +53,8 @@ export interface DecodeFailure {
   hex: string;
   annotations: Annotation[];
   schemaId?: number;
+  /** the registry schema that was found but didn't decode the bytes (absent when the id is unknown) */
+  schema?: { id: number; subject: string; version: number };
 }
 
 export type DecodeResult = Decoded | DecodeFailure;
@@ -231,7 +233,7 @@ async function viaRegistry(
         'Avro',
         "Couldn't decode the value as Avro",
         `${schema.subject} v${schema.version} (id ${id}) doesn't match the bytes: ${(e as Error).message}.`,
-        { annotations, schemaId: id },
+        { annotations, schemaId: id, schema: meta },
       );
     }
   }
@@ -244,7 +246,7 @@ async function viaRegistry(
         'JSON Schema',
         "Couldn't decode the value as JSON",
         `The payload after the 5-byte header is not valid JSON (schema ${schema.subject} v${schema.version}).`,
-        { annotations, schemaId: id },
+        { annotations, schemaId: id, schema: meta },
       );
     }
   }
@@ -253,7 +255,7 @@ async function viaRegistry(
     'Protobuf',
     'Protobuf decoding is not supported yet',
     'Protobuf arrives in v2. Use Hex or Base64 to inspect the bytes.',
-    { annotations, schemaId: id },
+    { annotations, schemaId: id, schema: meta },
   );
 }
 

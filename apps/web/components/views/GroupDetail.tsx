@@ -45,6 +45,14 @@ export function GroupDetailView() {
       (await c.getHistory(cid, { metric: 'lag', scope: 'group', key: id, range }))[0]?.points ?? [],
     5000,
   );
+  // "rising since" always from the 1 h series: coarser ranges average the start away (same query as the 1h chart)
+  const riseHist = useKafkaQuery(
+    ['group-history', id, '1h'],
+    async (c, cid) =>
+      (await c.getHistory(cid, { metric: 'lag', scope: 'group', key: id, range: '1h' }))[0]
+        ?.points ?? [],
+    5000,
+  );
   const d = group.data;
   if (group.error) {
     return (
@@ -82,7 +90,7 @@ export function GroupDetailView() {
         }
         actions={<Actions d={d} />}
       />
-      <Kpis d={d} points={hist.data ?? []} />
+      <Kpis d={d} points={riseHist.data ?? []} />
       <LagChart d={d} points={hist.data ?? []} />
       {d.summary.type === 'share' && (
         <Card title="Share group (KIP-932)">

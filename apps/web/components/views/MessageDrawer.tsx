@@ -95,8 +95,12 @@ export function MessageDrawer({
           <span className="font-mono">
             {topic} · partition {m.partition} · offset {formatInt(m.offset)}
           </span>
-        ) : (
+        ) : fetched.isLoading ? (
           'Loading…'
+        ) : (
+          <span className="font-mono">
+            {topic} · partition {p} · offset {formatInt(Number(o))}
+          </span>
         )
       }
       footer={
@@ -129,7 +133,7 @@ export function MessageDrawer({
             ? 'Loading message…'
             : fetched.error
               ? `Couldn't load the message: ${(fetched.error as Error).message} Close the drawer and try again.`
-              : `Offset ${o} on partition ${p} is outside the retention window.`}
+              : `No message at offset ${formatInt(Number(o))} on partition ${p}: it's past the end of the partition or no longer retained.`}
         </p>
       )}
       {m && d && (
@@ -156,9 +160,11 @@ export function MessageDrawer({
               <span className="font-mono">
                 {d.value.ok && d.value.schema
                   ? `${d.value.schema.subject} v${d.value.schema.version} · id ${d.value.schema.id}`
-                  : !d.value.ok && d.value.schemaId
-                    ? `id ${d.value.schemaId} (not in registry)`
-                    : `none · ${d.value.ok ? d.value.format : 'unknown'}`}
+                  : !d.value.ok && d.value.schema
+                    ? `${d.value.schema.subject} v${d.value.schema.version} · id ${d.value.schema.id} (doesn't match the bytes)`
+                    : !d.value.ok && d.value.schemaId
+                      ? `id ${d.value.schemaId} (not in registry)`
+                      : `none · ${d.value.ok ? d.value.format : 'unknown'}`}
               </span>
             </Row>
             <Row k="Headers">

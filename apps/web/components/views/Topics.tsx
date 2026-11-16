@@ -27,7 +27,8 @@ const looksLikeRegex = (q: string) => /[\^$*+?()[\]{}|\\]/.test(q);
 export function healthBadge(t: TopicSummary) {
   const worst =
     t.health.find((h) => h.severity === 'crit') ?? t.health.find((h) => h.severity === 'warn');
-  if (t.underReplicated > 0)
+  // offline (crit) outranks under-replicated
+  if (t.underReplicated > 0 && worst?.severity !== 'crit')
     return <StatusBadge status="stalled">{t.underReplicated} under-replicated</StatusBadge>;
   if (worst)
     return (

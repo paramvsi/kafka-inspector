@@ -1181,3 +1181,43 @@ test('a dialog with its own width gets it (the shortcuts dialog is 440 px, not t
   await expect(d).toBeVisible();
   expect(Math.round((await d.boundingBox())!.width)).toBeLessThanOrEqual(445);
 });
+
+test('an offline partition is labelled offline on the topic list, not only under-replicated', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const card = page.getByRole('article').filter({ hasText: 'Broker down' });
+  await card.getByRole('button', { name: 'Trigger' }).click();
+  await page.getByRole('link', { name: 'Topics', exact: true }).first().click(); // in-app: keeps the worker
+  await expect(
+    page
+      .getByRole('row')
+      .filter({ hasText: 'audit-log' })
+      .getByText(/partitions? offline/),
+  ).toBeVisible({ timeout: 20_000 });
+});
+
+test('the messages footer counts the rows the key filter keeps', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const footer = page.getByText(/messages · .* scanned/);
+  await expect(footer).toBeVisible({ timeout: 15_000 });
+  const firstKey = (await page.getByRole('row').nth(1).getByRole('cell').nth(2).innerText()).trim();
+  await page.getByLabel('Key contains').fill(firstKey);
+  await expect(async () => {
+    const rows = (await page.getByRole('row').count()) - 1;
+    expect(await footer.innerText()).toMatch(new RegExp(`^${rows} messages`));
+  }).toPass({ timeout: 10_000 });
+});
+
+test('a message link to an offset that does not exist says so instead of loading forever', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages&p=7&msg=7%3A99999999999');
+  const drawer = page.getByRole('dialog', { name: 'Message' });
+  await expect(drawer.getByText('payments · partition 7 · offset 99,999,999,999')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(
+    drawer.getByText(/past the end of the partition or no longer retained/),
+  ).toBeVisible();
+});

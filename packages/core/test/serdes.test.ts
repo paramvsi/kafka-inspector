@@ -111,6 +111,12 @@ describe('decode errors are values with annotated hex (F-46)', () => {
       tried: 'Avro',
       reason: "Couldn't decode the value as Avro",
     });
+    // the schema was found: the drawer must not say "not in registry"
+    expect(r).toMatchObject({ schema: { id: 112 } });
+  });
+  test('an unknown id carries no schema', async () => {
+    const r = await decode(frame(131, Uint8Array.of(1, 2)), 'auto', lookup);
+    expect(r).not.toHaveProperty('schema');
   });
   test('short buffer with magic byte falls back to content detection; forced Avro explains the header', async () => {
     expect(await decode(Uint8Array.of(0, 1, 2), 'auto', lookup)).toMatchObject({

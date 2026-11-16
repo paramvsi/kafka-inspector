@@ -168,7 +168,7 @@ export interface GroupPartitionLag { topic: string; partition: number; committed
 export interface GroupSummary { groupId: string; type: GroupType; state: GroupState; members: number; topics: string[]; totalLag: number; lastCommitAt?: string; status: LagStatus; forecast: Forecast }
 export interface Forecast { kind: 'caught-up' | 'eta' | 'never' | 'unknown'; seconds?: number; consumeRate?: number; produceRate?: number }
 export interface RawMessage { topic: string; partition: number; offset: number; timestamp: string; key: Uint8Array | null; value: Uint8Array | null; headers: Array<{ key: string; value: Uint8Array }>; sizeBytes: number }
-export interface HealthFinding { id: 'rf1' | 'low-min-isr' | 'no-consumers' | 'infinite-retention' | 'skew' | 'disk-fill'; severity: 'warn' | 'crit' | 'info'; message: string; fix: string }
+export interface HealthFinding { id: 'offline' | 'rf1' | 'low-min-isr' | 'no-consumers' | 'infinite-retention' | 'skew' | 'disk-fill'; severity: 'warn' | 'crit' | 'info'; message: string; fix: string }
 ```
 
 ### Picking the client (apps/web/lib/client/pick.ts)

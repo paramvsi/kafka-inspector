@@ -666,3 +666,46 @@ test('alert mute is validated and unknown events are reported; firing alerts lis
     'No alert event',
   );
 });
+
+test('the alert preview replays broker-offline (and the other metrics the evaluator knows)', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  a.advance(50);
+  const base = {
+    name: 'x',
+    scope: { kind: 'any' },
+    durationSec: 10,
+    severity: 'crit',
+    channels: ['in-app'],
+    enabled: true,
+  } as const;
+  expect(
+    a.sim.previewAlertRule({ ...base, metric: 'broker-offline' } as never).firings,
+  ).toBeGreaterThan(0);
+  expect(
+    a.sim.previewAlertRule({ ...base, metric: 'under-replicated', threshold: 0 } as never).firings,
+  ).toBeGreaterThan(0);
+});
+
+test('fixing the poison message with Shift +1 records no false "stalled" event afterwards', async () => {
+  const h = make();
+  await h.init();
+  h.advance(20);
+  await h.sim.resetOffsets(
+    {
+      groupId: 'fraud-scorer',
+      topic: 'payments',
+      partitions: [7],
+      strategy: { kind: 'shift', by: 1 },
+    },
+    false,
+  );
+  const resetAt = Date.parse(h.sim.getOverview().events[0]!.ts);
+  h.advance(30);
+  const stalls = h.sim
+    .getOverview()
+    .events.filter((e) => Date.parse(e.ts) > resetAt && e.title === 'fraud-scorer stalled');
+  expect(stalls).toEqual([]);
+  expect(h.sim.getGroup('fraud-scorer').summary.status).toBe('healthy');
+});

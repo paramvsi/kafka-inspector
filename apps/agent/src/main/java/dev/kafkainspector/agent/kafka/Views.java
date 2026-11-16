@@ -48,6 +48,8 @@ public final class Views {
 
     public static List<Dto.HealthFinding> health(ClusterState s, ClusterState.TopicSnap t) {
         List<Dto.HealthFinding> out = new ArrayList<>();
+        long offline = t.partitions.stream().filter(p -> p.leader == null).count();
+        if (offline > 0) out.add(new Dto.HealthFinding("offline", "crit", offline + (offline == 1 ? " partition" : " partitions") + " offline", "Bring the brokers holding its replicas back; until then nothing can be produced to or read from those partitions."));
         if (t.internal) return out;
         int rf = t.partitions.isEmpty() ? 0 : t.partitions.get(0).replicas.size();
         int minIsr = parseInt(t.configs.get("min.insync.replicas"), 1);

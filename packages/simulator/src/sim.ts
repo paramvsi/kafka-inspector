@@ -116,6 +116,8 @@ interface GState {
   crashed: boolean;
   rebalanceUntil: number;
   pausedUntil: number;
+  /** the rebalance running is the rejoin after an offset reset */
+  resetRejoin?: boolean;
   deleted: boolean;
   status: LagStatus;
   forecast: Forecast;
@@ -470,14 +472,17 @@ export class Simulator {
       if (g.deleted) continue;
       if (g.rebalanceUntil && t >= g.rebalanceUntil) {
         g.rebalanceUntil = 0;
+        g.resetRejoin = false;
         g.state = g.crashed || g.members === 0 ? 'Empty' : 'Stable';
       } else if (g.rebalanceUntil && t >= g.rebalanceUntil - 2000 && !g.crashed && g.members > 0) {
         g.state = 'CompletingRebalance';
       }
       if (g.pausedUntil && t >= g.pausedUntil) {
         g.pausedUntil = 0;
-        if (!g.crashed && g.def.members > 0)
+        if (!g.crashed && g.def.members > 0) {
           this.rebalance(g, t, 'members rejoined after offset reset', 3000);
+          g.resetRejoin = true;
+        }
       }
       const beforeStop = !!g.def.stoppedForMs && t < this.loadedAt - g.def.stoppedForMs;
       const active =
@@ -523,7 +528,9 @@ export class Simulator {
         if (Math.floor(gp.committed) !== Math.floor(before)) gp.frozenSince = t;
         msgsOut += gp.consumeRate;
         bytesOut += gp.consumeRate * ps.def.avgBytes;
-        gp.ring.push({ t, committed: Math.floor(gp.committed), end: Math.floor(ps.end) });
+        // after a reset, members are away (pause + rejoin): a frozen position then isn't a stall
+        if (!g.pausedUntil && !(g.rebalanceUntil && g.resetRejoin))
+          gp.ring.push({ t, committed: Math.floor(gp.committed), end: Math.floor(ps.end) });
         if (gp.ring.length > WINDOW) gp.ring.shift();
       }
       if (active) g.lastCommitAt = t;
@@ -592,6 +599,7 @@ export class Simulator {
       v.set(`topic:${name}:bytesIn`, r * ps[0]!.def.avgBytes);
     }
     v.set('cluster:underReplicated', urp);
+    for (const [id, on] of this.brokersOnline) v.set(`broker:${id}:online`, on ? 1 : 0); // for alert previews
     let total = 0;
     for (const g of this.groups.values()) {
       if (g.deleted) continue;
@@ -1006,6 +1014,14 @@ export class Simulator {
 
   private health(def: TopicDef, ps: PState[]): HealthFinding[] {
     const out: HealthFinding[] = [];
+    const offline = ps.filter((s) => s.leader === null).length;
+    if (offline)
+      out.push({
+        id: 'offline',
+        severity: 'crit',
+        message: `${offline} ${offline === 1 ? 'partition' : 'partitions'} offline`,
+        fix: 'Bring the brokers holding its replicas back; until then nothing can be produced to or read from those partitions.',
+      });
     if (def.internal) return out;
     // the effective config, so F-36 edits (retention.ms, min.insync.replicas) change the checks
     const cfg = this.effectiveConfig(def.name);
@@ -1058,7 +1074,6 @@ export class Simulator {
         fix: `Retention ${retentionMs > 0 ? `${Math.round(retentionMs / 86_400_000)} days` : 'unlimited'}. Lower retention.ms or add disk before then.`,
       });
     }
-    void ps;
     return out;
   }
 
@@ -1764,6 +1779,23 @@ export class Simulator {
         this.history.series('cluster:underReplicated', from, 5000),
         (v) => v > (rule.threshold ?? 0),
       );
+    // the same conditions the live evaluation uses, replayed over recorded history
+    const inScope = (target: string) => rule.scope.kind === 'any' || rule.scope.target === target;
+    if (rule.metric === 'broker-offline')
+      for (const id of this.brokersOnline.keys())
+        if (inScope(`broker-${id}`))
+          scan(this.history.series(`broker:${id}:online`, from, 5000), (v) => v === 0);
+    if (rule.metric === 'topic-silent')
+      for (const [name, ps] of this.parts)
+        if (!ps[0]!.def.internal && inScope(name) && this.consumersOf(name).length > 0)
+          scan(this.history.series(`topic:${name}:messagesIn`, from, 5000), (v) => v === 0);
+    if (rule.metric === 'dlq-receiving')
+      for (const name of this.parts.keys())
+        if (name.endsWith('.dlq') && inScope(name))
+          scan(
+            this.history.series(`topic:${name}:messagesIn`, from, 5000),
+            (v) => v > (rule.threshold ?? 0) + 0.5,
+          );
     return { firings };
   }
 

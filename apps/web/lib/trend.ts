@@ -3,6 +3,8 @@ export function sinceRising(points: Array<[number, number]>): number | undefined
   if (points.length < 3) return undefined;
   let i = points.length - 1;
   while (i > 0 && points[i - 1]![1] <= points[i]![1]) i--;
+  const fromEdge = i === 0;
   while (i < points.length - 1 && points[i + 1]![1] === points[i]![1]) i++;
+  if (fromEdge && i === 0) return undefined; // rising since before the window: the start isn't known
   return i < points.length - 1 ? points[i]![0] : undefined;
 }

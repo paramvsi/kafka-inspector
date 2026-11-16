@@ -26,4 +26,12 @@ test('sinceRising: flat is not rising; a rise starts where the flat run ends', (
       [4, 30],
     ]),
   ).toBe(2);
+  // rising from the first point: the rise began before the window, so no "since"
+  expect(
+    sinceRising([
+      [1, 0],
+      [2, 10],
+      [3, 20],
+    ]),
+  ).toBeUndefined();
 });
