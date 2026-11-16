@@ -53,9 +53,7 @@ public class SecurityConfig {
     @Bean
     org.springframework.security.web.firewall.RequestRejectedHandler requestRejectedHandler() {
         return (request, response, ex) -> {
-            response.setStatus(400);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":{\"code\":\"BAD_REQUEST\",\"message\":\"The address has characters the agent refuses (such as an encoded % or ;).\",\"details\":{}}}");
+            dev.kafkainspector.agent.api.Dto.ApiError.write(response, 400, "BAD_REQUEST", "The address has characters the agent refuses (such as an encoded % or ;).");
         };
     }
 
@@ -97,15 +95,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/health", "/api/info", "/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
-                .exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> {
-                    res.setStatus(401);
-                    res.setContentType("application/json");
-                    res.getWriter().write("{\"error\":{\"code\":\"UNAUTHENTICATED\",\"message\":\"Sign in to use the API.\",\"details\":{}}}");
-                }).accessDeniedHandler((req, res, ex) -> {
-                    res.setStatus(403);
-                    res.setContentType("application/json");
-                    res.getWriter().write("{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Missing or invalid X-KI-CSRF header. Reload the page and try again.\",\"details\":{}}}");
-                }))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((req, res, ex) -> dev.kafkainspector.agent.api.Dto.ApiError.write(res, 401, "UNAUTHENTICATED", "Sign in to use the API."))
+                        .accessDeniedHandler((req, res, ex) -> dev.kafkainspector.agent.api.Dto.ApiError.write(res, 403, "FORBIDDEN", "Missing or invalid X-KI-CSRF header. Reload the page and try again.")))
                 .headers(h -> h
                         .frameOptions(f -> f.deny())
                         .addHeaderWriter(new XFrameOptionsHeaderWriter(XFrameOptionsHeaderWriter.XFrameOptionsMode.DENY))

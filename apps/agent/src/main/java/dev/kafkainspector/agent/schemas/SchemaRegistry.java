@@ -83,23 +83,19 @@ public class SchemaRegistry {
         return URLEncoder.encode(s, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private final Map<String, Object[]> namesCache = new java.util.concurrent.ConcurrentHashMap<>(); // cid → [time, names]
+    private final Map<String, Map.Entry<Long, Set<String>>> namesCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Subject names for linking topics to schemas, cached 30 s (failures too): a slow registry must not stall every topic page. */
     public Set<String> subjectNames(String cid) {
-        Object[] hit = namesCache.get(cid);
-        if (hit != null && System.currentTimeMillis() - (long) hit[0] < 30_000) {
-            @SuppressWarnings("unchecked")
-            Set<String> cached = (Set<String>) hit[1];
-            return cached;
-        }
+        var hit = namesCache.get(cid);
+        if (hit != null && System.currentTimeMillis() - hit.getKey() < 30_000) return hit.getValue();
         Set<String> out = new TreeSet<>();
         try {
             call(cid, "GET", "/subjects", null).forEach(n -> out.add(n.asString()));
         } catch (RuntimeException e) {
             // no registry or unreachable: topics simply have no linked subject
         }
-        namesCache.put(cid, new Object[] {System.currentTimeMillis(), java.util.Collections.unmodifiableSet(out)});
+        namesCache.put(cid, Map.entry(System.currentTimeMillis(), java.util.Collections.unmodifiableSet(out)));
         return out;
     }
 

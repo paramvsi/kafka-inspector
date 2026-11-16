@@ -25,9 +25,7 @@ public class BodySizeLimit extends OncePerRequestFilter {
         boolean hasBody = !"GET".equals(req.getMethod()) && !"HEAD".equals(req.getMethod()) && !"OPTIONS".equals(req.getMethod());
         long len = req.getContentLengthLong();
         if (hasBody && req.getRequestURI().startsWith("/api/") && (len > MAX || (len < 0 && req.getHeader("Transfer-Encoding") != null))) {
-            res.setStatus(413);
-            res.setContentType("application/json");
-            res.getWriter().write("{\"error\":{\"code\":\"PAYLOAD_TOO_LARGE\",\"message\":\"Request bodies are limited to 1 MB.\",\"details\":{}}}");
+            dev.kafkainspector.agent.api.Dto.ApiError.write(res, 413, "PAYLOAD_TOO_LARGE", "Request bodies are limited to 1 MB.");
             return;
         }
         chain.doFilter(req, res);

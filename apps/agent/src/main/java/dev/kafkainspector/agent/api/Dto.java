@@ -56,5 +56,14 @@ public final class Dto {
         public static ApiError of(String code, String message) {
             return new ApiError(new Body(code, message, Map.of()));
         }
+
+        private static final tools.jackson.databind.json.JsonMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+
+        /** For filters that answer before Spring MVC (security, body size): the same envelope, properly escaped. */
+        public static void write(jakarta.servlet.http.HttpServletResponse res, int status, String code, String message) throws java.io.IOException {
+            res.setStatus(status);
+            res.setContentType("application/json");
+            res.getWriter().write(JSON.writeValueAsString(of(code, message)));
+        }
     }
 }
