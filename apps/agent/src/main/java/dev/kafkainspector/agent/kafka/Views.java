@@ -188,6 +188,19 @@ public final class Views {
         };
     }
 
+    /** When the problem started, as the simulator reports it: a stall since its partition froze, a stop since the last commit. */
+    private static String since(ClusterState s, String groupId, String status, String now) {
+        ClusterState.GroupSnap g = s.groups.get(groupId);
+        if (g == null) return now;
+        if (status.equals("stopped") && g.lastCommitAt > 0) return iso(g.lastCommitAt);
+        if (status.equals("stalled")) {
+            long frozen = g.partStatus.entrySet().stream().filter(e -> e.getValue() == Lag.Status.stalled)
+                    .mapToLong(e -> s.lastChange.getOrDefault(groupId + "|" + e.getKey(), 0L)).filter(x -> x > 0).min().orElse(0);
+            if (frozen > 0) return iso(frozen);
+        }
+        return now;
+    }
+
     static List<Dto.AttentionItem> attention(ClusterState s, List<Dto.GroupSummary> groups, int urp, int offline) {
         String now = iso(s.ts);
         List<Dto.AttentionItem> items = new ArrayList<>();
@@ -197,7 +210,7 @@ public final class Views {
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
             String detail = String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
-            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, now, "/app/groups/view/?id=" + g.groupId(), "Investigate " + g.groupId()));
+            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), now), "/app/groups/view/?id=" + g.groupId(), "Investigate " + g.groupId()));
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (t.internal) continue;
@@ -208,6 +221,22 @@ public final class Views {
     }
 
     // ── topology (producers aren't visible to the Admin API: topics → groups only) ──
+
+    private static final Set<String> NEUTRAL_STATES = Set.of("Empty", "PreparingRebalance", "CompletingRebalance", "Assigning", "Reconciling", "Dead");
+
+    /** Messages per second the group committed on one topic over its last two samples. */
+    static double consumeRate(ClusterState s, ClusterState.GroupSnap g, String topic) {
+        double rate = 0;
+        for (Integer p : g.committed.getOrDefault(topic, Map.of()).keySet()) {
+            Deque<Lag.Sample> w = s.windows.get(g.groupId + "|" + topic + "|" + p);
+            if (w == null || w.size() < 2) continue;
+            Iterator<Lag.Sample> it = w.descendingIterator();
+            Lag.Sample last = it.next(), prev = it.next();
+            if (last.committed() != null && prev.committed() != null && last.t() > prev.t())
+                rate += Math.max(0, last.committed() - prev.committed()) * 1000.0 / (last.t() - prev.t());
+        }
+        return rate;
+    }
 
     public static Dto.Topology topology(ClusterState s) {
         List<Dto.TopologyNode> nodes = new ArrayList<>();
@@ -223,9 +252,18 @@ public final class Views {
         for (ClusterState.GroupSnap g : s.groups.values()) {
             long lag = groupLag(s, g);
             String note = g.status == Lag.Status.stalled || g.status == Lag.Status.stopped ? g.status.name() : g.type.equals("share") ? "share" : g.status == Lag.Status.warn ? String.format("%,d behind", lag) : null;
-            boolean neutral = g.state.equals("Empty") && g.status == Lag.Status.healthy;
-            nodes.add(new Dto.TopologyNode("group:" + g.groupId, "group", g.groupId, neutral ? "neutral" : g.status.name(), 0, note));
-            for (String topic : g.committed.keySet()) if (s.topics.containsKey(topic)) edges.add(new Dto.TopologyEdge("topic:" + topic, "group:" + g.groupId, s.topics.get(topic).rate(), "consume"));
+            // same as the simulator's isNeutralState: a group between assignments isn't healthy or failing
+            boolean neutral = NEUTRAL_STATES.contains(g.state) && g.status == Lag.Status.healthy;
+            double groupRate = 0;
+            List<Dto.TopologyEdge> mine = new ArrayList<>();
+            for (String topic : g.committed.keySet()) {
+                if (!s.topics.containsKey(topic)) continue;
+                double r = consumeRate(s, g, topic); // what the group reads, not what the topic receives
+                groupRate += r;
+                mine.add(new Dto.TopologyEdge("topic:" + topic, "group:" + g.groupId, r, "consume"));
+            }
+            nodes.add(new Dto.TopologyNode("group:" + g.groupId, "group", g.groupId, neutral ? "neutral" : g.status.name(), groupRate, note));
+            edges.addAll(mine);
         }
         return new Dto.Topology(nodes, edges);
     }

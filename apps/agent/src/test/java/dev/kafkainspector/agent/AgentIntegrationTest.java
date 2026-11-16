@@ -467,6 +467,32 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(36)
+    void aStoppedGroupsTopologyEdgeShowsWhatItReadsNotWhatTheTopicReceives() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+             KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("flow", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            p.send(new ProducerRecord<>("flow", "k", "first")).get();
+            try (KafkaConsumer<String, String> c = new KafkaConsumer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "flow-reader", "key.deserializer", StringDeserializer.class.getName(), "value.deserializer", StringDeserializer.class.getName(), ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"))) {
+                c.commitSync(Map.of(new org.apache.kafka.common.TopicPartition("flow", 0), new OffsetAndMetadata(1)));
+            }
+            long until = System.currentTimeMillis() + 8_000;
+            while (System.currentTimeMillis() < until) { // the topic keeps receiving; the group reads nothing
+                for (int i = 0; i < 50; i++) p.send(new ProducerRecord<>("flow", "k", "v"));
+                p.flush();
+                Thread.sleep(200);
+            }
+        }
+        JsonNode t = get("/api/clusters/local/topology");
+        double topicRate = 0, edgeRate = -1;
+        for (JsonNode n : t.path("nodes")) if (n.path("id").asString().equals("topic:flow")) topicRate = n.path("rate").asDouble();
+        for (JsonNode e : t.path("edges")) if (e.path("to").asString().equals("group:flow-reader")) edgeRate = e.path("rate").asDouble();
+        assertTrue(topicRate > 10, "the topic is busy: " + topicRate);
+        assertEquals(0.0, edgeRate, 0.01, "the stopped group reads nothing");
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();

@@ -1555,7 +1555,7 @@ export class Simulator {
       }
       case 'broker-offline':
         for (const [id, on] of this.brokersOnline)
-          if (!on && inScope(String(id)))
+          if (!on && inScope(`broker-${id}`)) // the rule dialog (and the agent) name brokers broker-<id>
             out.push({
               target: `broker-${id}`,
               title: `Broker ${id} offline`,

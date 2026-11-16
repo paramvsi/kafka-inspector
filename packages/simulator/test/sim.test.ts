@@ -599,3 +599,22 @@ test('a crashed group shows no rebalance, and a rebalance on it is refused', asy
     'no members to rebalance',
   );
 });
+
+test('a broker-offline rule scoped to one broker (broker-<id>, as the dialog writes it) fires', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  const rule = await a.sim.saveAlertRule({
+    name: 'broker 2 down',
+    metric: 'broker-offline',
+    scope: { kind: 'specific', target: 'broker-2' },
+    durationSec: 0,
+    severity: 'crit',
+    channels: ['in-app'],
+    enabled: true,
+  });
+  a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  a.advance(3);
+  expect(
+    a.sim.listAlerts().some((e) => e.title === 'Broker 2 offline' && e.ruleId === rule.id),
+  ).toBe(true);
+});
