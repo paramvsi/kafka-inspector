@@ -1076,4 +1076,20 @@ class AgentIntegrationTest {
             assertTrue(got.stream().anyMatch(x -> x.contains("\"channel\":\"tail\"") && x.contains("\"partition\":1")), () -> "the new partition's first record was skipped: " + got);
         }
     }
+
+    @Test
+    @Order(52)
+    void controlCharactersBadVersionsAndPageCaching() throws Exception {
+        signIn();
+        HttpResponse<String> nul = send("PUT", "/api/filters/a%0Ab", "{\"expr\":\"value.x > 1\"}");
+        assertEquals(400, nul.statusCode(), nul::body);
+        HttpResponse<String> ctl = send("PUT", "/api/filters/ok", "{\"expr\":\"value.x\\u0000 > 1\"}");
+        assertEquals(400, ctl.statusCode(), ctl::body);
+        for (String v : List.of("-1", "abc", "0")) {
+            HttpResponse<String> r = send("GET", "/api/clusters/local/schemas/subjects/orders-value/versions/" + v, null);
+            assertEquals(400, r.statusCode(), () -> v + " → " + r.statusCode() + " " + r.body());
+        }
+        HttpResponse<String> page = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/app/")).build(), HttpResponse.BodyHandlers.ofString());
+        assertTrue(page.headers().firstValue("cache-control").orElse("").contains("no-cache"), () -> "index.html cache-control: " + page.headers().map());
+    }
 }

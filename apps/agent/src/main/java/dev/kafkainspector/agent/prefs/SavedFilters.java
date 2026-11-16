@@ -23,6 +23,9 @@ public class SavedFilters {
         String n = name == null ? "" : name.trim();
         if (n.isEmpty() || n.length() > 100) throw new IllegalArgumentException("Give the filter a name of 1 to 100 characters.");
         if (expr == null || expr.isBlank() || expr.length() > 2000) throw new IllegalArgumentException("The filter expression must be 1 to 2,000 characters.");
+        // control characters (NUL, newlines in a name…) would break the list and the URL the name travels in
+        if (n.chars().anyMatch(Character::isISOControl) || expr.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\t'))
+            throw new IllegalArgumentException("Filter names and expressions can't contain control characters.");
         if (jdbc.update("UPDATE saved_filter SET expr = ? WHERE name = ?", expr, n) == 0) jdbc.update("INSERT INTO saved_filter (name, expr) VALUES (?, ?)", n, expr);
     }
 }

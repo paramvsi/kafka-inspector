@@ -43,6 +43,15 @@ public class Clusters {
         }
         for (KiProperties.Cluster c : list) {
             if (c.bootstrap() == null || c.bootstrap().isBlank()) throw new IllegalStateException("Cluster " + c.name() + " has no bootstrap servers (KI_CLUSTERS_n_BOOTSTRAP).");
+            if (c.schemaRegistry() != null && !c.schemaRegistry().isBlank()) {
+                try {
+                    java.net.URI u = java.net.URI.create(c.schemaRegistry());
+                    if (u.getScheme() == null || u.getHost() == null) throw new IllegalArgumentException();
+                } catch (IllegalArgumentException e) {
+                    // never echo the URL: it may carry credentials (rule 6)
+                    throw new IllegalStateException("Cluster " + c.name() + ": the Schema Registry URL isn't a valid http(s) URL (KI_CLUSTERS_n_SCHEMA_REGISTRY). Put credentials in KI_CLUSTERS_n_SCHEMA_REGISTRY_USERNAME and _PASSWORD, not in the URL.");
+                }
+            }
             String id = c.name() == null || c.name().isBlank() ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
             // fail fast on settings that would otherwise fail every request (or silently replace a cluster)
             if (byId.containsKey(id))

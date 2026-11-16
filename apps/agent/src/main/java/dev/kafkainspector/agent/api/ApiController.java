@@ -288,6 +288,8 @@ public class ApiController {
 
     @GetMapping("/clusters/{c}/schemas/subjects/{s}/versions/{v}")
     public Dto.SchemaVersion schema(@PathVariable String c, @PathVariable String s, @PathVariable String v) {
+        // the registry answers 422 to these, which would read as "unavailable, try again"
+        if (!v.equals("latest") && !v.matches("[1-9]\\d{0,9}")) throw new IllegalArgumentException("A schema version is latest or a number from 1.");
         return registry.get(c, s, v);
     }
 

@@ -86,7 +86,7 @@ public class ErrorHandler {
     ResponseEntity<Dto.ApiError> kafka(Exception e) {
         Throwable t = e;
         while (t.getCause() != null) t = t.getCause();
-        return ResponseEntity.status(502).body(Dto.ApiError.of("KAFKA_UNAVAILABLE", "Kafka didn't answer: " + t.getMessage() + ". Check that the brokers are reachable from the agent."));
+        return ResponseEntity.status(502).body(Dto.ApiError.of("KAFKA_UNAVAILABLE", "Kafka didn't answer: " + java.util.Objects.toString(t.getMessage(), t.getClass().getSimpleName()) + ". Check that the brokers are reachable from the agent."));
     }
 
     @ExceptionHandler(IllegalStateException.class)

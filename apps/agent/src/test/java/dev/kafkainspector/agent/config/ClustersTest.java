@@ -62,4 +62,12 @@ class ClustersTest {
         Clusters cs = of(c("  ", "PLAINTEXT", null));
         assertDoesNotThrow(() -> cs.get("default"));
     }
+
+    @Test
+    void aMalformedRegistryUrlStopsStartupWithoutEchoingIt() {
+        var bad = new KiProperties.Cluster("prod", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://user:s3cret pw@reg:8081", null, null);
+        String msg = assertThrows(IllegalStateException.class, () -> of(bad)).getMessage();
+        assertTrue(msg.contains("KI_CLUSTERS_n_SCHEMA_REGISTRY"), msg);
+        assertFalse(msg.contains("s3cret"), msg);
+    }
 }

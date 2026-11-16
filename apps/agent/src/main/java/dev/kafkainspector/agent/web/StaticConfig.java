@@ -22,7 +22,8 @@ public class StaticConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry r) {
         r.addResourceHandler("/_next/static/**").addResourceLocations("classpath:/static/_next/static/").setCachePeriod(31_536_000);
-        r.addResourceHandler("/**").addResourceLocations("classpath:/static/").resourceChain(true).addResolver(new PathResourceResolver() {
+        // pages aren't content-hashed: revalidate them, or a browser can keep an old build's index.html
+        r.addResourceHandler("/**").addResourceLocations("classpath:/static/").setCacheControl(org.springframework.http.CacheControl.noCache()).resourceChain(true).addResolver(new PathResourceResolver() {
             @Override
             protected Resource getResource(String path, Resource location) throws IOException {
                 Resource direct = location.createRelative(path);
