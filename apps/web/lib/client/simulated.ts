@@ -17,7 +17,26 @@ export function createSimulatedClient(): KafkaClient {
     name: 'kafka-simulator',
   });
   const sim = Comlink.wrap<Remote>(worker) as unknown as Remote;
-  const call = <T>(name: string, ...args: unknown[]) => sim[name]!(...args) as Promise<T>;
+  // a worker that fails to load or crashes would leave every call pending forever (spinners, no error):
+  // fail the calls in flight and every later one, so screens show their error state
+  let dead: Error | null = null;
+  const inFlight = new Set<(e: Error) => void>();
+  worker.addEventListener('error', (e) => {
+    dead = new Error(
+      `The simulated cluster stopped${e.message ? ` (${e.message})` : ''}. Reload the page to start it again.`,
+    );
+    inFlight.forEach((reject) => reject(dead!));
+    inFlight.clear();
+  });
+  const call = <T>(name: string, ...args: unknown[]): Promise<T> => {
+    if (dead) return Promise.reject(dead);
+    return new Promise<T>((resolve, reject) => {
+      inFlight.add(reject);
+      (sim[name]!(...args) as Promise<T>)
+        .then(resolve, reject)
+        .finally(() => inFlight.delete(reject));
+    });
+  };
 
   // One worker subscription fans out to every local listener.
   const listeners = new Map<StreamChannel, Set<(e: StreamEvent) => void>>();

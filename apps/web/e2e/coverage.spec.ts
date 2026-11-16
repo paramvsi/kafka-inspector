@@ -963,3 +963,24 @@ test('fast typing into a URL-bound filter keeps every character', async ({ page 
   await expect(box).toHaveValue('order events');
   await expect(page).toHaveURL(/[?&]q=order(\+|%20)events/);
 });
+
+test('a simulator worker that fails to load shows an error, not an endless spinner', async ({
+  page,
+}) => {
+  await page.route('**/_next/static/chunks/turbopack-worker-*', (r) => r.abort());
+  await page.goto('/app/');
+  await expect(page.getByText(/Couldn't start: The simulated cluster stopped/)).toBeVisible({
+    timeout: 10_000,
+  });
+});
+
+test('a stored preference of the wrong shape is ignored, not a crash', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => localStorage.setItem('ki-starred-topics', '5'));
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('link', { name: 'orders', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  expect(errors).toEqual([]);
+});
