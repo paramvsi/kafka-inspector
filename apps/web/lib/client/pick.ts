@@ -8,7 +8,7 @@ export async function pickClient(): Promise<Picked> {
   if (forced === 'demo')
     return { kind: 'client', client: (await import('./simulated')).createSimulatedClient() };
   const probe = await probeAgent();
-  // forced agent (dev) skips only the demo fallback, not the sign-in check
+  // forced agent (the Docker image build) skips only the demo fallback, not the sign-in check
   if (forced === 'agent' && probe !== 'sign-in')
     return { kind: 'client', client: (await import('./agent')).createAgentClient() };
   if (probe === 'agent')
@@ -17,7 +17,8 @@ export async function pickClient(): Promise<Picked> {
   return { kind: 'client', client: (await import('./simulated')).createSimulatedClient() };
 }
 
-/** 200 JSON from /api/info → agent (or sign-in when signedIn is false, AGENT_API "Meta"); 401 → sign-in; else demo. */
+/** 200 JSON from /api/info → agent (or sign-in when signedIn is false, AGENT_API "Meta"); 401 → sign-in; else
+ * 'none' — the demo only when the build isn't forced to a mode. */
 export async function probeAgent(): Promise<'agent' | 'sign-in' | 'none'> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 2000);

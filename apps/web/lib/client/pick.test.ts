@@ -53,3 +53,17 @@ test('the self-hosted image is built in agent mode: a slow /api/info never drops
   expect(mode).toBeGreaterThan(-1);
   expect(mode).toBeLessThan(docker.indexOf('pnpm --filter web build'));
 });
+
+test('forced agent mode (the image) with an unreachable or slow /api/info stays the agent, never the demo', async () => {
+  vi.stubEnv('NEXT_PUBLIC_KI_MODE', 'agent');
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('offline');
+    }),
+  );
+  const picked = await pickClient();
+  expect(picked.kind).toBe('client');
+  // the simulated client is the only one with a chaos panel
+  expect(picked.kind === 'client' && picked.client.chaos).toBeFalsy();
+});
