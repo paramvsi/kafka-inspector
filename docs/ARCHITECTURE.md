@@ -195,7 +195,7 @@ Rules, evaluated in order (Burrow-style):
 Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; else any `warn` → `warn`; else every partition `unknown` → `unknown`; else `healthy`. Neutral states (Empty, rebalancing) come from `GroupState` and are shown with the neutral badge.
 
 **Forecast** over the same window: `consumeRate = Σ Δcommitted / Δt`, `produceRate = Σ Δend / Δt`.
-- lag = 0 → `caught-up`
+- lag = 0 → `caught-up` (still with consumeRate/produceRate when the window has length; a group's rates sum every partition, caught-up ones included)
 - consumeRate > produceRate → `eta`, seconds = lag / (consumeRate − produceRate)
 - else → `never` ("won't catch up at current rates")
 - **Group** (`combineForecasts`): ETA = the slowest partition's (a group is caught up when its last partition is); any partition that is `never` with lag > 0 makes the group `never`; rates are summed for display
@@ -212,7 +212,7 @@ Ship **test vectors** (`packages/core/test/lag-vectors.json`) and run the same f
 - Each partition's end offset grows by its rate; each group's committed offset grows by its consume rate, capped at end offset.
 - 24 h of history is back-filled on first load (sampled every 60 s for older data, 1 s for the last 15 min).
 - **Messages are a pure function of `(topic, partition, offset)`** via a seeded PRNG — nothing stored. Avro topics produce real Confluent wire-format bytes (magic 0, schema id, avro payload) using the simulator's own schema registry, so the real decoder path is exercised. When the "poison message" scenario is active, the payments message at fraud-scorer's committed offset on partition 7 is malformed (the offset follows the run, it isn't fixed).
-- Writes (create topic, delete topic, config edits, produce, reset offsets, delete group) and saved state go to IndexedDB as an action log replayed during back-fill; "Reset demo" clears it. A live reset that moves fraud-scorer past the opening poison message also records `poison-fixed`, so a reload doesn't stall it again (a reset that doesn't skip it isn't a fix).
+- Writes (create topic, delete topic, config edits, produce, reset offsets, delete group) and saved state go to IndexedDB as an action log replayed during back-fill; "Reset demo" clears it. A live reset that moves fraud-scorer past the opening poison message also records `poison-fixed { since }` (when that poison started); back-fill replays the stall from `since` and the saved reset clears it at its original time, so a reload shows the same recovery (a reset that doesn't skip it isn't a fix; an older `poison-fixed` without `since` leaves the poison out).
 - **Chaos actions** (each returns an incident id and can be stopped): crash consumer (group → Empty, commits stop), slow consumer (consume rate × 0.6), traffic spike (× 10 for 2 min), broker down (broker offline, ISR shrinks, leaders move), rebalance (group → rebalancing 8 s), hot partition (one partition gets 40 % of a topic), poison message (fraud-scorer stalls on payments-7 at its committed offset; failures written to payments.dlq).
 - The opening state reproduces the designs: `payments-sink` builds lag and drains it on a 16-minute saw-tooth, `fraud-scorer` stalled, `clickstream` skewed.
 

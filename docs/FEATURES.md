@@ -64,14 +64,14 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 
 **F-13 Consumer group summary table — MVP.** Problem groups first: name, type, members, lag, 1 h sparkline (coloured by status), catch-up forecast, status badge.
 
-**F-14 Recent events feed — MVP.** Rebalances, broker up/down, ISR shrink/expand, alerts fired/resolved, config changes (Demo: simulator events).
+**F-14 Recent events feed — MVP.** Rebalances, broker up/down, ISR shrink/expand, alerts fired/resolved, config changes, a real group going stalled or stopped (`group-stalled`, Self) (Demo: simulator events).
 
 **F-15 Loading and disconnected states — MVP.** Skeletons while connecting (with progress text); disconnect banner with reconnect countdown, attempt count, Retry and Edit connection; stale values dimmed and labelled "stale". Per `OverviewLoading` and `OverviewDisconnected`.
 
 ## Brokers
 
 **F-20 Broker list — MVP.** id (controller badge), host, rack, partitions, leaders, in/s, disk used, status.
-**F-21 Leader balance — MVP.** Bar per broker; flag a broker leading > 40 % of partitions.
+**F-21 Leader balance — MVP.** Bar per broker; flag a broker leading > 40 % of partitions (checked only with 3 or more online brokers; with fewer, someone always leads more).
 **F-22 Broker config — MVP (read).** Key settings + "All settings" list with search; edit is v2.
 
 ## Topics
