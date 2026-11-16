@@ -356,6 +356,10 @@ class AgentIntegrationTest {
     org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping mappings;
+
+    @org.springframework.beans.factory.annotation.Autowired
     dev.kafkainspector.agent.alerts.AlertService alertService;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -817,6 +821,44 @@ class AgentIntegrationTest {
         assertTrue(Set.of(404, 405).contains(send("POST", "/api/clusters/local/topics/orders/messages", "{}").statusCode()));
         assertTrue(Set.of(404, 405).contains(send("POST", "/api/clusters/local/groups/order-service/offsets", "{}").statusCode()));
         assertTrue(Set.of(404, 405).contains(send("DELETE", "/api/clusters/local/groups/order-service", null).statusCode()));
+    }
+
+    @Test
+    @Order(43)
+    void everyNonGetRouteIsOnTheAllowlistNoneReachesKafkaWrites() {
+        // rule 5: a new write route must be a deliberate change to this list, not a silent addition
+        Set<String> allowed = Set.of(
+                "POST /api/auth/login", "POST /api/auth/logout",
+                "POST /api/clusters/{c}/messages/search", "POST /api/clusters/{c}/schemas/subjects/{s}/compatibility",
+                "PUT /api/filters/{name}",
+                "POST /api/alerts/rules", "PUT /api/alerts/rules/{id}", "DELETE /api/alerts/rules/{id}",
+                "POST /api/alerts/events/{id}/mute", "POST /api/alerts/events/{id}/ack");
+        Set<String> found = new java.util.TreeSet<>();
+        mappings.getHandlerMethods().forEach((info, h) -> {
+            var methods = info.getMethodsCondition().getMethods();
+            for (String path : info.getPatternValues())
+                for (var m : methods.isEmpty() ? Set.of(org.springframework.web.bind.annotation.RequestMethod.values()) : methods)
+                    if (m != org.springframework.web.bind.annotation.RequestMethod.GET && m != org.springframework.web.bind.annotation.RequestMethod.HEAD && m != org.springframework.web.bind.annotation.RequestMethod.OPTIONS)
+                        found.add(m + " " + path);
+        });
+        found.removeIf(r -> r.endsWith(" /error"));
+        assertEquals(new java.util.TreeSet<>(allowed), found);
+    }
+
+    @Test
+    @Order(44)
+    void sensitiveConfigIsMaskedAndWritesNeedTheCsrfHeader() throws Exception {
+        signIn();
+        for (String path : List.of("/api/clusters/local/brokers/1/config", "/api/clusters/local/topics/orders/config"))
+            for (JsonNode e : get(path))
+                if (e.path("name").asString().matches("(?i).*(password|secret|token|jaas|credential).*") || e.path("isSensitive").asBoolean()) {
+                    assertTrue(e.path("isSensitive").asBoolean(), () -> path + " " + e);
+                    assertEquals("******", e.path("value").asString(), () -> path + " " + e);
+                }
+        // signed in, but no X-KI-CSRF header: a state change is refused
+        HttpResponse<String> r = HttpClient.newBuilder().cookieHandler(cookies).build().send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/alerts/rules/nope")).DELETE().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(403, r.statusCode(), r::body);
     }
 
     @Test

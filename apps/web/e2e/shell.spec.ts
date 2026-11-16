@@ -48,9 +48,18 @@ test('every sidebar item navigates to its stub and marks itself current', async 
   }
 });
 
-test('demo shows the Simulated cluster note (rule 7)', async ({ page }) => {
-  await page.goto('/app/');
-  await expect(page.getByText('Simulated cluster', { exact: true })).toBeVisible();
+test('demo shows the Simulated cluster note on every screen (rule 7)', async ({ page }) => {
+  const routes = [
+    ...NAV.map((n) => n[1]),
+    '/app/topics/view/?name=orders',
+    '/app/groups/view/?id=fraud-scorer',
+  ];
+  for (const path of routes) {
+    await page.goto(path);
+    await expect(page.getByText('Simulated cluster', { exact: true }), path).toBeVisible({
+      timeout: 15_000,
+    });
+  }
 });
 
 test('detail route keeps its section active', async ({ page }) => {

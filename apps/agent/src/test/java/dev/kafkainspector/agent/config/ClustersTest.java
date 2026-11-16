@@ -51,4 +51,9 @@ class ClustersTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 1, List.of(c)), new MockEnvironment())).getMessage().contains("KI_LAG_WINDOW"));
         assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ZERO, Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage().contains("KI_HISTORY_RETENTION"));
     }
+
+    @Test
+    void aReadWriteConfigRefusesToStart() {
+        refused("KI_READ_ONLY", () -> new Clusters(new KiProperties("pw", false, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c("a", "PLAINTEXT", null))), new MockEnvironment()));
+    }
 }
