@@ -40,7 +40,7 @@ public class Sampler {
     private final Map<String, ClusterState> states = new ConcurrentHashMap<>();
     /** cid|topic|partition|committed|end → whether only transaction markers lie between them (cached: offsets only grow) */
     private final Map<String, Boolean> markerOnly = new ConcurrentHashMap<>();
-    /** group|topic|partition → "committed:end" at the previous sample: only a gap that holds still is probed */
+    /** cid|group|topic|partition → "committed:end" at the previous sample: only a gap that holds still is probed (pruned with the windows) */
     private final Map<String, String> lastGap = new ConcurrentHashMap<>();
     private final List<java.util.function.BiConsumer<String, ClusterState>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private int tick;
@@ -343,9 +343,8 @@ public class Sampler {
                     long gap = ps.high - pe.getValue();
                     // a busy topic's end moves every sample: probing it would build a consumer per partition per tick.
                     // The marker case is an idle one (nothing new, nothing committed), so it's probed once it holds still
-                    String was = lastGap.put(cid + "|" + key, pe.getValue() + ":" + ps.high);
-                    if (lastGap.size() > 10_000) lastGap.clear();
-                    boolean still = (pe.getValue() + ":" + ps.high).equals(was);
+                    String gapNow = pe.getValue() + ":" + ps.high;
+                    boolean still = gapNow.equals(lastGap.put(cid + "|" + key, gapNow));
                     if (gap > 0 && gap <= 5 && still && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
                         gs.reportedCommitted.put(te.getKey() + "|" + pe.getKey(), pe.getValue()); // shown as Kafka has it
                         pe.setValue(ps.high); // lag and status: caught up
@@ -379,6 +378,7 @@ public class Sampler {
         // deleted groups/topics/partitions drop their windows
         s.windows.keySet().retainAll(live);
         s.lastChange.keySet().retainAll(live);
+        lastGap.keySet().removeIf(k -> k.startsWith(cid + "|") && !live.contains(k.substring(cid.length() + 1)));
         s.ts = now;
         s.controller = controller == null ? null : controller.id();
         s.brokers = brokers;

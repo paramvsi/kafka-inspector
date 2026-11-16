@@ -2330,7 +2330,7 @@ export class Simulator {
           throw new Error(
             `${target} has ${def.partitions} partition${def.partitions === 1 ? '' : 's'}. Pick a topic with 6 or more partitions.`,
           );
-        const p = Math.min(5, def.partitions - 1);
+        const p = 5;
         this.hot.set(target, p);
         ev(`Chaos: ${target} partition ${p} is hot`, '40% of topic traffic');
         undo = () => {
