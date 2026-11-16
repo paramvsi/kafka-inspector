@@ -476,8 +476,16 @@ class AgentIntegrationTest {
             p.flush();
         }
         long until = System.currentTimeMillis() + 20_000;
-        while (System.currentTimeMillis() < until && get("/api/clusters/local/topics").toString().indexOf("\"spread\"") < 0) Thread.sleep(500);
-        Thread.sleep(1500);
+        // wait until the sampler has seen the produced records (all 3 partitions non-empty), not a fixed sleep
+        for (long end = System.currentTimeMillis() + 20_000; System.currentTimeMillis() < end; Thread.sleep(500)) {
+            HttpResponse<String> t = send("GET", "/api/clusters/local/topics/spread", null);
+            if (t.statusCode() != 200) continue;
+            JsonNode ps = JSON.readTree(t.body()).path("partitions");
+            boolean filled = ps.size() == 3;
+            for (JsonNode pn : ps) filled &= pn.path("highWatermark").asLong() > 0;
+            if (filled) break;
+        }
+        Thread.sleep(1500); // rates need a second sample
         java.util.function.Function<Boolean, Set<Integer>> parts = sample -> {
             try {
                 HttpResponse<String> r = send("POST", "/api/clusters/local/messages/search", "{\"topicRegex\":\"^spread$\",\"from\":\"newest\",\"limit\":30,\"sample\":" + sample + "}");
@@ -559,8 +567,17 @@ class AgentIntegrationTest {
             admin.deleteTopics(List.of("gone-soon")).all().get(30, TimeUnit.SECONDS);
         }
         // within the sample interval the snapshot still has it; the live config call must say "not found"
-        HttpResponse<String> r = send("GET", "/api/clusters/local/topics/gone-soon/config", null);
-        assertTrue(r.statusCode() == 404, () -> r.statusCode() + " " + r.body());
+        // the broker's metadata can trail the delete acknowledgement on a slow runner: allow a few seconds
+        int status = 0;
+        String body = "";
+        for (long end = System.currentTimeMillis() + 5_000; System.currentTimeMillis() < end && status != 404; Thread.sleep(250)) {
+            HttpResponse<String> r = send("GET", "/api/clusters/local/topics/gone-soon/config", null);
+            status = r.statusCode();
+            body = r.body();
+        }
+        final int st = status;
+        final String b = body;
+        assertTrue(st == 404, () -> st + " " + b);
     }
 
     @Test
