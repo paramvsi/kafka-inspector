@@ -104,12 +104,12 @@ export function OverviewView() {
           numeric={k.underReplicated}
           delta={stale ? 'unknown' : `of ${formatInt(k.totalPartitions)}`}
           deltaTone={k.underReplicated > 0 && !stale ? 'crit' : 'neutral'}
-          className={stale ? 'opacity-60' : undefined}
+          className={stale ? '[&_*]:!text-ink-muted' : undefined}
         />
       </div>
       {/* F-10: the rest of the cluster health tiles */}
       <div
-        className={`grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5 ${stale ? 'opacity-60' : ''}`}
+        className={`grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5 ${stale ? '[&_*]:!text-ink-muted' : ''}`}
         aria-label="Cluster health"
         role="group"
       >

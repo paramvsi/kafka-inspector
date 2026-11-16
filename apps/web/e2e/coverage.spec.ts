@@ -1082,3 +1082,18 @@ test('a CSV export starts with a UTF-8 BOM so Excel reads non-ASCII text', async
   const bytes = (await import('node:fs')).readFileSync(await dl.path());
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
 });
+
+test('"Watch on Overview" in the chaos toast keeps the incident running', async ({ page }) => {
+  await page.goto('/app/chaos/');
+  const card = page.getByRole('article').filter({ hasText: 'Slow consumer' });
+  await card.getByRole('button', { name: 'Trigger' }).click();
+  await page.getByRole('button', { name: 'Watch on Overview' }).first().click();
+  await expect(page).toHaveURL(/\/app\/$/);
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+  await page.goBack();
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Slow consumer' }).getByText('Running'),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
+});

@@ -565,3 +565,22 @@ test('deleting the stalled topic: overview still renders, the poison and its DLQ
   await a.sim.createTopic({ name: 'payments', partitions: 2, replicationFactor: 1 });
   expect(a.sim.getTopic('payments').consumers).toEqual([]);
 });
+
+test('stopping slow consumer, traffic spike or hot partition logs an end event', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  for (const kind of ['slow-consumer', 'traffic-spike', 'hot-partition'] as const) {
+    const inc = a.sim.runChaos({ kind });
+    a.advance(2);
+    a.sim.stopChaos(inc.id);
+    expect(
+      a.sim
+        .getOverview()
+        .events.some(
+          (e) =>
+            e.title.startsWith('Chaos ended') &&
+            e.title.includes(inc.target === '*' ? 'all topics' : inc.target!),
+        ),
+    ).toBe(true);
+  }
+});

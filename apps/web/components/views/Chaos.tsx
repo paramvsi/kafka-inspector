@@ -11,6 +11,7 @@ import {
 import { Button, Card, Checkbox, Select, StatusBadge, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAttempt } from '../../lib/attempt';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
@@ -85,6 +86,7 @@ export function ChaosView() {
   const { client, info } = useKafka();
   const toast = useToast();
   const attempt = useAttempt();
+  const router = useRouter();
   const qc = useQueryClient();
   const incidents = useKafkaQuery(
     ['incidents'],
@@ -134,7 +136,8 @@ export function ChaosView() {
       tone: 'warn',
       title: `${label(kind)} started`,
       body: inc.target && inc.target !== '*' ? `on ${inc.target}` : 'on all topics',
-      action: { label: 'Watch on Overview', onClick: () => location.assign('/app/') },
+      // client-side: a full page load restarts the simulator and would end the incident just started
+      action: { label: 'Watch on Overview', onClick: () => router.push('/app/') },
     });
     refresh();
   };

@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const SCREENS: Array<[string, string | RegExp]> = [
   ['/app/', 'Overview'],
+  ['/app/?preview=disconnected', 'Overview'],
   ['/app/brokers/', 'Brokers'],
   ['/app/topics/', 'Topics'],
   ['/app/topics/view/?name=orders', 'orders'],

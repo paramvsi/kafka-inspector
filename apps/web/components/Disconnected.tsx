@@ -39,7 +39,7 @@ export function DisconnectedBanner({
             <div role="alert" className="text-[13px] font-semibold text-crit-text">
               Lost connection to {cluster}
             </div>
-            <div className="text-[12px] text-ink-muted">
+            <div className="text-[12px] text-ink">
               No response since {since}.{' '}
               {left > 0 ? `Reconnecting in ${left} s` : 'Reconnecting now'} · attempt{' '}
               {connection.attempt ?? 1} of {connection.maxAttempts ?? 10}.
@@ -47,7 +47,7 @@ export function DisconnectedBanner({
           </div>
           <a
             href="/app/clusters/"
-            className="text-[13px] font-semibold text-ink-muted no-underline hover:text-ink"
+            className="text-[13px] font-semibold text-ink underline-offset-2 hover:underline"
           >
             Edit connection
           </a>

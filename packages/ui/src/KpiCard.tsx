@@ -69,19 +69,26 @@ export function KpiCard({
       )}
       <div className="relative text-[13px] text-ink-muted">{label}</div>
       <div
-        className={cx(
-          'relative mt-2 flex items-baseline gap-2 transition-opacity duration-base ease-standard',
-          stale && 'opacity-50',
-        )}
+        // stale reads muted (not faded with opacity, which fails AA contrast) and says "stale" in words
+        className="relative mt-2 flex items-baseline gap-2"
       >
         {loading ? (
           <span className="ki-skeleton block h-7 w-28 rounded-sm" />
         ) : (
           <>
-            <span className="font-mono text-[22px] font-medium leading-7 tabular-nums">
+            <span
+              className={cx(
+                'font-mono text-[22px] font-medium leading-7 tabular-nums',
+                stale && 'text-ink-muted',
+              )}
+            >
               {value}
             </span>
-            {delta && <span className={cx('text-[12px]', TONE[deltaTone])}>{delta}</span>}
+            {delta && (
+              <span className={cx('text-[12px]', stale ? 'text-ink-muted' : TONE[deltaTone])}>
+                {delta}
+              </span>
+            )}
             {stale && <span className="text-[12px] text-ink-muted">stale</span>}
           </>
         )}

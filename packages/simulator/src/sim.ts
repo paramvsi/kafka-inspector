@@ -2092,6 +2092,9 @@ export class Simulator {
     let undo: () => void = () => {};
     const ev = (title: string, detail?: string) =>
       this.pushEvent({ ts: iso, kind: 'chaos', severity: 'warn', title, detail });
+    // the end of an incident is an event too (stopped by hand or expired), timed when it ends
+    const ended = (title: string) =>
+      this.pushEvent({ ts: new Date(this.lastTick).toISOString(), kind: 'chaos', severity: 'info', title });
 
     switch (action.kind) {
       case 'crash-consumer': {
@@ -2114,7 +2117,10 @@ export class Simulator {
         const g = this.group(target);
         g.slow = true;
         ev(`Chaos: ${target} slowed to 60%`);
-        undo = () => (g.slow = false);
+        undo = () => {
+          g.slow = false;
+          ended(`Chaos ended: ${target} back to full speed`);
+        };
         break;
       }
       case 'traffic-spike': {
@@ -2125,7 +2131,10 @@ export class Simulator {
           `Chaos: traffic spike ×10 on ${target === '*' ? 'all topics' : target}`,
           'For 2 minutes',
         );
-        undo = () => this.spike.delete(target);
+        undo = () => {
+          this.spike.delete(target);
+          ended(`Chaos ended: traffic spike on ${target === '*' ? 'all topics' : target}`);
+        };
         break;
       }
       case 'broker-down': {
@@ -2179,7 +2188,10 @@ export class Simulator {
         const p = Math.min(5, def.partitions - 1);
         this.hot.set(target, p);
         ev(`Chaos: ${target} partition ${p} is hot`, '40% of topic traffic');
-        undo = () => this.hot.delete(target);
+        undo = () => {
+          this.hot.delete(target);
+          ended(`Chaos ended: ${target} traffic evenly spread again`);
+        };
         break;
       }
       case 'poison-message': {
