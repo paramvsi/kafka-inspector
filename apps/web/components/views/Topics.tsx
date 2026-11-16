@@ -117,7 +117,7 @@ export function TopicsView() {
         title="Topics"
         subtitle={
           all.data
-            ? `${formatInt(all.data.total)} topics · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention${all.data.total > everything.length ? ` (totals cover the first ${formatInt(everything.length)})` : ''}`
+            ? `${formatInt(all.data.total)} topic${all.data.total === 1 ? '' : 's'} · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention${all.data.total > everything.length ? ` (totals cover the first ${formatInt(everything.length)})` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
         actions={

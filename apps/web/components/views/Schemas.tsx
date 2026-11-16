@@ -61,6 +61,12 @@ export function SchemasView() {
     false,
   );
   const [a, b] = versions.data ?? [];
+  // "Start from the latest version" seeds the latest, whichever pair is being compared
+  const newest = useKafkaQuery(
+    ['schema', subject, latest],
+    async (c, id) => (subject ? c.getSchema(id, subject, latest) : undefined),
+    false,
+  );
   const label = (v: number) => {
     const dt = v === from ? a?.registeredAt : v === to ? b?.registeredAt : undefined;
     return `v${v}${dt ? ` · ${new Date(dt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}${v === latest ? ' (latest)' : ''}`;
@@ -227,7 +233,7 @@ export function SchemasView() {
           key={s.subject} // a fresh dialog per subject: no text or result carried over
           subject={s.subject}
           onCheck={(schema) => client.checkCompatibility(clusterId, s.subject, schema)}
-          seed={b?.schema ?? ''}
+          seed={newest.data?.schema ?? ''}
           mode={s.compatibility}
         />
       )}

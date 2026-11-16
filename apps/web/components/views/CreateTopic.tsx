@@ -72,7 +72,7 @@ export function CreateTopicDialog({
     !Number.isInteger(r) || r < 1
       ? 'At least 1.'
       : r > online
-        ? `Only ${online} brokers are online.`
+        ? `Only ${online} broker${online === 1 ? ' is' : 's are'} online.`
         : minIsr > r
           ? `min.insync.replicas is ${minIsr}: use a replication factor of ${minIsr} or more, or lower that override.`
           : undefined;
@@ -120,7 +120,7 @@ export function CreateTopicDialog({
       open={open}
       onClose={onClose}
       title="Create topic"
-      description={`on ${info.clusters[0]?.name} · ${online} brokers`}
+      description={`on ${info.clusters[0]?.name} · ${online} broker${online === 1 ? '' : 's'}`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -179,7 +179,8 @@ export function CreateTopicDialog({
             hint={
               !rfErr && (
                 <span className="text-ok-text">
-                  ✓ Fits {online} brokers · survives {Math.max(0, r - minIsr)} broker loss
+                  ✓ Fits {online} broker{online === 1 ? '' : 's'} · survives{' '}
+                  {Math.max(0, r - minIsr)} broker loss
                   {r - minIsr === 1 ? '' : 'es'}
                 </span>
               )

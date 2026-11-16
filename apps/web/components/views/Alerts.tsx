@@ -440,7 +440,10 @@ function RuleDialog({
     return [{ value: '', label: 'the cluster' }];
   }, [meta.scope, groups.data, topics.data, brokers.data]);
 
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return; // a double click or Enter mustn't create the rule twice
+    setSaving(true);
     try {
       await client.saveAlertRule(input);
       await qc.invalidateQueries({ queryKey: [clusterId, 'alert-rules'] });
@@ -448,6 +451,8 @@ function RuleDialog({
       onClose();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
   const remove = async () => {
@@ -483,7 +488,7 @@ function RuleDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={save} disabled={!!thresholdError}>
+          <Button variant="primary" onClick={save} disabled={!!thresholdError || saving}>
             {rule ? 'Save rule' : 'Create rule'}
           </Button>
         </>

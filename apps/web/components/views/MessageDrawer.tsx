@@ -178,7 +178,7 @@ export function MessageDrawer({
               </span>
             </Row>
             <Row k="Size">
-              <span className="font-mono">{m.sizeBytes} B</span>
+              <span className="font-mono tabular-nums">{formatInt(m.sizeBytes)} B</span>
             </Row>
           </dl>
           {d.value.ok ? (

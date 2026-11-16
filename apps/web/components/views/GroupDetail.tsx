@@ -29,7 +29,7 @@ import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { useUrl } from '../../lib/url';
-import { PageHeader, useWrites, WriteButton } from '../Page';
+import { PageHeader, useReadOnly, useWrites, WriteButton } from '../Page';
 import { isNotFound } from '../../lib/poll';
 import { useStickyError } from '../../lib/stickyError';
 import { sinceRising } from '../../lib/trend';
@@ -170,10 +170,11 @@ function Actions({ d }: { d: Detail }) {
   const router = useRouter();
   const { clusterId } = useKafka();
   const empty = d.summary.members === 0;
+  const readOnly = useReadOnly(); // read-only wins: its hint, not "only an empty group"
   return (
     <>
       <CopyButton text={() => location.href} label="Copy link" />
-      {empty ? (
+      {empty || readOnly ? (
         <WriteButton
           variant="danger"
           disabled={deleting}

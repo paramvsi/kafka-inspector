@@ -54,7 +54,7 @@ export function GroupsView() {
         title="Consumer groups"
         subtitle={
           all.length
-            ? `${all.length} groups · ${stalled} stalled · ${warn} warning · ${stopped} stopped · active lag ${formatInt(total)}`
+            ? `${all.length} group${all.length === 1 ? '' : 's'} · ${stalled} stalled · ${warn} warning · ${stopped} stopped · active lag ${formatInt(total)}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />

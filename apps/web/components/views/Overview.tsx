@@ -419,7 +419,12 @@ function ConnectionChecks({ brokers, mode }: { brokers: number; mode: string }) 
               did not answer
             </>,
           )}
-          {row('Waiting', <>{formatInt(brokers)} brokers, checked once the agent answers</>)}
+          {row(
+            'Waiting',
+            <>
+              {formatInt(brokers)} broker{brokers === 1 ? '' : 's'}, checked once the agent answers
+            </>,
+          )}
         </ul>
         <p className="mt-4 text-[12px] text-ink-muted">
           Is the agent still running? Check its container with{' '}

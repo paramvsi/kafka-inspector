@@ -1476,3 +1476,40 @@ test('hot partition offers only topics where a skew warning can appear', async (
   await expect(pick.locator('option', { hasText: 'all topics' })).toHaveCount(0);
   await expect(pick.locator('option', { hasText: /^experiments$/ })).toHaveCount(0);
 });
+
+test('"Start from the latest version" seeds the latest even when an older version is compared', async ({
+  page,
+}) => {
+  const seeded = async (to: number) => {
+    await page.goto(`/app/schemas/?subject=orders-value&to=${to}&check=1`);
+    const d = page.getByRole('dialog');
+    await d.getByRole('button', { name: 'Start from the latest version' }).click();
+    const box = d.getByRole('textbox').first();
+    await expect(box).not.toHaveValue('', { timeout: 15_000 });
+    return box.inputValue();
+  };
+  const latest = await seeded(4);
+  expect(await seeded(2)).toBe(latest);
+});
+
+test('on a read-only cluster, Delete group on a group with members gives the read-only hint', async ({
+  page,
+}) => {
+  await page.goto('/app/groups/view/?id=order-service&preview=readonly');
+  const del = page.getByRole('button', { name: 'Delete group' });
+  await expect(del).toBeDisabled({ timeout: 15_000 });
+  const tipId = await del.getAttribute('aria-describedby');
+  expect(tipId).toBeTruthy();
+  await expect(page.locator(`[id="${tipId}"]`)).toHaveText(/Read-only in this version/);
+});
+
+test('a double click on Create rule creates one rule', async ({ page }) => {
+  await page.goto('/app/alerts/?tab=rules');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog');
+  await d.getByLabel('Name').fill('Only once');
+  await d.getByRole('button', { name: 'Create rule' }).dblclick();
+  await expect(d).toHaveCount(0);
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('button', { name: /^Only once/ })).toHaveCount(1);
+});
