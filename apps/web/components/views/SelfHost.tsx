@@ -194,9 +194,12 @@ export function SelfHostView() {
             </p>
           )}
           {warn.length > 0 && (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[12px] text-warn-text">
+            <ul
+              role="status"
+              className="m-0 flex list-none flex-col gap-1 p-0 text-[12px] text-warn-text"
+            >
               {warn.map((w) => (
-                <li key={w}>! {w}</li>
+                <li key={w}>{w}</li>
               ))}
             </ul>
           )}

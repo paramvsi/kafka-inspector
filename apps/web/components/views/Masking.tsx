@@ -56,6 +56,7 @@ export function MaskingDialog({
             <Button
               size="sm"
               variant="ghost"
+              aria-label={`Remove ${r.name}`}
               onClick={() => onChange(rules.filter((x) => x.id !== r.id))}
             >
               Remove
@@ -68,7 +69,17 @@ export function MaskingDialog({
         onSubmit={(e) => {
           e.preventDefault();
           if (valid) {
-            onChange([...rules, { ...draft, id: `m-${Date.now()}` }]);
+            // saved as validated: a pasted " payments " would otherwise match no topic and mask nothing
+            onChange([
+              ...rules,
+              {
+                ...draft,
+                name: draft.name.trim(),
+                topics: draft.topics.trim(),
+                path: draft.path.trim(),
+                id: `m-${Date.now()}`,
+              },
+            ]);
             setDraft({ id: '', name: '', topics: '*', path: '$.', action: 'mask' });
           }
         }}

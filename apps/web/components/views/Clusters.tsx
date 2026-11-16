@@ -147,6 +147,7 @@ export function ClustersView() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    aria-label={`Remove ${r.name}`}
                     onClick={() => setSaved(saved.filter((x) => x.id !== r.id))}
                   >
                     Remove

@@ -1548,3 +1548,36 @@ test('Reset offsets: a shift that is not a whole number says so', async ({ page 
   await d.getByLabel('Shift', { exact: true }).fill('2.5');
   await expect(d.getByText(/whole number/)).toBeVisible();
 });
+
+test('a masking rule typed with stray spaces still masks; each Remove names its rule', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages');
+  await page.getByRole('button', { name: /^Masking/ }).click();
+  const dialog = page.getByRole('dialog', { name: /Masking/ });
+  await dialog.getByLabel('Name').fill('hide merchant ');
+  await dialog.getByLabel('Topics').fill(' payments ');
+  await dialog.getByLabel('JSON path').fill('$.merchantId');
+  await dialog.getByRole('button', { name: 'Add rule' }).click();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  const table = page.getByRole('table', { name: 'Messages in payments' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
+  await expect(drawer.getByText(/hide merchant/)).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: /^Masking/ }).click();
+  await expect(
+    page
+      .getByRole('dialog', { name: /Masking/ })
+      .getByRole('button', { name: 'Remove hide merchant', exact: true }),
+  ).toBeVisible();
+});
+
+test('self-host warnings are announced, without an exclamation mark', async ({ page }) => {
+  await page.goto('/app/self-host/');
+  await page.getByLabel(/Bootstrap servers/).fill('localhost:9092');
+  const warn = page.getByRole('status').filter({ hasText: 'Inside the container, localhost' });
+  await expect(warn).toBeVisible();
+  await expect(warn).not.toContainText('!');
+});
