@@ -1229,3 +1229,20 @@ test('a link to a deleted alert rule says so instead of opening a blank new-rule
   await expect(page.getByText('Rule not found')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('dialog', { name: /alert rule/i })).toHaveCount(0);
 });
+
+test('the page behind an open dialog does not scroll', async ({ page }) => {
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('row').nth(1)).toBeVisible({ timeout: 15_000 }); // app booted
+  await expect(async () => {
+    await page.keyboard.press('?'); // the shortcut handler attaches after hydration
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe(
+    'hidden',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe(
+    'hidden',
+  );
+});

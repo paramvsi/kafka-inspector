@@ -524,3 +524,8 @@ html.theme-switching * {
     transform: none !important;
   }
 }
+
+/* an open dialog or drawer (native <dialog>) doesn't stop the page behind from scrolling: lock it until the last one closes */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
