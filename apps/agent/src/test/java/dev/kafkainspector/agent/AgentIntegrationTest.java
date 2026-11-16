@@ -538,6 +538,32 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(39)
+    void groupsListWorstFirstAndConfigOfADeletedTopicIs404() throws Exception {
+        signIn();
+        List<String> order = List.of("stalled", "stopped", "warn", "unknown");
+        int last = -1;
+        JsonNode groups = get("/api/clusters/local/groups");
+        assertTrue(groups.size() > 1, "need several groups");
+        boolean sawUnsortedNames = false;
+        for (JsonNode g : groups) {
+            String st = g.path("status").asString();
+            int r = order.contains(st) ? order.indexOf(st) : 4;
+            assertTrue(r >= last, () -> "not worst first: " + groups);
+            last = r;
+        }
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            admin.createTopics(List.of(new NewTopic("gone-soon", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            long until = System.currentTimeMillis() + 20_000;
+            while (System.currentTimeMillis() < until && get("/api/clusters/local/topics?size=500").toString().indexOf("\"gone-soon\"") < 0) Thread.sleep(500);
+            admin.deleteTopics(List.of("gone-soon")).all().get(30, TimeUnit.SECONDS);
+        }
+        // within the sample interval the snapshot still has it; the live config call must say "not found"
+        HttpResponse<String> r = send("GET", "/api/clusters/local/topics/gone-soon/config", null);
+        assertTrue(r.statusCode() == 404, () -> r.statusCode() + " " + r.body());
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();

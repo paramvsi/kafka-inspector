@@ -121,7 +121,15 @@ public class ApiController {
     private static final Pattern SENSITIVE = Pattern.compile("(?i)password|secret|token|key");
 
     private List<Dto.ConfigEntry> configs(String c, ConfigResource r) throws Exception {
-        Config cfg = kafka.admin(c).describeConfigs(List.of(r)).all().get(20, TimeUnit.SECONDS).get(r);
+        Config cfg;
+        try {
+            cfg = kafka.admin(c).describeConfigs(List.of(r)).all().get(20, TimeUnit.SECONDS).get(r);
+        } catch (java.util.concurrent.ExecutionException e) {
+            // deleted since the last sample: that's "not found", not "Kafka didn't answer"
+            if (e.getCause() instanceof org.apache.kafka.common.errors.UnknownTopicOrPartitionException)
+                throw new Clusters.NotFound("TOPIC_NOT_FOUND", "Topic " + r.name() + " not found on this cluster.");
+            throw e;
+        }
         List<Dto.ConfigEntry> out = new ArrayList<>();
         cfg.entries().forEach(e -> {
             boolean sensitive = e.isSensitive() || SENSITIVE.matcher(e.name()).find() && !e.name().endsWith(".type") && !e.name().contains("algorithm");
@@ -163,7 +171,7 @@ public class ApiController {
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (!internal && t.internal) continue;
             if (!query.isBlank() && (re != null ? !SafeRegex.find(re, t.name, 50) : !t.name.toLowerCase().contains(query.toLowerCase()))) continue;
-            Dto.TopicSummary ts = Views.topic(s, t, trend(c, "topic", t.name, "messagesIn"));
+            Dto.TopicSummary ts = Views.topic(s, t, List.of()); // trends only for the page returned (one history query each)
             if ("attention".equals(view) && !Views.needsAttention(ts)) continue;
             if ("starred".equals(view) && !stars.contains(t.name)) continue;
             items.add(ts);
@@ -178,7 +186,9 @@ public class ApiController {
         items.sort(cmp);
         int sz = Math.max(1, Math.min(size, 500)), pg = Math.max(1, page);
         long from = (long) (pg - 1) * sz, to = (long) pg * sz; // long: page=2147483647 must not overflow
-        return new Dto.Page<>(items.subList((int) Math.min(items.size(), from), (int) Math.min(items.size(), to)), items.size(), pg, sz);
+        List<Dto.TopicSummary> slice = items.subList((int) Math.min(items.size(), from), (int) Math.min(items.size(), to)).stream()
+                .map(t -> Views.topic(s, s.topics.get(t.name()), trend(c, "topic", t.name(), "messagesIn"))).toList();
+        return new Dto.Page<>(slice, items.size(), pg, sz);
     }
 
     private ClusterState.TopicSnap topicSnap(ClusterState s, String name) {
@@ -236,7 +246,9 @@ public class ApiController {
     @GetMapping("/clusters/{c}/groups")
     public List<Dto.GroupSummary> groups(@PathVariable String c, @RequestParam(required = false) String type, @RequestParam(required = false) String query) {
         ClusterState s = state(c);
-        return s.groups.values().stream().filter(g -> type == null || type.isBlank() || g.type.equals(type)).filter(g -> query == null || g.groupId.contains(query)).map(g -> Views.group(s, g, trend(c, "group", g.groupId, "lag"))).toList();
+        // worst first, as the overview and the simulator list them (the web list doesn't re-sort)
+        return s.groups.values().stream().filter(g -> type == null || type.isBlank() || g.type.equals(type)).filter(g -> query == null || g.groupId.contains(query)).map(g -> Views.group(s, g, trend(c, "group", g.groupId, "lag")))
+                .sorted(Comparator.comparingInt((Dto.GroupSummary g) -> Views.rank(g.status())).thenComparing(Comparator.comparingLong(Dto.GroupSummary::totalLag).reversed())).toList();
     }
 
     @GetMapping("/clusters/{c}/groups/{id}")

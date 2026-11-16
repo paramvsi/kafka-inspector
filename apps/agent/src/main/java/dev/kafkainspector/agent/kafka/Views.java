@@ -178,7 +178,7 @@ public final class Views {
         return new Dto.Overview(summary(cid, c, s), k, attention(s, groups, urp, offline), groups, events);
     }
 
-    static int rank(String status) {
+    public static int rank(String status) {
         return switch (status) {
             case "stalled" -> 0;
             case "stopped" -> 1;
