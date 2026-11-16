@@ -7,7 +7,7 @@ class FakeSocket {
   readyState = 0;
   sent: string[] = [];
   onopen?: () => void;
-  onclose?: () => void;
+  onclose?: (e: { code: number }) => void;
   onmessage?: (e: { data: string }) => void;
   constructor(public url: string) {
     FakeSocket.all.push(this);
@@ -21,7 +21,7 @@ class FakeSocket {
   }
   down() {
     this.readyState = 3;
-    this.onclose?.();
+    this.onclose?.({ code: 1006 }); // abnormal close, as a dropped network gives
   }
 }
 

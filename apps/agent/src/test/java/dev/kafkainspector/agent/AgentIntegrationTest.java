@@ -177,6 +177,27 @@ class AgentIntegrationTest {
 
     @Test
     @Order(15)
+    void browseRequestsThatCantMeanAnythingAreRefusedNotAnsweredWithAnEmptyPage() throws Exception {
+        signIn();
+        String base = "/api/clusters/local/topics/orders/messages?";
+        Map<String, Integer> cases = new LinkedHashMap<>();
+        cases.put("partition=999", 404);
+        cases.put("partition=abc", 400);
+        cases.put("from=bogus", 400);
+        cases.put("from=group", 400);
+        cases.put("from=group&group=no-such-group", 404);
+        cases.put("from=offset", 400);
+        cases.put("from=offset&offset=-3", 400);
+        cases.put("from=timestamp", 400);
+        cases.put("cursor=garbage", 400);
+        cases.put("cursor=999:5", 400);
+        cases.put("limit=0", 400);
+        for (var e : cases.entrySet())
+            assertEquals(e.getValue(), send("GET", base + e.getKey() + (e.getKey().startsWith("limit") ? "" : "&limit=5"), null).statusCode(), e.getKey());
+    }
+
+    @Test
+    @Order(15)
     void browsingAMisspelledTopicIs404AndNeverCreatesIt() throws Exception {
         signIn();
         assertEquals(404, send("GET", "/api/clusters/local/topics/ordrs-typo/messages?limit=5", null).statusCode());
@@ -370,6 +391,24 @@ class AgentIntegrationTest {
                 return null;
             }
         }).get(10, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @Order(11)
+    void aBadStreamMessageGetsAnErrorAndTheConnectionStaysUp() throws Exception {
+        signIn();
+        var closed = new java.util.concurrent.CountDownLatch(1);
+        List<String> got = java.util.Collections.synchronizedList(new ArrayList<>());
+        var ws = openStream(http, "http://localhost:" + port, got, closed);
+        ws.sendText("{\"op\":\"sub\",\"id\":\"gone\",\"cluster\":\"nope\",\"channel\":\"metrics\"}", true).get(5, TimeUnit.SECONDS);
+        ws.sendText("not json", true).get(5, TimeUnit.SECONDS);
+        ws.sendText("{\"op\":\"sub\",\"id\":\"m\",\"cluster\":\"local\",\"channel\":\"metrics\"}", true).get(5, TimeUnit.SECONDS);
+        long until = System.currentTimeMillis() + 15_000;
+        while (System.currentTimeMillis() < until && got.stream().noneMatch(x -> x.contains("\"id\":\"m\"") && x.contains("\"data\""))) Thread.sleep(200);
+        assertEquals(1, closed.getCount(), "the socket was closed by a bad message");
+        assertTrue(got.stream().anyMatch(x -> x.contains("\"id\":\"gone\"") && x.contains("error")), () -> "no error for the bad sub: " + got);
+        assertTrue(got.stream().anyMatch(x -> x.contains("\"id\":\"m\"") && x.contains("\"data\"")), () -> "good sub got nothing: " + got);
+        ws.abort();
     }
 
     @Test

@@ -204,9 +204,19 @@ public class ApiController {
             @RequestParam(required = false) String timestamp, @RequestParam(required = false) String group, @RequestParam(defaultValue = "100") int limit, @RequestParam(required = false) String cursor) {
         ClusterState st = state(c);
         if (st.ts > 0 && !st.topics.containsKey(name)) throw new Clusters.NotFound("TOPIC_NOT_FOUND", "Topic " + name + " doesn't exist on " + c + ".");
+        // a request that can't mean anything gets a 400/404 that says why, never an empty page that looks like "no data"
+        if (!List.of("newest", "oldest", "offset", "timestamp", "group").contains(from))
+            throw new IllegalArgumentException("from must be newest, oldest, offset, timestamp or group.");
+        if (!"all".equals(partition) && !partition.matches("\\d+"))
+            throw new IllegalArgumentException("partition must be all or a partition number.");
+        if (limit < 1) throw new IllegalArgumentException("limit must be 1 or more (at most 500).");
+        if ("offset".equals(from) && (offset == null || offset < 0)) throw new IllegalArgumentException("Enter an offset of 0 or more to read from.");
+        if ("timestamp".equals(from) && (timestamp == null || timestamp.isBlank())) throw new IllegalArgumentException("Pick a date and time to read from.");
         Map<Integer, Long> groupOffsets = new HashMap<>();
-        if ("group".equals(from) && group != null) {
-            ClusterState.GroupSnap g = state(c).groups.get(group);
+        if ("group".equals(from)) {
+            if (group == null || group.isBlank()) throw new IllegalArgumentException("Pick a consumer group to read from.");
+            ClusterState.GroupSnap g = st.groups.get(group);
+            if (g == null && st.ts > 0) throw new Clusters.NotFound("GROUP_NOT_FOUND", "Consumer group " + group + " doesn't exist on " + c + ".");
             if (g != null && g.committed.containsKey(name)) groupOffsets.putAll(g.committed.get(name));
         }
         return messages.browse(c, name, partition, from, offset, timestamp, null, groupOffsets, limit, cursor);

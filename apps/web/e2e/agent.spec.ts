@@ -81,3 +81,25 @@ test('a password typed before the sign-in page hydrates is kept and signs in', a
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/app\/$/, { timeout: 15_000 });
 });
+
+test('signing out in one tab sends the other tab to sign-in promptly (socket closed as "Signed out")', async ({
+  context,
+}) => {
+  const a = await context.newPage();
+  await a.goto('/app/');
+  await expect(a).toHaveURL(/\/app\/sign-in\/\?next=/);
+  await a.getByLabel('Password').fill(process.env.AGENT_PASSWORD ?? 'dev-password');
+  await expect(a.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+  await a.getByRole('button', { name: 'Sign in' }).click();
+  await expect(a).toHaveURL(/\/app\/$/);
+  await expect(a.getByText('Messages in / s')).toBeVisible({ timeout: 30_000 }); // its socket is up
+  // from here only the socket can tell tab A: its HTTP polls (whose 401 would also redirect) are held back
+  await a.route('**/api/**', (r) => r.abort());
+  const b = await context.newPage();
+  await b.goto('/app/topics/');
+  await b
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('button', { name: 'Sign out' })
+    .click();
+  await expect(a).toHaveURL(/\/app\/sign-in\/\?next=/, { timeout: 5_000 });
+});

@@ -46,9 +46,12 @@ public class MessageService {
             List<PartitionInfo> infos = c.partitionsFor(topic, Duration.ofSeconds(10));
             if (infos == null || infos.isEmpty()) throw new dev.kafkainspector.agent.config.Clusters.NotFound("TOPIC_NOT_FOUND", "Topic " + topic + " not found.");
             List<TopicPartition> tps = infos.stream().map(i -> new TopicPartition(topic, i.partition())).filter(tp -> "all".equals(partition) || String.valueOf(tp.partition()).equals(partition)).sorted(Comparator.comparingInt(TopicPartition::partition)).toList();
+            if (tps.isEmpty()) throw new dev.kafkainspector.agent.config.Clusters.NotFound("PARTITION_NOT_FOUND", "Topic " + topic + " has partitions 0–" + (infos.size() - 1) + "; there is no partition " + partition + ".");
             Map<TopicPartition, Long> begin = c.beginningOffsets(tps, Duration.ofSeconds(10));
             Map<TopicPartition, Long> end = c.endOffsets(tps, Duration.ofSeconds(10));
             Map<Integer, Long> cur = parseCursor(cursor);
+            if (!cur.keySet().stream().allMatch(p -> tps.stream().anyMatch(tp -> tp.partition() == p)))
+                throw new IllegalArgumentException("The cursor isn't valid for this topic and partition. Start again without it.");
             boolean desc = "newest".equals(from);
             int per = desc ? Math.max(1, (int) Math.ceil((double) max / tps.size())) : max;
             Map<TopicPartition, long[]> ranges = new HashMap<>(); // [start, stopExclusive]
@@ -225,7 +228,12 @@ public class MessageService {
         if (cursor == null || cursor.isBlank()) return m;
         for (String part : cursor.split(",")) {
             String[] kv = part.split(":");
-            if (kv.length == 2) m.put(Integer.parseInt(kv[0].trim()), Long.parseLong(kv[1].trim()));
+            try {
+                if (kv.length != 2) throw new NumberFormatException();
+                m.put(Integer.parseInt(kv[0].trim()), Long.parseLong(kv[1].trim()));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("The cursor isn't valid. Start again without it.");
+            }
         }
         return m;
     }

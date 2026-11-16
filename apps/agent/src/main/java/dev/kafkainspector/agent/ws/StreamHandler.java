@@ -103,8 +103,26 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
         });
     }
 
+    /** One bad message (unknown cluster, invalid JSON) gets an error for its id; the connection and its other streams stay up. */
     @Override
     protected void handleTextMessage(WebSocketSession raw, TextMessage msg) {
+        try {
+            handle(raw, msg);
+        } catch (RuntimeException e) {
+            String id = "", channel = "";
+            try {
+                JsonNode m = json.readTree(msg.getPayload());
+                id = m.path("id").asString("");
+                channel = m.path("op").asString("").equals("tail") ? "tail" : m.path("channel").asString("metrics");
+            } catch (RuntimeException ignored) {
+                // not JSON: no id to answer
+            }
+            WebSocketSession s = sessions.get(raw.getId());
+            if (s != null) send(s, Map.of("id", id, "channel", channel, "ts", Instant.now().toString(), "error", e instanceof Clusters.NotFound ? e.getMessage() : "The agent couldn't read that message: " + e.getMessage()));
+        }
+    }
+
+    private void handle(WebSocketSession raw, TextMessage msg) {
         WebSocketSession s = sessions.get(raw.getId());
         JsonNode m = json.readTree(msg.getPayload());
         String op = m.path("op").asString(""), id = m.path("id").asString(UUID.randomUUID().toString()), cid = m.path("cluster").asString("");

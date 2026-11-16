@@ -31,7 +31,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## Messages (raw bytes; browser decodes)
 
-- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100&cursor=` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`. Pass `nextCursor` back as `cursor` for the next page; it is absent when nothing is left. Per partition a page keeps only the unbroken run of offsets from where reading started (records cut by the timestamp sort, or a range the 4 s read budget didn't finish, come on a later page), so paging reaches every record exactly once
+- `GET /api/clusters/{c}/topics/{name}/messages?partition=all|N&from=newest|oldest|offset|timestamp|group&offset=&timestamp=&group=&limit=100&cursor=` → `RawMessagePage` `{ messages: RawMessageDto[], nextCursor, scanned }`. Pass `nextCursor` back as `cursor` for the next page; it is absent when nothing is left. Per partition a page keeps only the unbroken run of offsets from where reading started (records cut by the timestamp sort, or a range the 4 s read budget didn't finish, come on a later page), so paging reaches every record exactly once. A request that can't mean anything is refused, never answered with an empty page: 400 for an unknown `from`, a missing `group`/`offset`/`timestamp` for that `from`, a negative offset, `limit` < 1 or a malformed cursor; 404 `PARTITION_NOT_FOUND` / `GROUP_NOT_FOUND`
   - `RawMessageDto`: `{ topic, partition, offset, timestamp, key: base64|null, value: base64|null, headers: [{key, value: base64}], sizeBytes }`
   - Max `limit` 500. The agent uses a dedicated consumer per request with `enable.auto.commit=false`, no `group.id` (assign + seek); it **never commits offsets**.
 - `POST /api/clusters/{c}/messages/search` `{ topicRegex, from, limit, sample: boolean }` → `RawMessagePage` (multi-topic)
@@ -48,7 +48,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## Live stream
 
-- `GET /api/stream` upgrades to WebSocket. Client sends `{ "op": "sub", "cluster": "prod", "channel": "metrics"|"lag"|"events"|"alerts" }` or `{ "op": "tail", "cluster": "prod", "topic": "orders", "partition": "all", "maxRate": 50 }` and `{ "op": "unsub", "id": "…" }`.
+- `GET /api/stream` upgrades to WebSocket. Client sends `{ "op": "sub", "cluster": "prod", "channel": "metrics"|"lag"|"events"|"alerts" }` or `{ "op": "tail", "cluster": "prod", "topic": "orders", "partition": "all", "maxRate": 50 }` and `{ "op": "unsub", "id": "…" }`. A message the agent can't act on (unknown cluster, invalid JSON) gets `{ id, error }` and the connection stays up. When the session ends (sign-out, expiry) the socket closes with 1008 "Signed out" and the web app goes to sign-in instead of reconnecting.
 - Server sends `{ "id": "…", "channel": "…", "ts": "…", "data": … }` batched at most once per second per subscription (tail: batches of `RawMessageDto`, `maxRate` clamped to 1–500/s, at most 8 tails per connection). A tail that stops sends `{ "id", "channel": "tail", "ts", "error": "…" }`.
 - Heartbeat `{ "op": "ping" }` every 20 s; client reconnects with exponential back-off (1, 2, 5, 10, 30 s) and resubscribes.
 

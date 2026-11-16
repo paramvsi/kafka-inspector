@@ -30,6 +30,10 @@ function csrf(): string | undefined {
     ?.slice('KI_CSRF='.length);
 }
 
+/** The session ended: go to sign-in and come back here afterwards. */
+const toSignIn = () =>
+  location.assign(`/app/sign-in/?next=${encodeURIComponent(location.pathname + location.search)}`);
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -63,9 +67,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     );
   }
   if (res.status === 401 && !path.startsWith('/api/auth/')) {
-    location.assign(
-      `/app/sign-in/?next=${encodeURIComponent(location.pathname + location.search)}`,
-    );
+    toSignIn();
     throw new ApiError(401, 'UNAUTHENTICATED', 'Your session ended. Sign in again.');
   }
   if (res.status === 204) return undefined as T;
@@ -159,9 +161,11 @@ export function createAgentClient(): KafkaClient {
       if (typeof m.error === 'string') sub?.onError?.(m.error);
       else sub?.onData(m.data, m.ts);
     };
-    sock.onclose = () => {
+    sock.onclose = (e) => {
       if (ws !== sock) return;
       ws = null;
+      // 1008 "Signed out": the agent ended this session; retrying would only be refused
+      if (e.code === 1008) return toSignIn();
       if (subs.size === 0) return;
       since ??= Date.now();
       const wait = BACKOFF[Math.min(attempt, BACKOFF.length - 1)]!;
