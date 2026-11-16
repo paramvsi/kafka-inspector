@@ -15,6 +15,7 @@ import {
 import { useMemo } from 'react';
 import { useKafka } from './kafka';
 import { useLocal } from './local';
+import { validMaskRules } from './maskRules';
 
 const lookups = new WeakMap<object, SchemaLookup>();
 
@@ -39,7 +40,10 @@ export function useSchemaLookup(): SchemaLookup | undefined {
 }
 
 export function useMaskRules(): [MaskRule[], (r: MaskRule[]) => void] {
-  return useLocal<MaskRule[]>('ki-mask-rules', DEFAULT_MASKS);
+  const [stored, set] = useLocal<MaskRule[]>('ki-mask-rules', DEFAULT_MASKS);
+  // ponytail: a dropped malformed rule leaves its field unmasked; it also disappears from the rules list, so it's visible
+  const rules = useMemo(() => validMaskRules(stored), [stored]);
+  return [rules, set];
 }
 
 export interface DecodedMessage {
