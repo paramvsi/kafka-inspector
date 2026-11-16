@@ -54,6 +54,11 @@ const describe = (s: Avro, named: Named): string => {
     return (resolve(s, named) as Avro[]).map((x) => describe(x, named)).join(' | ');
   if (t === 'array')
     return `array<${describe((resolve(s, named) as { items: Avro }).items, named)}>`;
+  if (t === 'map') return `map<${describe((resolve(s, named) as { values: Avro }).values, named)}>`;
+  // a named type shows its name: swapping one record or enum for another isn't "same"
+  const r = resolve(s, named);
+  if (typeof r === 'object' && r !== null && !Array.isArray(r) && typeof r.name === 'string')
+    return `${t} ${r.name.slice(r.name.lastIndexOf('.') + 1)}`;
   return t;
 };
 
@@ -267,6 +272,8 @@ function jsonCheck(
   if (forward)
     for (const r of o.required ?? [])
       if (!np[r]) messages.push(`Forward: ${r} was removed but old consumers require it.`);
+      else if (!(n.required ?? []).includes(r))
+        messages.push(`Forward: ${r} is no longer required, but old consumers still require it.`);
   const compatible = mode === 'NONE' || messages.length === 0;
   // say what "compatible" covers: nested objects, items, enums, $ref and oneOf aren't compared
   if (compatible)

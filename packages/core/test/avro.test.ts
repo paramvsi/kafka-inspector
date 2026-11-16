@@ -214,3 +214,20 @@ test('zero-width items cannot repeat without bound (array<null> with many full b
   const bytes = Uint8Array.from([...Array(20_000).fill([0x80, 0x80, 0x08]).flat(), 0]);
   expect(() => t.decode(bytes)).toThrow(/exceed the data/);
 });
+
+test('a record named with a dotted fullname puts its nested types in that namespace', () => {
+  const schema = {
+    type: 'record',
+    name: 'com.x.Order',
+    fields: [
+      {
+        name: 'a',
+        type: { type: 'record', name: 'Addr', fields: [{ name: 'city', type: 'string' }] },
+      },
+      { name: 'b', type: 'com.x.Addr' },
+    ],
+  };
+  const value = { a: { city: 'Oslo' }, b: { city: 'Bergen' } };
+  const bytes = new Uint8Array(avsc.Type.forSchema(schema as avsc.Schema).toBuffer(value));
+  expect(new AvroType(schema as never).decode(bytes)).toEqual(value);
+});

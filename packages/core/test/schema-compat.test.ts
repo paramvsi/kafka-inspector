@@ -202,3 +202,29 @@ test('an Avro candidate of null or [] is refused with a message; NONE still need
   expect(none.compatible).toBe(false);
   expect(none.messages[0]).toBe('The candidate schema is not valid JSON.');
 });
+
+test('the field diff shows a change inside a map or a named type, not "same"', () => {
+  const v = (values: string) =>
+    JSON.stringify({
+      type: 'record',
+      name: 'R',
+      fields: [{ name: 'm', type: { type: 'map', values } }],
+    });
+  const [m] = diffFields('AVRO', v('int'), v('string'));
+  expect(m!.change).toBe('changed');
+});
+
+test('JSON Schema FORWARD: a field no longer required is a break for old consumers', () => {
+  const o = JSON.stringify({
+    type: 'object',
+    properties: { id: { type: 'string' }, name: { type: 'string' } },
+    required: ['id', 'name'],
+  });
+  const n = JSON.stringify({
+    type: 'object',
+    properties: { id: { type: 'string' }, name: { type: 'string' } },
+    required: ['id'],
+  });
+  expect(checkCompatibility('JSON', o, n, 'FORWARD').compatible).toBe(false);
+  expect(checkCompatibility('JSON', o, n, 'BACKWARD').compatible).toBe(true);
+});

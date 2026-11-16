@@ -17,11 +17,15 @@ export class AvroError extends Error {}
 function collectNamed(s: AvroSchema, named: Map<string, AvroSchema>, ns?: string): void {
   if (typeof s === 'string' || s === null) return;
   if (Array.isArray(s)) return s.forEach((x) => collectNamed(x, named, ns));
-  const space = s.namespace ?? ns;
+  let space = ns;
   if (['record', 'enum', 'fixed', 'error'].includes(s.type) && s.name) {
-    named.set(s.name, s);
-    if (space && !String(s.name).includes('.')) named.set(`${space}.${s.name}`, s);
-  }
+    // as in schema-compat's collect: a dotted name carries its own namespace, which its nested types inherit
+    const name = String(s.name);
+    space = name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : (s.namespace ?? ns);
+    const bare = name.slice(name.lastIndexOf('.') + 1);
+    named.set(bare, s);
+    if (space) named.set(`${space}.${bare}`, s);
+  } else if (s.namespace) space = s.namespace;
   for (const f of s.fields ?? []) collectNamed(f.type, named, space);
   if (s.items) collectNamed(s.items, named, space);
   if (s.values) collectNamed(s.values, named, space);
