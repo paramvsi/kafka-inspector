@@ -1,4 +1,5 @@
 'use client';
+import { nextPoll } from './poll';
 // React access to the KafkaClient (rule 1: components never construct clients or import the simulator).
 import type { AppInfo, KafkaClient, StreamChannel, StreamEvent } from '@ki/core';
 import {
@@ -93,10 +94,7 @@ export function useKafkaQuery<T>(
     enabled,
     queryKey: [clusterId, ...key],
     queryFn: () => fn(client, clusterId),
-    // a failed query with nothing to show (e.g. a topic that doesn't exist) stops polling, so its error
-    // stays on screen instead of flickering with every refetch; one with data keeps polling and recovers
-    refetchInterval: (q) =>
-      q.state.status === 'error' && q.state.data === undefined ? false : refreshMs,
+    refetchInterval: (q) => nextPoll(q.state, refreshMs),
     placeholderData: (prev) => prev,
   });
 }

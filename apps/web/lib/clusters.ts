@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { useLocal } from './local';
 
 /** Saved connections in the demo (F-95). Never stores passwords (rule 6). */
@@ -21,6 +22,9 @@ const clean = (c: SavedCluster): SavedCluster =>
 export function useSavedClusters() {
   const [saved, setSaved] = useLocal<SavedCluster[]>('ki-saved-clusters', []);
   const list = saved.map(clean);
-  if (list.some((c, i) => c !== saved[i])) setTimeout(() => setSaved(list)); // rewrite the stored copy too
+  const dirty = list.some((c, i) => c !== saved[i]);
+  useEffect(() => {
+    if (dirty) setSaved(saved.map(clean)); // rewrite the stored copy too
+  }, [dirty]);
   return [list, setSaved] as const;
 }
