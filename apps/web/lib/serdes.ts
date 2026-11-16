@@ -1,6 +1,10 @@
 'use client';
 import {
   applyMasks,
+  topicMatches,
+  maskEncodedJson,
+  toBase64,
+  toHex,
   cachedLookup,
   decode,
   DEFAULT_MASKS,
@@ -54,6 +58,17 @@ export interface DecodedMessage {
 const td = new TextDecoder();
 export const msgId = (m: RawMessage) => `${m.topic}:${m.partition}:${m.offset}`;
 
+/** Raw bytes of a non-JSON body can't be masked field by field: on a topic a rule covers, don't show them. */
+function rawHidden(topic: string, rules: MaskRule[]) {
+  const r = rules.find((x) => topicMatches(x.topics, topic));
+  return r
+    ? {
+        value: `Raw bytes hidden: masking rule “${r.name}” applies to this topic. Pick a decoder to see the masked value.`,
+        applied: [] as ReturnType<typeof applyMasks>['applied'],
+      }
+    : undefined;
+}
+
 export async function decodeMessage(
   m: RawMessage,
   valueAs: DecodeAs,
@@ -65,9 +80,16 @@ export async function decodeMessage(
     decode(m.key, keyAs, lookup),
     decode(m.value, valueAs, lookup),
   ]);
-  const masked = value.ok
+  let masked = value.ok
     ? applyMasks(value.value, m.topic, rules)
-    : { value: undefined, applied: [] };
+    : { value: undefined, applied: [] as ReturnType<typeof applyMasks>['applied'] };
+  // A hex/base64 view of a JSON body would show masked fields as bytes: mask the JSON, then re-encode it.
+  // (A body that fails to decode keeps its raw hex — needed to diagnose it; see DECISIONS.)
+  if (value.ok && (value.format === 'hex' || value.format === 'base64') && m.value)
+    masked =
+      maskEncodedJson(m.value, value.format, m.topic, rules, { hex: toHex, base64: toBase64 }) ??
+      rawHidden(m.topic, rules) ??
+      masked;
   const headers: Record<string, string> = {};
   for (const h of m.headers) headers[h.key] = td.decode(h.value);
   return {

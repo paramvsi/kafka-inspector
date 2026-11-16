@@ -105,7 +105,10 @@ export function useKafkaQuery<T>(
  * Live stream channel → latest payload (batched to 1/s by the client). Paused Live freezes it, except
  * `always` subscribers (alert delivery must not wait for the user to resume).
  */
-export function useStream<T>(channel: StreamChannel, opts: { always?: boolean } = {}): T | undefined {
+export function useStream<T>(
+  channel: StreamChannel,
+  opts: { always?: boolean } = {},
+): T | undefined {
   const k = useKafkaMaybe();
   const client = k?.client;
   const clusterId = k?.clusterId ?? '';

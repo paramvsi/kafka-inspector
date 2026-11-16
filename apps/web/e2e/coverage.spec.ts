@@ -1111,3 +1111,14 @@ test('pausing Live freezes polled data too (group detail lag stops moving)', asy
   await page.waitForTimeout(3000);
   expect(await lag.innerText()).toBe(before);
 });
+
+test('a hex view on a masked topic never shows the masked field as bytes', async ({ page }) => {
+  // orders is Avro: its raw bytes can't be masked field by field, so they are hidden
+  await page.goto('/app/topics/view/?name=orders&tab=messages&dv=hex');
+  const table = page.getByRole('table', { name: 'Messages in orders' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await table.getByRole('row').nth(1).click();
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
+  await expect(drawer.getByText(/Raw bytes hidden: masking rule/)).toBeVisible();
+  await expect(drawer.getByText(/\b40 [0-9a-f]{2} [0-9a-f]{2}/)).toHaveCount(0); // no "@" byte run
+});

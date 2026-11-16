@@ -6,9 +6,16 @@ import {
   fromBase64,
   hexDump,
   toBase64,
+  toHex,
   type SchemaLookup,
 } from '../src/serdes/decode';
-import { applyMasks, isValidMaskPath, MASKED, topicMatches } from '../src/serdes/mask';
+import {
+  applyMasks,
+  isValidMaskPath,
+  maskEncodedJson,
+  MASKED,
+  topicMatches,
+} from '../src/serdes/mask';
 import type { SchemaVersion } from '../src/types';
 
 const enc = new TextEncoder();
@@ -332,4 +339,26 @@ test('masks also apply to a JSON body shown as text', () => {
   expect(r.value).not.toContain('a@b.c');
   expect(r.applied).toHaveLength(1);
   expect(applyMasks('plain text', 'orders', rules as never).value).toBe('plain text');
+});
+
+test('a hex or base64 view of a JSON body does not leak masked fields as bytes', () => {
+  const rules = [
+    {
+      id: 'm',
+      name: 'hide email',
+      topics: 'orders',
+      path: '$.email',
+      action: 'mask',
+      enabled: true,
+    },
+  ];
+  const bytes = new TextEncoder().encode('{"orderId":"o1","email":"secret@example.com"}');
+  const enc = { hex: toHex, base64: toBase64 };
+  const hex = maskEncodedJson(bytes, 'hex', 'orders', rules as never, enc)!;
+  expect(String(hex.value)).not.toContain(toHex(new TextEncoder().encode('secret@example.com')));
+  const b64 = maskEncodedJson(bytes, 'base64', 'orders', rules as never, enc)!;
+  expect(atob(String(b64.value))).not.toContain('secret@example.com');
+  expect(
+    maskEncodedJson(new Uint8Array([0, 1, 2]), 'hex', 'orders', rules as never, enc),
+  ).toBeUndefined();
 });

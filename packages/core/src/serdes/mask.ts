@@ -110,3 +110,20 @@ export const DEFAULT_MASKS: MaskRule[] = [
     action: 'mask',
   },
 ];
+
+/**
+ * A hex/base64 view of a JSON body would show masked fields as bytes: mask the JSON and re-encode it.
+ * Returns undefined when nothing applies (not JSON, or no rule for this topic).
+ */
+export function maskEncodedJson(
+  bytes: Uint8Array,
+  format: 'hex' | 'base64',
+  topic: string,
+  rules: MaskRule[],
+  encode: { hex: (b: Uint8Array) => string; base64: (b: Uint8Array) => string },
+): MaskResult | undefined {
+  const r = applyMasks(new TextDecoder().decode(bytes), topic, rules);
+  if (!r.applied.length) return undefined;
+  const out = new TextEncoder().encode(r.value as string);
+  return { value: encode[format](out), applied: r.applied };
+}
