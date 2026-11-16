@@ -1383,3 +1383,24 @@ test('chart axis labels and the brokers-online value fit their boxes at 1280', a
   const h = await value.evaluate((e) => e.getBoundingClientRect().height);
   expect(h).toBeLessThan(40); // one 28 px line, not two
 });
+
+test('a tooltip still shows after Escape was pressed elsewhere on the page', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&preview=readonly');
+  const button = page.getByRole('button', { name: 'Produce message' });
+  await expect(button).toBeDisabled({ timeout: 15_000 });
+  await page.keyboard.press('Escape'); // e.g. closing a dialog
+  const tip = page.locator(`[id="${await button.getAttribute('aria-describedby')}"]`);
+  await button.hover({ force: true });
+  await expect.poll(() => tip.evaluate((e) => getComputedStyle(e).opacity)).toBe('1');
+});
+
+test('a copy the browser blocks says "Copy failed" instead of nothing', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('blocked')) },
+    });
+  });
+  await page.goto('/app/topics/view/?name=orders');
+  await page.getByRole('button', { name: 'Copy link' }).click();
+  await expect(page.getByText('Copy failed', { exact: true })).toBeVisible();
+});

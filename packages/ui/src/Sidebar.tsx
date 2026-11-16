@@ -122,7 +122,7 @@ export function Sidebar({
         <div className="flex flex-col gap-[6px] border-t border-line px-2 pt-3 text-[12px] text-ink-muted">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-[22px] items-center rounded-sm bg-surface-hover px-2 text-[12px] font-medium text-ink-muted">
-              Read-only
+              Read-only in this version
             </span>
             {version && <span className="font-mono text-[10px]">v{version}</span>}
           </div>

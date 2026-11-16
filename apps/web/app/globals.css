@@ -261,6 +261,20 @@ html.theme-switching * {
 }
 
 /* Tooltip: fade + 4 px rise, opens after a short delay, closes instantly */
+/* bridges the 8 px gap between trigger and tooltip, so moving onto it doesn't close it */
+.ki-tip-body::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+.ki-tip-top::before {
+  top: 100%;
+}
+.ki-tip-bottom::before {
+  bottom: 100%;
+}
 .ki-tip-body {
   opacity: 0;
   /* -50% centres it (a Tailwind translate class would be overridden by this unlayered rule) */
@@ -272,6 +286,8 @@ html.theme-switching * {
 .ki-tip:not([data-dismissed]):hover .ki-tip-body,
 .ki-tip:not([data-dismissed]):focus-within .ki-tip-body {
   opacity: 1;
+  /* WCAG 1.4.13 hoverable: the pointer can move onto a shown tooltip (hidden ones stay click-through) */
+  pointer-events: auto;
   translate: -50% 0;
   transition:
     opacity var(--dur-fast) var(--ease-enter) var(--dur-slow),

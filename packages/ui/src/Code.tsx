@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from './cx';
 
 /** Copy button: icon swaps to a check for 1.2 s with a cross-fade (MOTION.md "Copy actions"). */
@@ -12,17 +12,24 @@ export function CopyButton({
   label?: string;
   className?: string;
 }) {
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<false | 'ok' | 'failed'>(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const show = (s: 'ok' | 'failed') => {
+    clearTimeout(timer.current);
+    setDone(s);
+    timer.current = setTimeout(() => setDone(false), 1200);
+  };
   return (
     <button
       type="button"
       onClick={async () => {
         try {
+          // undefined on plain-http origins (a self-hosted agent without TLS): say so instead of nothing
           await navigator.clipboard.writeText(typeof text === 'function' ? text() : text);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
+          show('ok');
         } catch {
-          /* clipboard blocked: nothing to do */
+          show('failed');
         }
       }}
       className={cx(
@@ -34,7 +41,7 @@ export function CopyButton({
         <span
           className={cx(
             'absolute inset-0 transition-opacity duration-fast',
-            done ? 'opacity-0' : 'opacity-100',
+            done === 'ok' ? 'opacity-0' : 'opacity-100',
           )}
         >
           ⧉
@@ -42,13 +49,21 @@ export function CopyButton({
         <span
           className={cx(
             'text-ok transition-opacity duration-fast',
-            done ? 'opacity-100' : 'opacity-0',
+            done === 'ok' ? 'opacity-100' : 'opacity-0',
           )}
         >
           ✓
         </span>
       </span>
-      <span aria-live="polite">{done ? 'Copied' : label}</span>
+      <span>{done === 'ok' ? 'Copied' : done === 'failed' ? 'Copy failed' : label}</span>
+      {/* announced from outside the button's name, which changes */}
+      <span role="status" className="sr-only">
+        {done === 'ok'
+          ? 'Copied'
+          : done === 'failed'
+            ? 'Copy failed: the browser blocked the clipboard'
+            : ''}
+      </span>
     </button>
   );
 }

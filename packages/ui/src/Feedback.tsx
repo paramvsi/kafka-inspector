@@ -42,6 +42,9 @@ export function Tooltip({
     <span
       className="ki-tip relative inline-flex"
       data-dismissed={dismissed || undefined}
+      // an Escape pressed elsewhere (closing a dialog) dismissed every tooltip: a new hover or focus shows it again
+      onMouseEnter={() => setDismissed(false)}
+      onFocus={() => setDismissed(false)}
       onMouseLeave={() => setDismissed(false)}
       onBlur={() => setDismissed(false)}
     >
@@ -51,7 +54,7 @@ export function Tooltip({
         id={id}
         className={cx(
           'ki-tip-body pointer-events-none absolute left-1/2 z-20 w-max max-w-[260px] rounded-md border border-line bg-surface px-2 py-1 text-[12px] font-normal leading-4 text-ink [box-shadow:var(--shadow-popover)]',
-          side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+          side === 'top' ? 'ki-tip-top bottom-full mb-2' : 'ki-tip-bottom top-full mt-2',
         )}
       >
         {content}
@@ -153,7 +156,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
   const push = useCallback(
     (t: Omit<ToastItem, 'id'>) =>
-      setItems((xs) => [...xs.slice(-3), { ...t, id: Date.now() + Math.random() }]),
+      setItems((xs) => {
+        // the same message again (e.g. one alert re-firing) refreshes its toast instead of stacking copies
+        const same = (x: ToastItem) =>
+          !('leaving' in x && x.leaving) &&
+          x.tone === t.tone &&
+          typeof x.title === 'string' &&
+          x.title === t.title &&
+          (x.body ?? '') === (t.body ?? '') &&
+          typeof (x.body ?? '') === 'string';
+        return [...xs.filter((x) => !same(x)).slice(-3), { ...t, id: Date.now() + Math.random() }];
+      }),
     [],
   );
   return (
