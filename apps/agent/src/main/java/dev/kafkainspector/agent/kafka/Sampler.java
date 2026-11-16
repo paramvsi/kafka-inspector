@@ -40,6 +40,8 @@ public class Sampler {
     private final Map<String, ClusterState> states = new ConcurrentHashMap<>();
     /** cid|topic|partition|committed|end → whether only transaction markers lie between them (cached: offsets only grow) */
     private final Map<String, Boolean> markerOnly = new ConcurrentHashMap<>();
+    /** group|topic|partition → "committed:end" at the previous sample: only a gap that holds still is probed */
+    private final Map<String, String> lastGap = new ConcurrentHashMap<>();
     private final List<java.util.function.BiConsumer<String, ClusterState>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private int tick;
 
@@ -339,7 +341,12 @@ public class Sampler {
                     // a read_committed consumer that commits lastRecord+1 sits behind a trailing commit/abort marker,
                     // which no application ever reads: that gap is caught up, not frozen lag (else: Stalled forever)
                     long gap = ps.high - pe.getValue();
-                    if (gap > 0 && gap <= 5 && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
+                    // a busy topic's end moves every sample: probing it would build a consumer per partition per tick.
+                    // The marker case is an idle one (nothing new, nothing committed), so it's probed once it holds still
+                    String was = lastGap.put(cid + "|" + key, pe.getValue() + ":" + ps.high);
+                    if (lastGap.size() > 10_000) lastGap.clear();
+                    boolean still = (pe.getValue() + ":" + ps.high).equals(was);
+                    if (gap > 0 && gap <= 5 && still && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
                         gs.reportedCommitted.put(te.getKey() + "|" + pe.getKey(), pe.getValue()); // shown as Kafka has it
                         pe.setValue(ps.high); // lag and status: caught up
                     }
@@ -458,7 +465,8 @@ public class Sampler {
             c.seek(tp, from);
             boolean saw = false;
             for (int i = 0; i < 4 && !saw && c.position(tp) < to; i++) saw = !c.poll(Duration.ofMillis(250)).isEmpty();
-            only = !saw && c.position(tp) >= to;
+            if (!saw && c.position(tp) < to) return false; // ran out of time (cold fetch): undecided, not cached
+            only = !saw;
         } catch (RuntimeException e) {
             log.debug("marker check for {}-{} failed: {}", topic, partition, e.toString());
             return false; // not cached: a passing error mustn't fix this gap as lag for good

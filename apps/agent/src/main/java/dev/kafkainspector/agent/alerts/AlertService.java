@@ -44,7 +44,8 @@ public class AlertService {
         return pending.keySet().stream().anyMatch(k -> k.contains("|" + ruleId + "|")) ? "pending" : "ok";
     }
 
-    public Rule save(Rule r) {
+    // synchronized with evaluate: a rule deleted mid-evaluation mustn't get a firing event nothing will resolve
+    public synchronized Rule save(Rule r) {
         if (r.name() == null || r.name().isBlank()) throw new IllegalArgumentException("Give the rule a name.");
         if (r.metric() == null) throw new IllegalArgumentException("Choose a metric.");
         if (r.severity() == null) throw new IllegalArgumentException("Choose a severity: info, warn or crit.");
@@ -72,7 +73,7 @@ public class AlertService {
     }
 
     /** Soft delete: the rule disappears and its firing alerts resolve (rules are few; history pruning covers events). */
-    public void remove(String id) {
+    public synchronized void remove(String id) {
         jdbc.update("UPDATE alert_rule SET deleted = TRUE, enabled = FALSE WHERE id = ?", id);
         jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE rule_id = ? AND state = 'firing'", System.currentTimeMillis(), id);
         pending.keySet().removeIf(k -> k.contains("|" + id + "|")); // its timers go with it (evaluate only visits live rules)
