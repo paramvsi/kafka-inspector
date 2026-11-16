@@ -1097,3 +1097,17 @@ test('"Watch on Overview" in the chaos toast keeps the incident running', async 
     timeout: 10_000,
   });
 });
+
+test('pausing Live freezes polled data too (group detail lag stops moving)', async ({ page }) => {
+  await page.goto('/app/groups/view/?id=fraud-scorer');
+  const lag = page
+    .locator('div', { hasText: /^Total lag/ })
+    .locator('.font-mono')
+    .first();
+  await expect(lag).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Live' }).click();
+  await expect(page.getByRole('button', { name: 'Paused' })).toBeVisible();
+  const before = await lag.innerText();
+  await page.waitForTimeout(3000);
+  expect(await lag.innerText()).toBe(before);
+});

@@ -3,6 +3,7 @@ import { formatCount, type Topology, type TopologyNode } from '@ki/core';
 import { Button, Card, EmptyState, SearchInput } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -76,6 +77,7 @@ export function TopologyView() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const [visible, setVisible] = useState(true);
+  const { live } = useApp(); // paused Live: the flow stops moving too
   useEffect(() => {
     // Stop continuous animation when the tab is hidden (MOTION.md principle 7)
     const on = () => setVisible(document.visibilityState === 'visible');
@@ -230,7 +232,7 @@ export function TopologyView() {
                                 : undefined
                         }
                       />
-                      {flowing && visible && (
+                      {flowing && visible && live && (
                         <path
                           d={d}
                           fill="none"

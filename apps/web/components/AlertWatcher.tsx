@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
 import { useKafkaQuery, useStream } from '../lib/kafka';
 
 export function AlertWatcher() {
-  const firing = useStream<AlertEvent[]>('alerts');
+  const firing = useStream<AlertEvent[]>('alerts', { always: true });
   const toast = useToast();
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
@@ -50,7 +50,7 @@ export function AlertWatcher() {
 
 /** Topbar bell: firing count, links to Alerts. */
 export function Bell() {
-  const firing = useStream<AlertEvent[]>('alerts');
+  const firing = useStream<AlertEvent[]>('alerts', { always: true });
   const n = (firing ?? []).filter(
     (a) => !a.acknowledged && !(a.mutedUntil && Date.parse(a.mutedUntil) > Date.now()),
   ).length;

@@ -90,17 +90,22 @@ export function useKafkaQuery<T>(
   enabled = true,
 ) {
   const { client, clusterId } = useKafka();
+  const { live } = useApp();
   return useQuery({
     enabled,
     queryKey: [clusterId, ...key],
     queryFn: () => fn(client, clusterId),
-    refetchInterval: (q) => nextPoll(q.state, refreshMs),
+    // Paused (Live off) freezes polled data too; writes still refresh through invalidation
+    refetchInterval: (q) => (live ? nextPoll(q.state, refreshMs) : false),
     placeholderData: (prev) => prev,
   });
 }
 
-/** Live stream channel → latest payload (batched to 1/s by the client). */
-export function useStream<T>(channel: StreamChannel): T | undefined {
+/**
+ * Live stream channel → latest payload (batched to 1/s by the client). Paused Live freezes it, except
+ * `always` subscribers (alert delivery must not wait for the user to resume).
+ */
+export function useStream<T>(channel: StreamChannel, opts: { always?: boolean } = {}): T | undefined {
   const k = useKafkaMaybe();
   const client = k?.client;
   const clusterId = k?.clusterId ?? '';
@@ -111,11 +116,11 @@ export function useStream<T>(channel: StreamChannel): T | undefined {
   );
   useEffect(() => {
     // Paused (Live indicator off): keep showing the last values.
-    if (!live || !client) return;
+    if ((!live && !opts.always) || !client) return;
     return client.subscribe(clusterId, channel, (e: StreamEvent) => {
       qc.setQueryData([clusterId, 'stream', channel], e.data);
       setData(e.data as T);
     });
-  }, [client, clusterId, channel, qc, live]);
+  }, [client, clusterId, channel, qc, live, opts.always]);
   return data;
 }
