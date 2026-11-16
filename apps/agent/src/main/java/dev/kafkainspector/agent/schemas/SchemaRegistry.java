@@ -55,8 +55,19 @@ public class SchemaRegistry {
         try {
             HttpResponse<String> r = client(cid, c).send(b.build(), HttpResponse.BodyHandlers.ofString());
             if (r.statusCode() == 404) throw new Clusters.NotFound("SCHEMA_NOT_FOUND", "The registry has no " + path + ".");
-            if (r.statusCode() >= 400) throw new IllegalStateException("Schema Registry answered " + r.statusCode() + ": " + r.body());
-            return json.readTree(r.body());
+            if (r.statusCode() >= 400) {
+                // the body can be a proxy page or a stack trace with internal names: log it, don't send it
+                log.warn("Schema Registry for cluster {} answered {} to {} {}: {}", cid, r.statusCode(), method, path, r.body().length() > 500 ? r.body().substring(0, 500) + "…" : r.body());
+                throw new IllegalStateException(r.statusCode() == 401 || r.statusCode() == 403
+                        ? "The Schema Registry refused the agent's credentials (" + r.statusCode() + "). Check the registry username and password in the agent config."
+                        : "The Schema Registry answered " + r.statusCode() + ". Try again; the agent log has the detail.");
+            }
+            try {
+                return json.readTree(r.body());
+            } catch (RuntimeException notJson) {
+                log.warn("Schema Registry for cluster {} answered {} {} with something that isn't JSON (a proxy page?)", cid, method, path);
+                throw new IllegalStateException("The Schema Registry answered something that isn't JSON. Check KI_CLUSTERS_n_SCHEMA_REGISTRY points at the registry itself, not a proxy page.");
+            }
         } catch (java.io.IOException e) {
             // the URL may carry credentials (user:pass@): it goes to the log without them, never to the browser
             log.warn("Schema Registry for cluster {} unreachable at {}: {}", cid, c.schemaRegistry().replaceFirst("//[^/@]*@", "//"), e.toString());
@@ -68,16 +79,27 @@ public class SchemaRegistry {
     }
 
     private static String enc(String s) {
-        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+        // form encoding writes a space as "+", which a URL path reads as a literal plus
+        return URLEncoder.encode(s, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
+    private final Map<String, Object[]> namesCache = new java.util.concurrent.ConcurrentHashMap<>(); // cid → [time, names]
+
+    /** Subject names for linking topics to schemas, cached 30 s (failures too): a slow registry must not stall every topic page. */
     public Set<String> subjectNames(String cid) {
+        Object[] hit = namesCache.get(cid);
+        if (hit != null && System.currentTimeMillis() - (long) hit[0] < 30_000) {
+            @SuppressWarnings("unchecked")
+            Set<String> cached = (Set<String>) hit[1];
+            return cached;
+        }
         Set<String> out = new TreeSet<>();
         try {
             call(cid, "GET", "/subjects", null).forEach(n -> out.add(n.asString()));
         } catch (RuntimeException e) {
             // no registry or unreachable: topics simply have no linked subject
         }
+        namesCache.put(cid, new Object[] {System.currentTimeMillis(), java.util.Collections.unmodifiableSet(out)});
         return out;
     }
 

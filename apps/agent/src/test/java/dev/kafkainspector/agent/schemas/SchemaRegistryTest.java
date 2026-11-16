@@ -56,4 +56,41 @@ class SchemaRegistryTest {
                 () -> new SchemaRegistry(clusters, JsonMapper.builder().build()).compatibility("local", "x-value", "{}", null));
         assertTrue(!e.getMessage().contains("s3cret") && !e.getMessage().contains("admin:"), e.getMessage());
     }
+
+    private static SchemaRegistry against(HttpServer reg) {
+        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://127.0.0.1:" + reg.getAddress().getPort(), null, null);
+        var clusters = new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment());
+        return new SchemaRegistry(clusters, JsonMapper.builder().build());
+    }
+
+    private static void answer(com.sun.net.httpserver.HttpExchange x, int status, String body) throws java.io.IOException {
+        byte[] b = body.getBytes(StandardCharsets.UTF_8);
+        x.sendResponseHeaders(status, b.length);
+        x.getResponseBody().write(b);
+        x.close();
+    }
+
+    @Test
+    void spacesAreEncodedAsSpacesAndRegistryBodiesStayOutOfErrors() throws Exception {
+        AtomicReference<String> asked = new AtomicReference<>();
+        HttpServer reg = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        reg.createContext("/subjects/", x -> {
+            asked.set(x.getRequestURI().getRawPath());
+            if (x.getRequestURI().getRawPath().contains("locked")) answer(x, 401, "<html>login at internal-proxy.corp:8443</html>");
+            else if (x.getRequestURI().getRawPath().contains("proxy")) answer(x, 200, "<html>not json</html>");
+            else answer(x, 200, "{\"subject\":\"my subject\",\"version\":1,\"id\":3,\"schemaType\":\"JSON\",\"schema\":\"{}\"}");
+        });
+        reg.start();
+        try {
+            SchemaRegistry r = against(reg);
+            r.get("local", "my subject", "latest");
+            assertTrue(asked.get().contains("my%20subject"), asked.get());
+            Exception refused = org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> r.get("local", "locked", "latest"));
+            assertTrue(refused.getMessage().contains("credentials") && !refused.getMessage().contains("internal-proxy"), refused.getMessage());
+            Exception html = org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> r.get("local", "proxy", "latest"));
+            assertTrue(html.getMessage().contains("isn't JSON"), html.getMessage());
+        } finally {
+            reg.stop(0);
+        }
+    }
 }

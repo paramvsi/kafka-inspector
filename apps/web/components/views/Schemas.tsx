@@ -96,9 +96,7 @@ export function SchemasView() {
           // no registry configured (NO_SCHEMA_REGISTRY): its message says which variable to set
           <EmptyState title="No Schema Registry">{(subjects.error as Error).message}</EmptyState>
         ) : subjects.error ? (
-          <EmptyState title="Couldn't reach the Schema Registry">
-            {(subjects.error as Error).message}
-          </EmptyState>
+          <EmptyState title="Couldn't load schemas">{(subjects.error as Error).message}</EmptyState>
         ) : !subjects.data ? (
           <EmptyState title="Loading subjects…">{'\u00a0'}</EmptyState>
         ) : !s && subject && subjects.data?.length ? (
@@ -164,6 +162,11 @@ export function SchemasView() {
                     </span>
                   )}
                 </div>
+                {versions.error && !versions.data && (
+                  <EmptyState title={`Couldn't load v${from} and v${to}`}>
+                    {(versions.error as Error).message} Pick other versions, or try again.
+                  </EmptyState>
+                )}
                 {a && b && (
                   <div className="overflow-hidden rounded-lg border border-line bg-surface">
                     <div className="grid grid-cols-2 border-b border-line bg-surface-sunken font-mono text-[12px] text-ink-muted">
@@ -368,7 +371,15 @@ function CheckDialog({
               try {
                 setResult(await onCheck(sent), sent);
               } catch (e) {
-                setResult({ compatible: false, messages: [(e as Error).message] }, sent);
+                // the check didn't run (registry down, timeout): that's "not checked", never "not compatible"
+                setResult(
+                  {
+                    compatible: false,
+                    checked: false,
+                    messages: [`Couldn't run the check: ${(e as Error).message}`],
+                  },
+                  sent,
+                );
               } finally {
                 setBusy(false);
               }

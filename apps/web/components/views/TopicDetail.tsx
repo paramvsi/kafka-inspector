@@ -634,7 +634,7 @@ function SchemaTab({ d }: { d: Detail }) {
   if (!subject && subjects.error && !isNoRegistry(subjects.error))
     return (
       <Card>
-        <EmptyState title="Couldn't reach the Schema Registry">
+        <EmptyState title="Couldn't load the schema">
           {(subjects.error as Error).message} Whether this topic has a schema isn&apos;t known until
           it answers.
         </EmptyState>
