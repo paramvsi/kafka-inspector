@@ -114,6 +114,8 @@ export function TimeSeriesChart({
               tick={{ fill: 'var(--ink-muted)', fontSize: 10 }}
               tickLine={false}
               minTickGap={48}
+              // not "preserveEnd" (the default): a dated last label ("17 Nov 00:50") pinned to the edge runs past it
+              interval="preserveStart"
             />
             <YAxis
               tickFormatter={yFormat}

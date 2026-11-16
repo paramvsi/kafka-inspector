@@ -1521,3 +1521,30 @@ test('a JavaScript filter ending in a line comment still runs', async ({ page })
   await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/Syntax error/)).toHaveCount(0);
 });
+
+for (const range of ['24h', '7d']) {
+  test(`chart axis labels with dates fit their box on the ${range} range`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`/app/?range=${range}`);
+    await expect
+      .poll(() => page.locator('.recharts-cartesian-axis-tick-value').count(), { timeout: 15_000 })
+      .toBeGreaterThan(3);
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll('.recharts-wrapper')].some((w) => {
+        const box = w.getBoundingClientRect();
+        return [...w.querySelectorAll('.recharts-cartesian-axis-tick-value')].some(
+          (t) => t.getBoundingClientRect().right > box.right + 0.5,
+        );
+      }),
+    );
+    expect(clipped).toBe(false);
+  });
+}
+
+test('Reset offsets: a shift that is not a whole number says so', async ({ page }) => {
+  await page.goto('/app/groups/view/?id=fraud-scorer&reset=1');
+  const d = page.getByRole('dialog');
+  await d.getByLabel('Shift by').check();
+  await d.getByLabel('Shift', { exact: true }).fill('2.5');
+  await expect(d.getByText(/whole number/)).toBeVisible();
+});

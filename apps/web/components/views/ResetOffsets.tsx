@@ -214,7 +214,15 @@ export function ResetOffsetsDialog({
         {kind === 'shift' && (
           <div className="flex items-end gap-3">
             <div className="w-[100px]">
-              <TextField label="Shift" mono value={by} onChange={(e) => setBy(e.target.value)} />
+              <TextField
+                label="Shift"
+                mono
+                value={by}
+                onChange={(e) => setBy(e.target.value)}
+                error={
+                  Number.isInteger(Number(by)) ? undefined : 'Enter a whole number, e.g. 1 or -5.'
+                }
+              />
             </div>
             {skippedOne && stalled?.committedOffset !== null && (
               <p className="m-0 pb-2 text-[13px] text-ink-muted">
