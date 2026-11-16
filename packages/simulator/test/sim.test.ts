@@ -807,3 +807,40 @@ test('search lists results newest first for either start, as the agent contract 
   const ts = r.messages.map((m) => m.timestamp);
   expect(ts).toEqual([...ts].sort().reverse());
 });
+
+test('a catastrophic regex is refused instead of freezing the worker; rule edits match the agent', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.createTopic({
+    name: 'a'.repeat(36) + '-',
+    partitions: 1,
+    replicationFactor: 1,
+  } as never);
+  const started = Date.now();
+  expect(() => h.sim.listTopics({ query: '(a+)+$', regex: true } as never)).toThrow(
+    'takes too long',
+  );
+  expect(() => h.sim.search({ topicRegex: '(a+)+$', from: 'newest', limit: 10 } as never)).toThrow(
+    'takes too long',
+  );
+  expect(Date.now() - started).toBeLessThan(1000);
+  const base = {
+    name: 'r',
+    metric: 'lag',
+    scope: { kind: 'any' },
+    threshold: 1,
+    durationSec: 10,
+    severity: 'warn',
+    channels: [],
+    enabled: true,
+  };
+  await expect(h.sim.saveAlertRule({ ...base, id: 'gone' } as never)).rejects.toThrow(
+    "doesn't exist",
+  );
+  await expect(h.sim.saveAlertRule({ ...base, durationSec: -1 } as never)).rejects.toThrow(
+    "can't be negative",
+  );
+  await expect(h.sim.saveAlertRule({ ...base, metric: 'cpu' } as never)).rejects.toThrow(
+    'Unknown metric cpu',
+  );
+});

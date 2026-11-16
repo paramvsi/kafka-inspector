@@ -56,6 +56,7 @@ import {
   type Topology,
   TOPIC_NAME,
   becameStuck,
+  safeRegex,
 } from '@ki/core';
 import { checkCompatibility } from '@ki/core/schema-compat';
 import { History } from './history';
@@ -1121,11 +1122,7 @@ export class Simulator {
     if (q.query) {
       let re: RegExp | null = null;
       if (q.regex) {
-        try {
-          re = new RegExp(q.query, 'i');
-        } catch {
-          throw new Error(`Invalid regular expression: ${q.query}`);
-        }
+        re = safeRegex(q.query, 'i'); // the worker can't interrupt a runaway match
       }
       names = names.filter((n) =>
         re ? re.test(n) : n.toLowerCase().includes(q.query!.toLowerCase()),
@@ -1290,12 +1287,7 @@ export class Simulator {
   }
 
   search(req: SearchRequest): RawMessagePage {
-    let re: RegExp;
-    try {
-      re = new RegExp(req.topicRegex);
-    } catch {
-      throw new Error(`Invalid regular expression: ${req.topicRegex}`);
-    }
+    const re = safeRegex(req.topicRegex);
     // same as the agent (AGENT_API): at most 20 matching topics, results newest first whichever end is read
     const topics = [...this.topics.keys()]
       .filter((n) => re.test(n) && !this.topics.get(n)!.internal)
@@ -1394,7 +1386,7 @@ export class Simulator {
       members,
       share:
         g.def.type === 'share'
-          ? { deliveryCount: 1, inFlight: this.groupLag(g), acquisitionLockMs: 30_000 }
+          ? undefined // as the agent: delivery counts and lock times aren't reported (rule 7: no invented numbers)
           : undefined,
     };
   }
@@ -1690,7 +1682,28 @@ export class Simulator {
   }
 
   async saveAlertRule(input: AlertRuleInput & { id?: string }): Promise<AlertRule> {
+    // the agent's checks and messages (AlertService.validate), so the demo refuses the same rules
+    const METRICS = [
+      'lag',
+      'group-status',
+      'topic-silent',
+      'under-replicated',
+      'broker-offline',
+      'dlq-receiving',
+    ];
     if (!input.name.trim()) throw new Error('Give the rule a name.');
+    if (!input.metric) throw new Error('Choose a metric.');
+    if (!input.severity) throw new Error('Choose a severity: info, warn or crit.');
+    if (!METRICS.includes(input.metric))
+      throw new Error(`Unknown metric ${input.metric}. Use one of [${METRICS.join(', ')}].`);
+    if (!(input.durationSec >= 0)) throw new Error("Duration can't be negative.");
+    if (input.name.length > 200) throw new Error('Rule names are limited to 200 characters.');
+    if (!['info', 'warn', 'crit'].includes(input.severity))
+      throw new Error('Severity must be info, warn or crit.');
+    if (input.scope && !['any', 'specific'].includes(input.scope.kind))
+      throw new Error('Scope kind must be any or specific.');
+    if (input.id && !this.rules.some((r) => r.id === input.id))
+      throw new Error(`Alert rule ${input.id} doesn't exist.`); // an edit of a deleted rule must not recreate it
     if (
       input.threshold !== undefined &&
       !(Number.isFinite(input.threshold) && input.threshold >= 0)
@@ -1698,7 +1711,7 @@ export class Simulator {
       throw new Error('The threshold must be a number of 0 or more.');
     const rule: AlertRule = {
       ...input,
-      id: input.id ?? `r_${hash(input.name, this.lastTick).toString(36)}`,
+      id: input.id ?? `r_${crypto.randomUUID()}`, // two same-named rules in one tick must not collide
     };
     const i = this.rules.findIndex((r) => r.id === rule.id);
     if (i >= 0) this.rules[i] = rule;

@@ -440,8 +440,9 @@ test('F-60/F-61/F-64: group filter, members tab and share group fields', async (
   await page.goto('/app/groups/view/?id=notify-workers');
   const share = page.getByText('Share group (KIP-932)');
   await expect(share).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('Records in flight')).toBeVisible();
-  await expect(page.getByText('Acquisition lock')).toBeVisible();
+  // nothing invented (rule 7): like the agent, the demo doesn't make up delivery counts or lock times
+  await expect(page.getByText(/aren.t reported by Kafka.s Admin API/)).toBeVisible();
+  await expect(page.getByText('Acquisition lock')).toHaveCount(0);
 });
 
 test('F-85: topology zoom and fit to screen', async ({ page }) => {
