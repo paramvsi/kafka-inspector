@@ -45,7 +45,7 @@ flowchart LR
 - **Decoding happens in the browser in both modes.** The agent returns raw bytes; the simulator produces real
   Confluent-framed Avro, so the same decoder is exercised everywhere.
 - **Same lag logic everywhere.** Lag status and forecast are pure functions in `packages/core`, ported to Java
-  in the agent; both run the same 24 test vectors (`packages/core/test/lag-vectors.json`).
+  in the agent; both run the same shared test vectors (`packages/core/test/lag-vectors.json` and `lag-group-vectors.json`).
 
 ## How the simulator works
 

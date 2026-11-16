@@ -94,7 +94,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 **F-42 Filters — MVP.** JavaScript expression over `{key, value, headers, partition, offset, timestamp}`, run in a sandboxed Web Worker with a time budget; shows "N of M scanned match". Plus key/header/text quick filters.
 **F-43 Multi-topic search and sample mode — MVP.** Search a regex of topics at once; "sample" spreads reads across partitions.
 **F-44 Message drawer — MVP.** Key, partition/offset, timestamp, schema (subject, version, id), headers, size, pretty JSON tree, masked-field note; actions: Copy JSON, Reprocess to topic (Demo), Trace key (v2).
-**F-45 Decoding — MVP.** Auto-detect order: Schema Registry header → JSON → UTF-8 text → hex. Formats: JSON, text, hex, Base64, Avro (registry), JSON Schema (registry), number keys (int/long/double big-endian), UUID. v2: Protobuf, MessagePack, CBOR, XML. See ARCHITECTURE "Serdes".
+**F-45 Decoding — MVP.** Auto-detect order: Schema Registry header (when the registry knows the id) → JSON → UTF-8 text → hex. Formats: JSON, text, hex, Base64, Avro (registry), JSON Schema (registry), number keys (int/long/double big-endian), UUID. v2: Protobuf, MessagePack, CBOR, XML. See ARCHITECTURE "Serdes".
 **F-46 Decode errors — MVP.** Never hide a message: show error reason, annotated hex dump (magic byte, schema id), and "try another way" actions. Per `TopicMessagesError`.
 **F-47 Data masking — MVP.** Rules per topic pattern: remove / replace / mask a field path; applied after decoding to every view of a value (tree, text, hex/base64 — JSON is masked, then re-encoded); a non-JSON body on a masked topic shows "Raw bytes hidden: masking rule … applies to this topic"; drawer shows which rule masked what. Not masked: keys, headers, and the raw hex of a body that fails to decode (see DECISIONS).
 **F-48 Export — MVP.** Download current result set as JSON or CSV.
@@ -122,7 +122,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 ## Alerts
 
 **F-80 Alerts page — MVP.** Firing list (severity, title, evidence, actions: open, mute 1 h, acknowledge), history table, rules list with state.
-**F-81 Rule builder — MVP.** Metric (lag, group status, topic silent, under-replicated, broker offline, DLQ receiving), scope (any / specific), threshold, duration, severity, channels; 24 h preview "would have fired N times". Per `AlertRule`.
+**F-81 Rule builder — MVP.** Metric (lag, group status, topic silent, under-replicated, broker offline, DLQ receiving), scope (any / specific), threshold, duration, severity, channels; 24 h preview "would have fired N times" (demo only; self-hosted says "Preview isn't available on this cluster"). Per `AlertRule`.
 **F-82 Delivery — MVP.** In-app bell + toast, browser notification. v2: Slack/webhook (Self).
 **F-83 Ready-made rules — MVP.** Seeded: group stalled/stopped, lag > 5,000 for 5 min, under-replicated > 0, broker offline, topic silent 10 min, DLQ receiving (muted).
 

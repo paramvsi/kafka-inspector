@@ -202,7 +202,7 @@ Group roll-up: any `stopped` → `stopped`; else any `stalled` → `stalled`; el
 
 Format: < 60 s "under a minute"; < 120 min "~N min"; else "~N h".
 
-Ship **test vectors** (`packages/core/test/lag-vectors.json`) and run the same file in the Java agent tests.
+Ship **test vectors** (`packages/core/test/lag-vectors.json` — status, forecast and consume/produce rates; `lag-group-vectors.json` — `rollupStatus` and `combineForecasts`) and run both files in the Java agent tests.
 
 ## Simulator (packages/simulator)
 
@@ -219,7 +219,7 @@ Ship **test vectors** (`packages/core/test/lag-vectors.json`) and run the same f
 ## Serdes (packages/core/serdes)
 
 - Decoding runs in the browser in **both** modes. The agent returns raw bytes (base64) + metadata; schemas are fetched by id through `KafkaClient.getSchemaById` and cached.
-- Detection order: magic byte 0 and length ≥ 5 with registry → registry format (by schema type) → JSON parse → printable UTF-8 → hex.
+- Detection order: magic byte 0 and length ≥ 5 with registry → registry format (by schema type; if the registry doesn't know the id, auto falls through, since a leading 0x00 is often just data such as an int64 key — choosing Avro explicitly reports the unknown id) → JSON parse → printable UTF-8 → hex.
 - Wire format: byte 0 = 0x00, bytes 1–4 = schema id (big-endian int32), then payload. Protobuf (v2) adds message-index varints.
 - Per-topic overrides for key and value; number keys decode int32/int64/double big-endian; UUID from 16 bytes or 36-char string.
 - Decode errors return `{ ok: false, reason, hex, annotations }` — never throw into the UI.
@@ -232,7 +232,7 @@ Run user expressions in a dedicated Worker with no DOM, compiled once per expres
 ## Storage
 
 - Demo: IndexedDB (Dexie) — saved clusters, filters, alert rules, alert history, user-created topics/messages, simulator overrides.
-- Agent: embedded H2 file DB in `/data` by default (Flyway migrations), PostgreSQL via `KI_DB_URL`. Tables: `metric_sample` (cluster, scope, key, metric, ts, value) with downsampling job, `alert_rule`, `alert_event`, `saved_filter`.
+- Agent: embedded H2 file DB in `/data` by default (Flyway migrations), PostgreSQL via `KI_DB_URL`. Tables: `metric_sample` (cluster, scope, key, metric, ts, value; also indexed on ts for the prune job) with downsampling job, `alert_rule`, `alert_event`, `saved_filter`.
 
 ## Performance budgets
 
