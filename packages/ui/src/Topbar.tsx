@@ -61,12 +61,15 @@ export function Topbar({
           }
         }}
       />
-      <SegmentedControl
-        label="Time range"
-        options={[...TIME_RANGES]}
-        value={range}
-        onChange={(v) => onRange(v as TimeRange)}
-      />
+      {/* never squeezed: at 1024 px the breadcrumb gives way, not the 7d button */}
+      <div className="shrink-0">
+        <SegmentedControl
+          label="Time range"
+          options={[...TIME_RANGES]}
+          value={range}
+          onChange={(v) => onRange(v as TimeRange)}
+        />
+      </div>
       <LiveIndicator live={live} onToggle={onLiveToggle} />
       {actions}
     </header>

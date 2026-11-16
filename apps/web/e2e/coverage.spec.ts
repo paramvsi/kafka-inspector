@@ -1590,3 +1590,20 @@ test('changing where to start does not leave the previous rows on screen', async
   await expect(page.getByText('Choose where to start')).toBeVisible();
   await expect(table.getByRole('row')).toHaveCount(1); // the header only
 });
+
+test('a demo that fails to start drops the loading skeleton and says so once', async ({ page }) => {
+  await page.route('**/_next/static/chunks/turbopack-worker-*', (r) => r.abort());
+  await page.goto('/app/');
+  const msg = page.getByText(/Couldn't start: The simulated cluster stopped/);
+  await expect(msg).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.ki-skeleton')).toHaveCount(0);
+  await expect(msg).not.toContainText('..');
+});
+
+test('at 1024 px the time-range control shows all four ranges', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/app/groups/view/?id=payments-sink');
+  const range = page.getByRole('group', { name: 'Time range' });
+  await expect(range).toBeVisible({ timeout: 15_000 });
+  expect(await range.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+});

@@ -133,18 +133,25 @@ function ChromeInner({ children, boot }: { children: ReactNode; boot: Boot }) {
   if (!k || boot.state !== 'ready') {
     return (
       // the cluster isn't known yet (demo or agent): no name, no "connected" claim
-      <Frame mode="demo" cluster={{ name: 'Connecting…', status: 'degraded' }}>
+      <Frame
+        mode="demo"
+        cluster={{
+          name: boot.state === 'failed' ? 'Not started' : 'Connecting…',
+          status: boot.state === 'failed' ? 'disconnected' : 'degraded',
+        }}
+      >
         <BootStatus
           text={
             boot.state === 'failed'
-              ? `Couldn't start: ${boot.error}. Reload the page to try again.`
+              ? // the error usually says what to do already: don't say it twice
+                `Couldn't start: ${String(boot.error).replace(/\.$/, '')}${/reload/i.test(String(boot.error)) ? '.' : '. Reload the page to try again.'}`
               : boot.state === 'connecting'
                 ? `${boot.step}…`
                 : 'Starting…'
           }
           failed={boot.state === 'failed'}
         />
-        <PageSkeleton />
+        {boot.state !== 'failed' && <PageSkeleton />}
       </Frame>
     );
   }
