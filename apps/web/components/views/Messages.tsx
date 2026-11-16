@@ -94,6 +94,15 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   );
 
   // ── browse (not live) ──
+  // a start that still needs its field reads nothing yet (and the agent would refuse it)
+  const needs =
+    regex !== undefined
+      ? undefined
+      : from === 'timestamp' && !url.get('ts')
+        ? 'Pick a date and time to read from.'
+        : from === 'group' && !group && groups.data
+          ? `No consumer group reads ${topic} yet. Start from another position.`
+          : undefined;
   const page = useKafkaQuery<RawMessagePage>(
     ['browse', topic, from, p, url.get('offset'), url.get('ts'), group, regex, url.get('sample')],
     (c, id) =>
@@ -114,12 +123,14 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             limit: 100,
           }),
     false,
+    !needs && !(regex === undefined && from === 'group' && !group), // groups still loading: wait
   );
   const pageRef = useRef(page.data);
   useEffect(() => {
     pageRef.current = page.data;
     setExtra([]);
     setExtraScanned(0);
+    setLoadError(undefined); // a new first page: an old "couldn't load more" no longer applies
     setCursor(page.data?.nextCursor);
   }, [page.data]);
 
@@ -767,16 +778,24 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                   ? 'No messages match the filter'
                   : live
                     ? 'Waiting for messages…'
-                    : page.isLoading
-                      ? 'Loading messages…'
-                      : 'No messages here'
+                    : needs
+                      ? 'Choose where to start'
+                      : page.error
+                        ? "Couldn't read messages"
+                        : page.isLoading
+                          ? 'Loading messages…'
+                          : 'No messages here'
               }
             >
               {expr || quickOn
                 ? `None of the ${formatInt(raws.length)} loaded messages match. Loosen the filters or load more.`
                 : live
                   ? `${topic} gets ${formatRate(rate)}. New messages appear at the top.`
-                  : 'This partition has no messages in its retention window.'}
+                  : needs
+                    ? needs
+                    : page.error
+                      ? `${(page.error as Error).message} Try another start position, or try again.`
+                      : 'This partition has no messages in its retention window.'}
             </EmptyState>
           )}
         </div>

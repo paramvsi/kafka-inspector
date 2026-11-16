@@ -1058,3 +1058,12 @@ test('a rule switched to lag saves the threshold it shows; empty topics and bad 
   const table = page.getByRole('table', { name: 'Messages in orders' });
   await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 15_000 });
 });
+
+test('"From time" without a time asks for one instead of claiming the topic is empty', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&from=timestamp');
+  await expect(page.getByText('Choose where to start')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Pick a date and time to read from.')).toBeVisible();
+  await expect(page.getByText('no messages in its retention window')).toHaveCount(0);
+});

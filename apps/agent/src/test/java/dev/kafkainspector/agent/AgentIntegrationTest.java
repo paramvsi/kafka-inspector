@@ -194,6 +194,9 @@ class AgentIntegrationTest {
         cases.put("limit=0", 400);
         for (var e : cases.entrySet())
             assertEquals(e.getValue(), send("GET", base + e.getKey() + (e.getKey().startsWith("limit") ? "" : "&limit=5"), null).statusCode(), e.getKey());
+        // a next page needs only its cursor, whatever the first page started from
+        for (String from : List.of("offset", "timestamp", "group"))
+            assertEquals(200, send("GET", base + "from=" + from + "&limit=5&cursor=0:1", null).statusCode(), "Load more from=" + from);
     }
 
     @Test

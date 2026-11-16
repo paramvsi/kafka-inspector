@@ -210,10 +210,12 @@ public class ApiController {
         if (!"all".equals(partition) && !partition.matches("\\d+"))
             throw new IllegalArgumentException("partition must be all or a partition number.");
         if (limit < 1) throw new IllegalArgumentException("limit must be 1 or more (at most 500).");
-        if ("offset".equals(from) && (offset == null || offset < 0)) throw new IllegalArgumentException("Enter an offset of 0 or more to read from.");
-        if ("timestamp".equals(from) && (timestamp == null || timestamp.isBlank())) throw new IllegalArgumentException("Pick a date and time to read from.");
+        // a next page continues from its cursor: where the first page started no longer matters
+        boolean first = cursor == null || cursor.isBlank();
+        if (first && "offset".equals(from) && (offset == null || offset < 0)) throw new IllegalArgumentException("Enter an offset of 0 or more to read from.");
+        if (first && "timestamp".equals(from) && (timestamp == null || timestamp.isBlank())) throw new IllegalArgumentException("Pick a date and time to read from.");
         Map<Integer, Long> groupOffsets = new HashMap<>();
-        if ("group".equals(from)) {
+        if (first && "group".equals(from)) {
             if (group == null || group.isBlank()) throw new IllegalArgumentException("Pick a consumer group to read from.");
             ClusterState.GroupSnap g = st.groups.get(group);
             if (g == null && st.ts > 0) throw new Clusters.NotFound("GROUP_NOT_FOUND", "Consumer group " + group + " doesn't exist on " + c + ".");

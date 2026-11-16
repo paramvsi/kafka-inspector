@@ -103,3 +103,26 @@ test('signing out in one tab sends the other tab to sign-in promptly (socket clo
     .click();
   await expect(a).toHaveURL(/\/app\/sign-in\/\?next=/, { timeout: 5_000 });
 });
+
+test('Load more works for every start position (a next page needs only its cursor)', async ({
+  page,
+}) => {
+  await page.goto('/app/');
+  await expect(page).toHaveURL(/\/app\/sign-in\/\?next=/);
+  await page.getByLabel('Password').fill(process.env.AGENT_PASSWORD ?? 'dev-password');
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/app\/$/);
+  for (const q of [
+    'from=offset&offset=5',
+    'from=timestamp&ts=2020-01-01T00:00:00.000Z',
+    'from=oldest',
+  ]) {
+    await page.goto(`/app/topics/view/?name=orders&tab=messages&${q}`);
+    const table = page.getByRole('table', { name: 'Messages in orders' });
+    await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Load more' }).click();
+    await expect(page.getByText(/^200 messages/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Couldn't load more/)).toHaveCount(0);
+  }
+});
