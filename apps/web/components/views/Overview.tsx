@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '../../lib/app';
 import { axisTime } from '../../lib/axis';
+import { hourAgoValue } from '../../lib/baseline';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
 import { BootStatus, PageSkeleton, useConnection } from '../Shell';
@@ -43,10 +44,7 @@ export function OverviewView() {
         c.getHistory(id, { metric: 'messagesIn', scope: 'cluster', range: '1h' }),
         c.getHistory(id, { metric: 'bytesIn', scope: 'cluster', range: '1h' }),
       ]);
-      // only a sample from about an hour ago is a baseline: right after start, the first sample is minutes old
-      const old = (p?: [number, number]) =>
-        p && p[0] <= Date.now() - 50 * 60_000 ? p[1] : undefined;
-      return { m: old(m[0]?.points[0]), b: old(b[0]?.points[0]) };
+      return { m: hourAgoValue(m[0]?.points[0]), b: hourAgoValue(b[0]?.points[0]) };
     },
     30_000,
   );

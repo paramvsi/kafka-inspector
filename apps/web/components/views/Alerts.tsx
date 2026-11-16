@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAttempt } from '../../lib/attempt';
 import { axisTime } from '../../lib/axis';
+import { isMuted } from '../../lib/baseline';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -87,7 +88,7 @@ export function AlertsView() {
     <>
       <PageHeader
         title="Alerts"
-        subtitle={`${firing.filter((a) => !a.mutedUntil || Date.parse(a.mutedUntil) <= now).length} firing · ${rules.data?.length ?? 0} rules · notifications to this browser`} // muted ones stay listed but aren't counted, as in the bell
+        subtitle={`${firing.filter((a) => !isMuted(a, now)).length} firing · ${rules.data?.length ?? 0} rules · notifications to this browser`} // muted ones stay listed but aren't counted, as in the bell
         actions={
           <Button variant="primary" onClick={() => url.set({ rule: 'new' })}>
             New rule
@@ -106,7 +107,7 @@ export function AlertsView() {
           )}
           {firing.map((a) => {
             const r = ruleOf(a.ruleId);
-            const muted = a.mutedUntil && Date.parse(a.mutedUntil) > now;
+            const muted = isMuted(a, now);
             return (
               <article
                 key={a.id}

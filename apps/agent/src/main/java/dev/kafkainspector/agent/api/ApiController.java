@@ -248,7 +248,7 @@ public class ApiController {
         ClusterState s = state(c);
         // worst first, as the overview and the simulator list them (the web list doesn't re-sort)
         return s.groups.values().stream().filter(g -> type == null || type.isBlank() || g.type.equals(type)).filter(g -> query == null || g.groupId.contains(query)).map(g -> Views.group(s, g, trend(c, "group", g.groupId, "lag")))
-                .sorted(Comparator.comparingInt((Dto.GroupSummary g) -> Views.rank(g.status())).thenComparing(Comparator.comparingLong(Dto.GroupSummary::totalLag).reversed())).toList();
+                .sorted(Views.WORST_FIRST).toList();
     }
 
     @GetMapping("/clusters/{c}/groups/{id}")

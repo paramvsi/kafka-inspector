@@ -30,6 +30,7 @@ import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
+import { hourAgoValue } from '../../lib/baseline';
 import { useUrl, pick } from '../../lib/url';
 import { PageHeader, useWrites, WriteButton } from '../Page';
 import { MessagesTab } from './Messages';
@@ -62,7 +63,7 @@ export function TopicDetailView() {
       const p = (
         await c.getHistory(id, { metric: 'messagesIn', scope: 'topic', key: name, range: '1h' })
       )[0]?.points[0];
-      return p && p[0] <= Date.now() - 50 * 60_000 ? p[1] : undefined;
+      return hourAgoValue(p);
     },
     30_000,
   );

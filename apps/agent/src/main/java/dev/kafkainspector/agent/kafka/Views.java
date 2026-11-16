@@ -168,7 +168,7 @@ public final class Views {
         long lag = 0;
         for (ClusterState.GroupSnap g : s.groups.values()) if (!g.type.equals("share") && !g.members.isEmpty()) lag += groupLag(s, g);
         String trend = s.totalLagPrev < 0 ? "steady" : lag > s.totalLagPrev * 1.02 + 10 ? "rising" : lag < s.totalLagPrev * 0.98 - 10 ? "falling" : "steady";
-        List<Dto.GroupSummary> groups = s.groups.values().stream().map(g -> group(s, g, groupTrends.getOrDefault(g.groupId, List.of()))).sorted(Comparator.comparingInt((Dto.GroupSummary g) -> rank(g.status())).thenComparing(Comparator.comparingLong(Dto.GroupSummary::totalLag).reversed())).toList();
+        List<Dto.GroupSummary> groups = s.groups.values().stream().map(g -> group(s, g, groupTrends.getOrDefault(g.groupId, List.of()))).sorted(WORST_FIRST).toList();
         int online = (int) s.brokers.stream().filter(ClusterState.BrokerSnap::online).count();
         Dto.Kpis k = new Dto.Kpis(s.messagesIn, s.messagesOut, s.bytesIn, lag, trend, urp, total, online, s.brokers.size(), offline, underMin, s.controller, activeAlerts, s.topics.size(), s.groups.size());
         List<Dto.ClusterEvent> events;
@@ -178,7 +178,11 @@ public final class Views {
         return new Dto.Overview(summary(cid, c, s), k, attention(s, groups, urp, offline), groups, events);
     }
 
-    public static int rank(String status) {
+    /** Groups worst first: stalled, stopped, warn, unknown, healthy; then by lag (overview and the groups list). */
+    public static final Comparator<Dto.GroupSummary> WORST_FIRST =
+            Comparator.comparingInt((Dto.GroupSummary g) -> rank(g.status())).thenComparing(Comparator.comparingLong(Dto.GroupSummary::totalLag).reversed());
+
+    private static int rank(String status) {
         return switch (status) {
             case "stalled" -> 0;
             case "stopped" -> 1;

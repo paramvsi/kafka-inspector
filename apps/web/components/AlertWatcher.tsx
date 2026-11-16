@@ -4,6 +4,7 @@ import type { AlertEvent, AlertRule } from '@ki/core';
 import { useToast } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { isMuted } from '../lib/baseline';
 import { useKafkaQuery, useStream } from '../lib/kafka';
 
 export function AlertWatcher() {
@@ -25,7 +26,7 @@ export function AlertWatcher() {
     for (const a of firing) {
       if (seen.current.has(a.id)) continue;
       seen.current.add(a.id);
-      if (a.mutedUntil && Date.parse(a.mutedUntil) > Date.now()) continue;
+      if (isMuted(a)) continue;
       const rule = rules.current.find((r) => r.id === a.ruleId);
       if (!rule || rule.channels.includes('in-app')) {
         toast({
@@ -51,9 +52,7 @@ export function AlertWatcher() {
 /** Topbar bell: firing count, links to Alerts. */
 export function Bell() {
   const firing = useStream<AlertEvent[]>('alerts', { always: true });
-  const n = (firing ?? []).filter(
-    (a) => !a.acknowledged && !(a.mutedUntil && Date.parse(a.mutedUntil) > Date.now()),
-  ).length;
+  const n = (firing ?? []).filter((a) => !a.acknowledged && !isMuted(a)).length;
   return (
     <a
       href="/app/alerts/"

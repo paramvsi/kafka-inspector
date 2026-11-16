@@ -205,7 +205,10 @@ export function createAgentClient(): KafkaClient {
     getBrokerConfig: (id, b) => api('GET', `${c(id)}/brokers/${b}/config`),
     listTopics: (id, t = {}) =>
       // starred only matters for the Starred view; sending it always could overflow the URL
-      api('GET', `${c(id)}/topics?${q({ ...t, starred: t.view === 'starred' ? t.starred?.join(',') : undefined })}`),
+      api(
+        'GET',
+        `${c(id)}/topics?${q({ ...t, starred: t.view === 'starred' ? t.starred?.join(',') : undefined })}`,
+      ),
     getTopic: (id, name) => api('GET', `${c(id)}/topics/${encodeURIComponent(name)}`),
     getTopicConfig: (id, name) => api('GET', `${c(id)}/topics/${encodeURIComponent(name)}/config`),
     browse: async (id, r) => {
