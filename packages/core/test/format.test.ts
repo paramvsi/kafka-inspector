@@ -60,3 +60,13 @@ test('formatCount shows a dash for NaN and Infinity', () => {
   expect(formatCount(Number.NaN)).toBe('—');
   expect(formatCount(Number.POSITIVE_INFINITY)).toBe('—');
 });
+
+test('a trickle never reads as zero; deltas have no signed zero or NaN', () => {
+  expect(formatRate(0.03)).toBe('<0.1/s');
+  expect(formatRate(0)).toBe('0/s');
+  expect(formatRate(NaN)).toBe('—');
+  expect(formatDelta(-0.04)).toBe('0.0%');
+  expect(formatDelta(NaN)).toBe('—');
+  expect(formatDelta(4.2)).toBe('+4.2%');
+  expect(formatDelta(-3.1)).toBe('−3.1%');
+});

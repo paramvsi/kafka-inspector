@@ -39,9 +39,13 @@ export function formatBytes(n: number): string {
   return `${i === 0 || Math.abs(v) >= 100 ? formatInt(v) : v.toFixed(1).replace(/\.0$/, '')} ${units[i]}`;
 }
 
-/** 1,204/s */
+/** 1,204/s · 4.2/s · <0.1/s (a real trickle never reads as zero) */
 export const formatRate = (perSec: number) =>
-  `${perSec >= 100 ? formatInt(perSec) : perSec.toFixed(1).replace(/\.0$/, '')}/s`;
+  !Number.isFinite(perSec)
+    ? '—'
+    : perSec > 0 && perSec < 0.05
+      ? '<0.1/s'
+      : `${perSec >= 100 ? formatInt(perSec) : perSec.toFixed(1).replace(/\.0$/, '')}/s`;
 
 /** 6m 12s · 45s · 2h 5m · 3d 4h */
 export function formatDuration(ms: number): string {
@@ -97,8 +101,10 @@ export const formatPct = (n: number, digits = 0) => `${n.toFixed(digits)}%`;
 
 /** +4.2% / −3.1% (true minus sign) */
 export function formatDelta(pct: number): string {
+  if (!Number.isFinite(pct)) return '—';
   const v = Math.abs(pct).toFixed(1);
-  return pct >= 0 ? `+${v}%` : `−${v}%`;
+  if (v === '0.0') return '0.0%'; // no sign on a zero that rounding produced
+  return pct > 0 ? `+${v}%` : `−${v}%`;
 }
 
 /** Kafka's topic-name rule: letters, digits, ".", "_", "-", at most 249 characters, and not "." or "..". */
