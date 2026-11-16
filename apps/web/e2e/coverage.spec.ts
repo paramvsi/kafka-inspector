@@ -246,7 +246,7 @@ test('F-51: reprocess a message to the DLQ shortcut', async ({ page }) => {
   await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
   await table.getByRole('row').nth(1).click();
   await page
-    .getByRole('dialog', { name: 'Message' })
+    .getByRole('dialog', { name: 'Message', exact: true })
     .getByRole('button', { name: 'Reprocess to topic' })
     .click();
   const drawer = page.getByRole('dialog', { name: 'Reprocess message' });
@@ -401,7 +401,7 @@ test('F-47: a masking rule hides a field and the drawer names the rule; F-44 Cop
   const table = page.getByRole('table', { name: 'Messages in payments' });
   await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
   await table.getByRole('row').nth(1).click();
-  const drawer = page.getByRole('dialog', { name: 'Message' });
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(drawer.getByText(/hide merchant/)).toBeVisible();
   await drawer.getByRole('button', { name: 'Copy JSON' }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
@@ -414,7 +414,7 @@ test('F-46: an undecodable message offers other ways to read it', async ({ page 
   const table = page.getByRole('table', { name: 'Messages in payments' });
   await expect(table.getByText('Decode failed').first()).toBeVisible({ timeout: 15_000 });
   await table.getByText('Decode failed').first().click();
-  const drawer = page.getByRole('dialog', { name: 'Message' });
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(drawer.getByText('Try another way')).toBeVisible();
   await drawer.getByRole('button', { name: 'Show as hex' }).click();
   await expect(page).toHaveURL(/dv=hex/);

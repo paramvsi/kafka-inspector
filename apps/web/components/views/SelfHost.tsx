@@ -237,7 +237,7 @@ export function SelfHostView() {
             </p>
             <CopyButton text={() => files[tab]} label="Copy" />
             <Button variant="primary" onClick={download}>
-              Download both files
+              Download files
             </Button>
           </div>
         </section>

@@ -18,7 +18,7 @@ test('Run on your own Kafka: generates files locally — nothing leaves the brow
   await page.getByRole('tab', { name: '.env' }).click();
   await expect(page.getByRole('tabpanel')).toContainText('KI_CLUSTERS_0_SASL_PASSWORD=');
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download both files' }).click();
+  await page.getByRole('button', { name: 'Download files' }).click();
   expect((await download).suggestedFilename()).toBe('kafka-inspector.zip');
   const leaked = requests.filter(
     (u) =>

@@ -145,7 +145,7 @@ test('messages open from the keyboard (WCAG 2.1.1)', async ({ page }) => {
   const open = page.getByRole('button', { name: /open message on partition/ }).first();
   await open.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog', { name: 'Message' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Message', exact: true })).toBeVisible();
 });
 
 test('a filtered list survives live tail and partition changes (no crash)', async ({ page }) => {
@@ -210,7 +210,7 @@ test('produce a valid Avro order, then see it decoded in the drawer', async ({ p
     );
   await drawer.getByRole('button', { name: 'Produce 1 message' }).click();
   await page.getByRole('button', { name: 'Show in messages' }).click();
-  const msg = page.getByRole('dialog', { name: 'Message' });
+  const msg = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(msg.getByText('"ord_e2e01"')).toBeVisible({ timeout: 10_000 });
   await expect(msg.getByText('orders-value v4 · id 112')).toBeVisible();
   await expect(msg.getByText('masked', { exact: true })).toBeVisible();
@@ -243,7 +243,7 @@ test('poison message: decode error with annotated hex, then reset offsets shift 
     { timeout: 10_000 },
   );
   await page.getByRole('row').nth(1).click();
-  const drawer = page.getByRole('dialog', { name: 'Message' });
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(drawer.getByText("Couldn't decode the value as Avro")).toBeVisible({
     timeout: 10_000,
   });

@@ -55,7 +55,10 @@ const Badge = ({ tone, children }: { tone: 'ok' | 'warn' | 'crit'; children: Rea
 const FEATURES: Array<[string, string]> = [
   ['Multi-cluster', 'Switch between clusters from the sidebar.'],
   ['Schema diff', 'Compare versions and see compatibility per field.'],
-  ['Offset reset with dry run', 'Preview exactly what moves before you apply it.'],
+  [
+    'Offset reset with dry run',
+    'Preview exactly what moves before you apply it (demo; real clusters are read-only in v1).',
+  ],
   ['Health checks', 'Replication factor 1, skew, silent topics, with fixes.'],
   ['Data masking', 'Hide emails and card numbers in the browser.'],
   ['Kafka 4 ready', 'KRaft clusters and share groups (KIP-932).'],
@@ -164,7 +167,7 @@ export default function Landing() {
           >
             A fast UI for Apache Kafka with lag history, catch-up forecasts, alerts and a live
             topology map. Try it in your browser on a simulated cluster, or run it on your own Kafka
-            with one command.
+            in one Docker container.
           </p>
           <div
             className="ki-hero mt-8 flex flex-wrap justify-center gap-3"
@@ -310,7 +313,7 @@ export default function Landing() {
         <Section
           id="self-host"
           kicker="Two ways to use it"
-          title="Try it in a minute. Run it on your cluster in five."
+          title="Try it in your browser. Run it on your own cluster."
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <article className="flex flex-col rounded-lg border border-line bg-surface p-6">
@@ -355,8 +358,10 @@ export default function Landing() {
                 Self-host against your own Kafka
               </h3>
               <p className="m-0 mt-3 text-[14px] leading-6 text-ink-muted">
-                One Docker container serves the app and talks to your brokers. Works with Apache
-                Kafka 3.x–4.x, Amazon MSK, Confluent Cloud and Aiven. Read-only in version 1.
+                One Docker container serves the app and talks to your brokers. Tested against Apache
+                Kafka 4.1; presets for Amazon MSK, Confluent Cloud and Aiven are not verified yet.
+                Read-only in version 1. The image isn&rsquo;t published yet: build it from the repo
+                until the first release.
               </p>
               <pre
                 tabIndex={0}

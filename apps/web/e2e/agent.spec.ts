@@ -29,7 +29,7 @@ test('self-hosted: sign in, read-only chrome, real topics, groups and decoded me
   await page.getByRole('link', { name: 'orders' }).click();
   await page.getByRole('link', { name: 'Messages', exact: true }).click();
   await page.getByRole('row').nth(1).click();
-  const drawer = page.getByRole('dialog', { name: 'Message' });
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(drawer.getByText('"orderId"')).toBeVisible({ timeout: 15_000 });
   await expect(drawer.getByRole('button', { name: 'Reprocess to topic' })).toBeDisabled();
   await drawer.getByRole('button', { name: 'Close' }).click();
