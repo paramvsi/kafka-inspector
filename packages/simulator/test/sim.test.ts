@@ -584,3 +584,18 @@ test('stopping slow consumer, traffic spike or hot partition logs an end event',
     ).toBe(true);
   }
 });
+
+test('a crashed group shows no rebalance, and a rebalance on it is refused', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'rebalance', target: 'analytics-etl' });
+  a.sim.runChaos({ kind: 'crash-consumer', target: 'analytics-etl' });
+  for (let i = 0; i < 8; i++) {
+    a.advance(1);
+    expect(a.sim.getGroup('analytics-etl').summary.state).toBe('Empty');
+  }
+  a.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' });
+  expect(() => a.sim.runChaos({ kind: 'rebalance', target: 'order-service' })).toThrow(
+    'no members to rebalance',
+  );
+});

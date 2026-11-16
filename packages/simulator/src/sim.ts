@@ -470,7 +470,7 @@ export class Simulator {
       if (g.rebalanceUntil && t >= g.rebalanceUntil) {
         g.rebalanceUntil = 0;
         g.state = g.crashed || g.members === 0 ? 'Empty' : 'Stable';
-      } else if (g.rebalanceUntil && t >= g.rebalanceUntil - 2000) {
+      } else if (g.rebalanceUntil && t >= g.rebalanceUntil - 2000 && !g.crashed && g.members > 0) {
         g.state = 'CompletingRebalance';
       }
       if (g.pausedUntil && t >= g.pausedUntil) {
@@ -2029,6 +2029,7 @@ export class Simulator {
       if (g.members > 0 && !g.crashed) {
         g.state = 'Empty';
         g.pausedUntil = t + 2000;
+        g.rebalanceUntil = 0; // the reset's own pause and rejoin replace a running rebalance
       }
       this.pushEvent({
         ts: new Date(t).toISOString(),
@@ -2070,7 +2071,9 @@ export class Simulator {
     const t = this.lastTick;
     const id = `inc_${hash(action.kind, action.target ?? '', t).toString(36)}`;
     const iso = new Date(t).toISOString();
-    let target = action.target ?? '';
+    let target = (action.target ?? '').trim();
+    // "02" and "2" are the same broker: compare one spelling
+    if (action.kind === 'broker-down' && /^\d+$/.test(target)) target = String(Number(target));
     // one run per action and target: overlapping runs share a single flag, so the first to end would cancel both
     const effective =
       target ||
@@ -2094,7 +2097,12 @@ export class Simulator {
       this.pushEvent({ ts: iso, kind: 'chaos', severity: 'warn', title, detail });
     // the end of an incident is an event too (stopped by hand or expired), timed when it ends
     const ended = (title: string) =>
-      this.pushEvent({ ts: new Date(this.lastTick).toISOString(), kind: 'chaos', severity: 'info', title });
+      this.pushEvent({
+        ts: new Date(this.lastTick).toISOString(),
+        kind: 'chaos',
+        severity: 'info',
+        title,
+      });
 
     switch (action.kind) {
       case 'crash-consumer': {
@@ -2103,6 +2111,8 @@ export class Simulator {
         g.crashed = true;
         g.state = 'Empty';
         g.members = 0;
+        g.rebalanceUntil = 0; // a group with no members isn't rebalancing or waiting out a reset pause
+        g.pausedUntil = 0;
         ev(`Chaos: ${target} crashed`, 'All members left the group; commits stopped');
         undo = () => {
           g.crashed = false;
@@ -2177,7 +2187,10 @@ export class Simulator {
       }
       case 'rebalance': {
         target ||= 'analytics-etl';
-        this.rebalance(this.group(target), t, 'chaos panel');
+        const rg = this.group(target);
+        if (rg.crashed || rg.members === 0)
+          throw new Error(`${target} has no members to rebalance. Stop the crash first.`);
+        this.rebalance(rg, t, 'chaos panel');
         until = t + 8000;
         break;
       }
