@@ -14,8 +14,9 @@ const td = new TextDecoder('utf-8', { fatal: true });
 
 export class AvroError extends Error {}
 
-function collectNamed(s: AvroSchema, named: Map<string, AvroSchema>, ns?: string): void {
-  if (typeof s === 'string' || s === null) return;
+/** Registers every named type under its bare and full name (Avro spec "Names"); shared with schema-compat. */
+export function collectNamed(s: AvroSchema, named: Map<string, AvroSchema>, ns?: string): void {
+  if (typeof s === 'string' || s == null) return; // == null: a field without a type is undefined
   if (Array.isArray(s)) return s.forEach((x) => collectNamed(x, named, ns));
   let space = ns;
   if (['record', 'enum', 'fixed', 'error'].includes(s.type) && s.name) {

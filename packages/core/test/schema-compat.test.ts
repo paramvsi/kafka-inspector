@@ -228,3 +228,9 @@ test('JSON Schema FORWARD: a field no longer required is a break for old consume
   expect(checkCompatibility('JSON', o, n, 'FORWARD').compatible).toBe(false);
   expect(checkCompatibility('JSON', o, n, 'BACKWARD').compatible).toBe(true);
 });
+
+test('a field without a type does not crash the field diff or the check', () => {
+  const s = JSON.stringify({ type: 'record', name: 'R', fields: [{ name: 'a' }] });
+  expect(() => diffFields('AVRO', s, s)).not.toThrow();
+  expect(() => checkCompatibility('AVRO', s, s, 'BACKWARD')).not.toThrow();
+});

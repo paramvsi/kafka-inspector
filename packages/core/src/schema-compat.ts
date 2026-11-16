@@ -1,5 +1,6 @@
 // Schema compatibility and field diff (F-88, F-89). Avro follows the spec's schema-resolution rules;
 // JSON Schema uses a pragmatic subset (required properties and property types).
+import { collectNamed } from './serdes/avro';
 import type { CompatibilityResult, SubjectSummary } from './types';
 
 // Parsed Avro schema JSON: deliberately loose (any) — it is walked structurally and checked at runtime.
@@ -18,33 +19,13 @@ const PROMOTIONS: Record<string, string[]> = {
 function typeName(s: Avro, named: Named): string {
   if (typeof s === 'string') return named.has(s) ? typeName(named.get(s)!, named) : s;
   if (Array.isArray(s)) return 'union';
+  if (s === null || typeof s !== 'object') return 'unknown'; // a field without a type: say so, don't crash the page
   if (typeof s.type === 'string' && ['record', 'enum', 'array', 'map', 'fixed'].includes(s.type))
     return s.type;
   return typeName(s.type as Avro, named);
 }
 
-/** Registers named types under their bare and full names; nested types inherit the namespace (spec "Names"). */
-function collect(s: Avro, named: Named, ns = ''): void {
-  if (typeof s === 'string') return;
-  if (Array.isArray(s)) return s.forEach((x) => collect(x, named, ns));
-  let inner = ns;
-  if (typeof s.name === 'string' && ['record', 'error', 'enum', 'fixed'].includes(String(s.type))) {
-    const space = s.name.includes('.')
-      ? s.name.slice(0, s.name.lastIndexOf('.'))
-      : typeof s.namespace === 'string'
-        ? s.namespace
-        : ns;
-    const bare = s.name.slice(s.name.lastIndexOf('.') + 1);
-    named.set(bare, s);
-    if (space) named.set(`${space}.${bare}`, s);
-    inner = space;
-  }
-  if (Array.isArray(s.fields))
-    (s.fields as Array<{ type: Avro }>).forEach((f) => collect(f.type, named, inner));
-  if (s.items) collect(s.items as Avro, named, inner);
-  if (s.values) collect(s.values as Avro, named, inner);
-  if (typeof s.type !== 'string') collect(s.type as Avro, named, inner);
-}
+const collect = (s: Avro, named: Named): void => collectNamed(s, named); // one namespace walker for decode and compat
 
 const resolve = (s: Avro, named: Named): Avro =>
   typeof s === 'string' && named.has(s) ? named.get(s)! : s;
