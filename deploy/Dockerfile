@@ -9,6 +9,8 @@ RUN corepack enable
 WORKDIR /src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
+# the root layout reads theme colours from the design tokens
+COPY design-system ./design-system
 COPY apps/web ./apps/web
 RUN pnpm install --frozen-lockfile --filter "web..."
 RUN pnpm --filter web build
