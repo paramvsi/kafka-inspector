@@ -91,7 +91,11 @@ export async function decodeMessage(
     masked =
       maskEncodedJson(m.value, value.format, m.topic, rules) ?? rawHidden(m.topic, rules) ?? masked;
   const headers: Record<string, string> = {};
-  for (const h of m.headers) headers[h.key] = td.decode(h.value);
+  // Kafka allows a header key more than once: keep every value, not just the last
+  for (const h of m.headers) {
+    const v = td.decode(h.value);
+    headers[h.key] = h.key in headers ? `${headers[h.key]}, ${v}` : v;
+  }
   return {
     raw: m,
     id: msgId(m),
@@ -102,3 +106,9 @@ export async function decodeMessage(
     headers,
   };
 }
+
+/** A decoded key as text: an object key (Avro record, JSON) shows its preview, not "[object Object]". */
+export const keyText = (k: { value: unknown; text: string }): string =>
+  k.value !== null && typeof k.value === 'object' && !(k.value instanceof Uint8Array)
+    ? k.text
+    : String(k.value);

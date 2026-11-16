@@ -382,3 +382,26 @@ test('an Avro timestamp-millis beyond the Date range shows the number instead of
     '1970-01-01T00:00:00Z',
   );
 });
+
+test('a 64-bit JSON id keeps its digits; a value of a union’s second record keeps its fields', async () => {
+  const big = await decode(
+    enc.encode('{"id":12345678901234567890,"n":42,"f":1.5}'),
+    'auto',
+    lookup,
+  );
+  expect(big).toMatchObject({ ok: true, value: { id: '12345678901234567890', n: 42, f: 1.5 } });
+  const schema = JSON.stringify([
+    'null',
+    { type: 'record', name: 'A', fields: [{ name: 'a', type: 'string' }] },
+    { type: 'record', name: 'B', fields: [{ name: 'b', type: 'int' }] },
+  ]);
+  const lookupU = async (id: number) =>
+    id === 900
+      ? { subject: 'u-value', version: 1, id: 900, type: 'AVRO' as const, schema }
+      : undefined;
+  const bytes = Uint8Array.of(0x04, 0x0e); // branch 2 (B), then int 7 — zigzag varints
+  const framed = new Uint8Array(5 + bytes.length);
+  new DataView(framed.buffer).setInt32(1, 900);
+  framed.set(bytes, 5);
+  expect(await decode(framed, 'auto', lookupU)).toMatchObject({ ok: true, value: { b: 7 } });
+});

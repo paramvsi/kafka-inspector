@@ -8,6 +8,7 @@ import {
   useMaskRules,
   useSchemaLookup,
   type DecodedMessage,
+  keyText,
 } from '../../lib/serdes';
 import { useUrl } from '../../lib/url';
 import { useReadOnly } from '../Page';
@@ -153,7 +154,7 @@ export function MessageDrawer({
             </Row>
             <Row k="Key">
               <span className="font-mono break-all">
-                {d.key.ok ? String(d.key.value ?? 'null') : 'undecodable'}
+                {d.key.ok ? (d.key.value === null ? 'null' : keyText(d.key)) : 'undecodable'}
               </span>
             </Row>
             <Row k="Schema">

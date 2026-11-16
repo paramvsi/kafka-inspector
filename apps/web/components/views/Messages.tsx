@@ -26,6 +26,7 @@ import {
   useMaskRules,
   useSchemaLookup,
   type DecodedMessage,
+  keyText,
 } from '../../lib/serdes';
 import { useUrl, useUrlText, pick } from '../../lib/url';
 import { MaskingDialog } from './Masking';
@@ -239,7 +240,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     ? jsRows.filter((m) => {
         const d = cache.current.get(msgId(m));
         if (!d) return false; // not decoded yet: shown once it is
-        const key = d.key.ok && d.key.value !== null ? String(d.key.value) : '';
+        const key = d.key.ok && d.key.value !== null ? keyText(d.key) : '';
         if (qKey && !key.includes(qKey)) return false;
         if (qHeader) {
           const [name, ...rest] = qHeader.split('=');
@@ -738,7 +739,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                           d.key.value === null ? (
                             <span className="text-ink-muted">null</span>
                           ) : (
-                            String(d.key.value)
+                            keyText(d.key)
                           )
                         ) : (
                           <span className="text-crit-text">undecodable</span>

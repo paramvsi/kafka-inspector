@@ -4,7 +4,7 @@ import { Button, Drawer, Select, TextArea, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
-import { decodeMessage, useSchemaLookup } from '../../lib/serdes';
+import { decodeMessage, keyText, useSchemaLookup } from '../../lib/serdes';
 import { useUrl } from '../../lib/url';
 import { useWrites } from '../Page';
 
@@ -143,7 +143,7 @@ export function ProduceDrawer({
     if (!open || !m || !reprocess) return;
     decodeMessage(m, 'auto', 'auto', lookup, []).then((d) => {
       setValue(d.value.ok ? JSON.stringify(d.value.value, null, 2) : d.value.hex);
-      setKey(d.key.ok && d.key.value !== null ? String(d.key.value) : '');
+      setKey(d.key.ok && d.key.value !== null ? keyText(d.key) : '');
       setHeaders([
         ...Object.entries(d.headers),
         ['reprocessed-from', `${topic}-${m.partition}@${m.offset}`],

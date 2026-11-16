@@ -164,14 +164,35 @@ export function logicalDisplay(root: AnySchema, v: unknown): unknown {
       const r = resolve(b);
       return typeof r === 'string' ? r : typeof r.type === 'string' ? r.type : kind(r.type);
     };
+    return (
+      pickRecord(u, x) ??
+      u.find((b) => {
+        const k = kind(b);
+        if (x instanceof Uint8Array) return k === 'bytes' || k === 'fixed';
+        if (Array.isArray(x)) return k === 'array';
+        if (typeof x === 'number') return ['int', 'long', 'float', 'double'].includes(k);
+        if (typeof x === 'string') return k === 'string' || k === 'enum' || k === 'long';
+        if (typeof x === 'boolean') return k === 'boolean';
+        return k === 'record' || k === 'error' || k === 'map';
+      })
+    );
+  };
+  // several record branches: the one whose field names are the value's keys (the first match lost RecB's fields)
+  const pickRecord = (u: AnySchema[], x: unknown): AnySchema | undefined => {
+    if (!x || typeof x !== 'object' || Array.isArray(x) || x instanceof Uint8Array)
+      return undefined;
+    const keys = Object.keys(x).sort().join('|');
     return u.find((b) => {
-      const k = kind(b);
-      if (x instanceof Uint8Array) return k === 'bytes' || k === 'fixed';
-      if (Array.isArray(x)) return k === 'array';
-      if (typeof x === 'number') return ['int', 'long', 'float', 'double'].includes(k);
-      if (typeof x === 'string') return k === 'string' || k === 'enum' || k === 'long';
-      if (typeof x === 'boolean') return k === 'boolean';
-      return k === 'record' || k === 'error' || k === 'map';
+      const r = resolve(b);
+      return (
+        r &&
+        typeof r === 'object' &&
+        Array.isArray(r.fields) &&
+        (r.fields as Array<{ name: string }>)
+          .map((f) => f.name)
+          .sort()
+          .join('|') === keys
+      );
     });
   };
   const walk = (schema: AnySchema, x: AnySchema): unknown => {
@@ -243,7 +264,7 @@ async function viaRegistry(
   }
   if (schema.type === 'JSON') {
     try {
-      return ok('json-schema', JSON.parse(utf8.decode(payload)), meta);
+      return ok('json-schema', parseJson(utf8.decode(payload)), meta);
     } catch {
       return fail(
         bytes,
@@ -264,6 +285,24 @@ async function viaRegistry(
 }
 
 /** `lookup` is undefined when the cluster has no Schema Registry. */
+/**
+ * JSON.parse, but an integer JSON can't hold exactly (a 64-bit id such as 12345678901234567890) keeps its original
+ * digits as a string instead of silently becoming 12345678901234567000. Uses the parser's source text where the
+ * runtime offers it (V8 11.4+); elsewhere it's plain JSON.parse.
+ */
+export function parseJson(text: string): unknown {
+  return JSON.parse(text, function (_k, v, ctx?: { source?: string }) {
+    if (
+      typeof v === 'number' &&
+      ctx?.source &&
+      /^-?\d+$/.test(ctx.source) &&
+      !Number.isSafeInteger(v)
+    )
+      return ctx.source;
+    return v;
+  } as (this: unknown, k: string, v: unknown) => unknown);
+}
+
 export async function decode(
   bytes: Uint8Array | null,
   as: DecodeAs,
@@ -346,7 +385,7 @@ export async function decode(
       return viaRegistry(bytes, lookup, as === 'avro' ? 'AVRO' : 'JSON');
     case 'json':
       try {
-        return ok('json', JSON.parse(utf8.decode(bytes)));
+        return ok('json', parseJson(utf8.decode(bytes)));
       } catch {
         return fail(
           bytes,
@@ -377,7 +416,7 @@ export async function decode(
       const t = s.trim();
       if (t.startsWith('{') || t.startsWith('[')) {
         try {
-          return ok('json', JSON.parse(t));
+          return ok('json', parseJson(t));
         } catch {
           /* not JSON; maybe text */
         }
