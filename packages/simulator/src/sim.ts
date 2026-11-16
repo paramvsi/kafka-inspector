@@ -605,6 +605,7 @@ export class Simulator {
       if (g.deleted) continue;
       const lag = this.groupLag(g);
       v.set(`group:${g.def.groupId}:lag`, lag);
+      v.set(`group:${g.def.groupId}:alertLag`, g.members > 0 ? lag : 0); // what the live lag rule sees
       v.set(`group:${g.def.groupId}:status`, STATUS_CODE[g.status]);
       if (g.def.type !== 'share' && g.members > 0) total += lag;
     }
@@ -1759,24 +1760,29 @@ export class Simulator {
         }
       }
     };
+    // full resolution: bucket averages turn a 0/1 signal into 0.5 and hide short outages
+    // (history keeps 1 sample/min beyond 15 min, so shorter episodes there are gone either way)
+    const N = DAY / 1000;
     const groups = [...this.groups.values()].filter(
       (g) => !g.deleted && (rule.scope.kind === 'any' || rule.scope.target === g.def.groupId),
     );
     if (rule.metric === 'lag')
       for (const g of groups)
-        scan(
-          this.history.series(`group:${g.def.groupId}:lag`, from, 5000),
-          (v) => v > (rule.threshold ?? 0),
-        );
+        if (g.def.type !== 'share')
+          // alertLag is 0 while the group has no members, as the live rule skips them
+          scan(
+            this.history.series(`group:${g.def.groupId}:alertLag`, from, N),
+            (v) => v > (rule.threshold ?? 0),
+          );
     if (rule.metric === 'group-status')
       for (const g of groups)
         scan(
-          this.history.series(`group:${g.def.groupId}:status`, from, 5000),
+          this.history.series(`group:${g.def.groupId}:status`, from, N),
           (v) => v >= STATUS_CODE.stalled,
         );
     if (rule.metric === 'under-replicated')
       scan(
-        this.history.series('cluster:underReplicated', from, 5000),
+        this.history.series('cluster:underReplicated', from, N),
         (v) => v > (rule.threshold ?? 0),
       );
     // the same conditions the live evaluation uses, replayed over recorded history
@@ -1784,16 +1790,16 @@ export class Simulator {
     if (rule.metric === 'broker-offline')
       for (const id of this.brokersOnline.keys())
         if (inScope(`broker-${id}`))
-          scan(this.history.series(`broker:${id}:online`, from, 5000), (v) => v === 0);
+          scan(this.history.series(`broker:${id}:online`, from, N), (v) => v === 0);
     if (rule.metric === 'topic-silent')
       for (const [name, ps] of this.parts)
         if (!ps[0]!.def.internal && inScope(name) && this.consumersOf(name).length > 0)
-          scan(this.history.series(`topic:${name}:messagesIn`, from, 5000), (v) => v === 0);
+          scan(this.history.series(`topic:${name}:messagesIn`, from, N), (v) => v === 0);
     if (rule.metric === 'dlq-receiving')
       for (const name of this.parts.keys())
         if (name.endsWith('.dlq') && inScope(name))
           scan(
-            this.history.series(`topic:${name}:messagesIn`, from, 5000),
+            this.history.series(`topic:${name}:messagesIn`, from, N),
             (v) => v > (rule.threshold ?? 0) + 0.5,
           );
     return { firings };
@@ -2084,6 +2090,7 @@ export class Simulator {
         g.state = 'Empty';
         g.pausedUntil = t + 2000;
         g.rebalanceUntil = 0; // the reset's own pause and rejoin replace a running rebalance
+        g.resetRejoin = false;
       }
       this.pushEvent({
         ts: new Date(t).toISOString(),
@@ -2167,6 +2174,7 @@ export class Simulator {
         g.members = 0;
         g.rebalanceUntil = 0; // a group with no members isn't rebalancing or waiting out a reset pause
         g.pausedUntil = 0;
+        g.resetRejoin = false;
         ev(`Chaos: ${target} crashed`, 'All members left the group; commits stopped');
         undo = () => {
           g.crashed = false;

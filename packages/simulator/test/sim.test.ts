@@ -709,3 +709,38 @@ test('fixing the poison message with Shift +1 records no false "stalled" event a
   expect(stalls).toEqual([]);
   expect(h.sim.getGroup('fraud-scorer').summary.status).toBe('healthy');
 });
+
+test("the alert preview agrees with the live rules: a 20 s broker outage counts, a crashed group's lag does not", async () => {
+  const h = make();
+  await h.init();
+  const base = {
+    name: 'x',
+    durationSec: 10,
+    severity: 'crit',
+    channels: ['in-app'],
+    enabled: true,
+  } as const;
+  const down = h.sim.runChaos({ kind: 'broker-down', target: '2' });
+  h.advance(20);
+  h.sim.stopChaos(down.id);
+  h.advance(5);
+  expect(
+    h.sim.previewAlertRule({ ...base, scope: { kind: 'any' }, metric: 'broker-offline' } as never)
+      .firings,
+  ).toBe(1);
+  // live lag rules skip groups without members; the preview must too. The crash builds lag far above
+  // normal, so a threshold just under it is only crossed while the group has no members.
+  const before = h.sim.getGroup('order-service').summary.totalLag;
+  const crash = h.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' });
+  h.advance(60);
+  const peak = h.sim.getGroup('order-service').summary.totalLag;
+  expect(peak).toBeGreaterThan(before * 2 + 100);
+  h.sim.stopChaos(crash.id);
+  const rule = {
+    ...base,
+    scope: { kind: 'specific', target: 'order-service' },
+    metric: 'lag',
+    threshold: Math.round((before + peak) / 2),
+  };
+  expect(h.sim.previewAlertRule(rule as never).firings).toBe(0);
+});
