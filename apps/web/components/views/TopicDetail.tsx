@@ -207,7 +207,7 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
                 ? `${last.toFixed(1)} s`
                 : formatRelative(s.lastMessageAt).replace(' ago', '')
           }
-          delta="ago"
+          delta={last === undefined ? 'nothing produced yet' : 'ago'}
         />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">

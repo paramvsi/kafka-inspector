@@ -337,7 +337,10 @@ function RuleDialog({
       ? 'Enter a number of 0 or more.'
       : undefined;
   // a metric without a threshold field (e.g. DLQ receiving) carries none, not a hidden leftover 5000
-  const input: typeof r = meta.unit ? r : { ...r, threshold: undefined };
+  // saved as shown: the threshold field's value for a metric that has one, none for a metric that doesn't
+  const input: typeof r = meta.unit
+    ? { ...r, threshold: thresholdError ? r.threshold : thresholdValue }
+    : { ...r, threshold: undefined };
   const preview = useKafkaQuery(
     ['rule-preview', input.metric, JSON.stringify(input.scope), input.threshold, input.durationSec],
     (c) => c.previewAlertRule?.(input) ?? Promise.resolve({ firings: 0 }),

@@ -227,7 +227,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
         delta={`${s.members} member${s.members === 1 ? '' : 's'}`}
       />
       <KpiCard
-        label={`Produce rate (${topics})`}
+        label={topics ? `Produce rate (${topics})` : 'Produce rate'}
         value={f.produceRate !== undefined ? formatRate(f.produceRate) : '—'}
         delta={
           f.consumeRate !== undefined && f.produceRate !== undefined

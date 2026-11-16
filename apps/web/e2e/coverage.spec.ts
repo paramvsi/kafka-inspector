@@ -1020,3 +1020,41 @@ test('junk list params fall back to the defaults (no NaN, no empty list)', async
     timeout: 15_000,
   });
 });
+
+test('a rule switched to lag saves the threshold it shows; empty topics and bad partitions read right', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/?tab=rules&rule=r-group-stalled');
+  const d = page.getByRole('dialog', { name: 'Edit alert rule' });
+  await d.getByLabel('Metric').selectOption('lag');
+  await expect(d.getByLabel('Threshold', { exact: true })).toHaveValue('0');
+  await d.getByRole('button', { name: 'Save rule' }).click();
+  await expect(d).toHaveCount(0);
+  const threshold = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const open = indexedDB.open('kafka-inspector-demo');
+        open.onsuccess = () => {
+          const get = open.result.transaction('kv').objectStore('kv').get('rules');
+          get.onsuccess = () =>
+            resolve(
+              (get.result.v as Array<{ id: string; threshold?: number }>).find(
+                (r) => r.id === 'r-group-stalled',
+              )?.threshold ?? null,
+            );
+        };
+      }),
+  );
+  expect(threshold).toBe(0);
+
+  await page.goto('/app/topics/?create=1');
+  const c = page.getByRole('dialog', { name: 'Create topic' });
+  await c.getByLabel('Name').fill('empty-for-e2e');
+  await c.getByRole('button', { name: 'Create topic' }).click();
+  await page.goto('/app/topics/view/?name=empty-for-e2e');
+  await expect(page.getByText('nothing produced yet')).toBeVisible({ timeout: 15_000 });
+
+  await page.goto('/app/topics/view/?name=orders&tab=messages&p=99');
+  const table = page.getByRole('table', { name: 'Messages in orders' });
+  await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 15_000 });
+});

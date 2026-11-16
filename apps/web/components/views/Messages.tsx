@@ -68,7 +68,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [rules, setRules] = useMaskRules();
   // a hand-edited or stale link falls back to the defaults instead of crashing the tab
   const from = pick(url.get('from'), FROMS, 'newest');
-  const p = /^\d+$/.test(url.get('p') ?? '') ? url.get('p')! : 'all';
+  const pRaw = url.get('p') ?? '';
+  const p = /^\d+$/.test(pRaw) && (!partitions || Number(pRaw) < partitions) ? pRaw : 'all';
   const decoders = DECODE_OPTIONS.map((o) => o.value);
   const valueAs = pick(url.get('dv'), decoders, 'auto');
   const keyAs = pick(url.get('dk'), decoders, 'auto');
@@ -107,7 +108,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             topic,
             partition: p === 'all' ? 'all' : Number(p),
             from,
-            offset: Number(url.get('offset') ?? 0),
+            offset: Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0),
             timestamp: url.get('ts'),
             group,
             limit: 100,
@@ -772,7 +773,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               }
             >
               {expr || quickOn
-                ? `None of the ${formatInt(raws.length)} messages scanned match. Loosen the filters or load more.`
+                ? `None of the ${formatInt(raws.length)} loaded messages match. Loosen the filters or load more.`
                 : live
                   ? `${topic} gets ${formatRate(rate)}. New messages appear at the top.`
                   : 'This partition has no messages in its retention window.'}

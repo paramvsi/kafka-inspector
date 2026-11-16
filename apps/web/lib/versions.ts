@@ -8,5 +8,7 @@ export function pickVersions(
   const ok = (v: string | undefined, fallback: number) =>
     have.includes(Number(v)) ? Number(v) : fallback;
   const to = ok(toParam, latest);
-  return [ok(fromParam, Math.max(...have.filter((v) => v < to), 0) || to), to];
+  const prev = Math.max(...have.filter((v) => v < to), 0) || to;
+  const from = ok(fromParam, prev);
+  return [from <= to ? from : prev, to]; // a reversed pair (from after to) falls back
 }

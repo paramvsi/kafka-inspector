@@ -1,10 +1,5 @@
 'use client';
-import {
-  formatBytes,
-  formatInt,
-  formatRelative,
-  type TopicSummary,
-} from '@ki/core';
+import { formatBytes, formatInt, formatRelative, type TopicSummary } from '@ki/core';
 import {
   Banner,
   Button,
