@@ -18,7 +18,8 @@ let compiled: { expr: string; fn: (m: Msg) => unknown } | null = null;
 
 function compile(expr: string): (m: Msg) => unknown {
   if (compiled?.expr === expr) return compiled.fn;
-  const body = `"use strict"; const fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, importScripts = undefined, postMessage = undefined, self = undefined, globalThis = undefined, indexedDB = undefined, caches = undefined, EventSource = undefined; const { key, value, headers, partition, offset, timestamp } = m; return (${expr});`;
+  const body = `"use strict"; const fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, importScripts = undefined, postMessage = undefined, self = undefined, globalThis = undefined, indexedDB = undefined, caches = undefined, EventSource = undefined; const { key, value, headers, partition, offset, timestamp } = m; return (${expr}
+);`; // the newline: a trailing // comment mustn't swallow the )
   const fn = new Function('m', body) as (m: Msg) => unknown;
   compiled = { expr, fn };
   return fn;

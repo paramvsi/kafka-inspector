@@ -1513,3 +1513,11 @@ test('a double click on Create rule creates one rule', async ({ page }) => {
   await page.waitForTimeout(500);
   await expect(page.getByRole('button', { name: /^Only once/ })).toHaveCount(1);
 });
+
+test('a JavaScript filter ending in a line comment still runs', async ({ page }) => {
+  await page.goto(
+    `/app/topics/view/?name=orders&tab=messages&filter=${encodeURIComponent('value.total > 100 // big orders')}`,
+  );
+  await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Syntax error/)).toHaveCount(0);
+});
