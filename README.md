@@ -125,7 +125,7 @@ docker compose -f deploy/docker-compose.dev.yml up --build   # agent + Kafka + S
 
 Repository: `apps/web` (Next.js static export), `apps/agent` (Spring Boot 4.1, Java 21),
 `packages/core` (types, `KafkaClient`, lag rules, serdes), `packages/simulator`, `packages/ui`
-(Copper Oxide components). Specs and decisions live in [`docs/`](docs/).
+(Copper Oxide components).
 
 ## Trademark
 

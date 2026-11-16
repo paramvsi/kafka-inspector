@@ -13,3 +13,12 @@ playwright-report/
 context/
 next-env.d.ts
 *.local.mjs
+
+# Working context and handover material stays local: the repo holds code and the assets needed to build and run
+CLAUDE.md
+.claude/
+prompts/
+designs/
+design-system/
+docs/*
+!docs/img/

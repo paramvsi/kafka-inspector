@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import tokens from '../../../design-system/tokens.json';
+import tokens from '../../../packages/ui/tokens/tokens.json';
 import { SITE_URL } from '../lib/site';
 import { Martian_Mono, Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
