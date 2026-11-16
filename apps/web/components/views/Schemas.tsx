@@ -414,7 +414,11 @@ function CheckDialog({
             className={`rounded-md p-3 text-[13px] ${result.checked === false ? 'bg-surface-hover' : result.compatible ? 'bg-ok-soft' : 'bg-crit-soft'}`}
           >
             <div className="font-semibold">
-              {result.checked === false ? 'Not checked' : result.compatible ? 'Compatible' : 'Not compatible'}
+              {result.checked === false
+                ? 'Not checked'
+                : result.compatible
+                  ? 'Compatible'
+                  : 'Not compatible'}
             </div>
             {result.messages.length > 0 && (
               <ul className="m-0 mt-1 pl-4">

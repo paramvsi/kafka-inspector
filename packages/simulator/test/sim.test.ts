@@ -618,3 +618,20 @@ test('a broker-offline rule scoped to one broker (broker-<id>, as the dialog wri
     a.sim.listAlerts().some((e) => e.title === 'Broker 2 offline' && e.ruleId === rule.id),
   ).toBe(true);
 });
+
+test('create topic refuses "." / ".." and a min.insync.replicas above the replication factor', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  for (const name of ['.', '..'])
+    await expect(a.sim.createTopic({ name, partitions: 1, replicationFactor: 1 })).rejects.toThrow(
+      "can't be",
+    );
+  await expect(
+    a.sim.createTopic({
+      name: 'rf1',
+      partitions: 1,
+      replicationFactor: 1,
+      configs: { 'min.insync.replicas': '2' },
+    }),
+  ).rejects.toThrow("can't exceed the replication factor");
+});

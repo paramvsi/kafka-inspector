@@ -14,7 +14,7 @@ const RETENTION = [
   { value: '2592000000', label: '30 days' },
   { value: '-1', label: 'Infinite' },
 ];
-const NAME = /^[a-zA-Z0-9._-]{1,249}$/;
+const NAME = /^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/; // Kafka refuses "." and ".."
 
 export function CreateTopicDialog({
   open,

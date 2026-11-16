@@ -112,12 +112,13 @@ export function ResetOffsetsDialog({
     if (!writes || !req) return;
     setBusy(true);
     try {
-      await writes.resetOffsets(clusterId, req, false);
+      const done = await writes.resetOffsets(clusterId, req, false);
       await qc.invalidateQueries({ queryKey: [clusterId] });
+      const n = done.rows.filter((r) => !r.skipped).length; // what was applied, not the preview
       toast({
         tone: 'ok',
         title: `Offsets reset for ${group.summary.groupId}`,
-        body: `${changed.length} partition${changed.length === 1 ? '' : 's'} on ${topic}. Members rejoin in a few seconds.`,
+        body: `${n} partition${n === 1 ? '' : 's'} on ${topic}. Members rejoin in a few seconds.`,
       });
       onClose();
     } catch (e) {

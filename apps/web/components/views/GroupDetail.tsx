@@ -146,6 +146,7 @@ export function GroupDetailView() {
 function Actions({ d }: { d: Detail }) {
   const url = useUrl();
   const writes = useWrites();
+  const [deleting, setDeleting] = useState(false);
   const toast = useToast();
   const router = useRouter();
   const { clusterId } = useKafka();
@@ -156,13 +157,16 @@ function Actions({ d }: { d: Detail }) {
       {empty ? (
         <WriteButton
           variant="danger"
+          disabled={deleting}
           onClick={async () => {
-            if (!writes) return;
+            if (!writes || deleting) return;
+            setDeleting(true); // a second click must not delete again (and then report "not found")
             try {
               await writes.deleteGroup(clusterId, d.summary.groupId);
               toast({ tone: 'ok', title: `Deleted ${d.summary.groupId}` });
               router.push('/app/groups/');
             } catch (e) {
+              setDeleting(false);
               toast({
                 tone: 'crit',
                 title: "Couldn't delete the group",

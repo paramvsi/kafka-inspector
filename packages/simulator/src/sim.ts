@@ -1555,7 +1555,8 @@ export class Simulator {
       }
       case 'broker-offline':
         for (const [id, on] of this.brokersOnline)
-          if (!on && inScope(`broker-${id}`)) // the rule dialog (and the agent) name brokers broker-<id>
+          if (!on && inScope(`broker-${id}`))
+            // the rule dialog (and the agent) name brokers broker-<id>
             out.push({
               target: `broker-${id}`,
               title: `Broker ${id} offline`,
@@ -1860,8 +1861,10 @@ export class Simulator {
   }
 
   async createTopic(spec: NewTopic): Promise<void> {
-    if (!/^[a-zA-Z0-9._-]{1,249}$/.test(spec.name))
-      throw new Error('Topic names use letters, digits, ".", "_" and "-" (max 249 characters).');
+    if (!/^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/.test(spec.name))
+      throw new Error(
+        'Topic names use letters, digits, ".", "_" and "-" (max 249 characters), and can\'t be "." or "..".',
+      );
     if (this.topics.has(spec.name)) throw new Error(`Topic ${spec.name} already exists.`);
     if (!Number.isInteger(spec.partitions) || spec.partitions < 1 || spec.partitions > 1000)
       throw new Error('Partitions must be between 1 and 1,000.');
@@ -1872,6 +1875,11 @@ export class Simulator {
       spec.replicationFactor > online
     )
       throw new Error(`Replication factor must be between 1 and ${online} (brokers online).`);
+    const minIsr = Number(spec.configs?.['min.insync.replicas'] ?? 1);
+    if (minIsr > spec.replicationFactor)
+      throw new Error(
+        `min.insync.replicas (${minIsr}) can't exceed the replication factor (${spec.replicationFactor}): every acks=all write would fail.`,
+      );
     await this.log('create-topic', spec);
   }
 
