@@ -72,8 +72,6 @@ export function formatRelative(iso: string | number | undefined, now = Date.now(
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-/** Offsets keep full precision with grouping: 21,861,950 */
-
 /** 14:21 (24 h, UTC-free local display) */
 export function formatClock(t: number | string): string {
   const d = new Date(t);
@@ -81,6 +79,7 @@ export function formatClock(t: number | string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+// fixed English names, not toLocaleDateString: core stays locale-free (newer ICU prints en-GB September as "Sept")
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** 14:05 today · 19 Nov 14:05 otherwise (a forecast two days out mustn't read as today) */
 export function formatWhen(t: number, now = Date.now()): string {

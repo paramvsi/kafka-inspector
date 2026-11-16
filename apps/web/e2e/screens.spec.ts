@@ -296,8 +296,11 @@ test('the decode-error hex dump passes contrast in the light theme', async ({ pa
   await expect(stalled.getByText('Stalled')).toBeVisible({ timeout: 15_000 });
   await stalled.getByRole('link', { name: 'payments · 7' }).click();
   await expect(page.getByRole('row').nth(1)).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('row').nth(1).click();
-  await expect(page.getByRole('region', { name: 'Hex dump' })).toBeVisible({ timeout: 10_000 });
+  // the table is live: under load the first row can change between the check and the click, so retry both
+  await expect(async () => {
+    await page.getByRole('row').nth(1).click();
+    await expect(page.getByRole('region', { name: 'Hex dump' })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20_000 });
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
   await page.waitForTimeout(500); // the drawer's fade-in: mid-fade text reads as low contrast
   expect(await axe(page)).toEqual([]);
