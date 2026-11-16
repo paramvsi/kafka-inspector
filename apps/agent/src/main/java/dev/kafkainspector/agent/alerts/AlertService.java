@@ -5,6 +5,7 @@ import dev.kafkainspector.agent.kafka.Views;
 import dev.kafkainspector.agent.lag.Lag;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -147,10 +148,26 @@ public class AlertService {
         return out;
     }
 
+    /** The cluster couldn't be sampled: pending durations restart once it can. */
+    public void forgetPending(String cid) {
+        pending.keySet().removeIf(k -> k.startsWith(cid + "|"));
+    }
+
+    /** Clusters no longer configured can't resolve their own alerts: resolve them at startup. */
+    public void resolveOrphans(Collection<String> configured, long now) {
+        for (String c : jdbc.queryForList("SELECT DISTINCT cluster FROM alert_event WHERE state = 'firing'", String.class))
+            if (!configured.contains(c)) jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE cluster = ? AND state = 'firing'", now, c);
+    }
+
     /** Runs after each sampler pass. */
     public synchronized void evaluate(String cid, ClusterState s, long now) {
         for (Rule r : rules()) {
-            if (!r.enabled()) continue;
+            if (!r.enabled()) {
+                // a rule switched off stops firing now, and starts its duration afresh when switched back on
+                jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE cluster = ? AND rule_id = ? AND state = 'firing'", now, cid, r.id());
+                pending.keySet().removeIf(k -> k.startsWith(cid + "|" + r.id() + "|"));
+                continue;
+            }
             Set<String> active = new HashSet<>();
             for (Hit h : conditions(r, s, now)) {
                 String k = cid + "|" + r.id() + "|" + h.target();

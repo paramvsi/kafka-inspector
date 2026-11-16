@@ -47,6 +47,11 @@ public class Sampler {
         this.alerts = alerts;
         this.props = props;
         clusters.all().keySet().forEach(id -> states.put(id, new ClusterState()));
+        try {
+            alerts.resolveOrphans(clusters.all().keySet(), System.currentTimeMillis());
+        } catch (RuntimeException e) {
+            log.warn("Couldn't resolve alerts of removed clusters: {}", rootMessage(e));
+        }
     }
 
     public ClusterState state(String cid) {
@@ -76,6 +81,7 @@ public class Sampler {
                 s.connected = false;
                 s.error = rootMessage(e);
                 kafka.reset(cid);
+                alerts.forgetPending(cid); // a condition must hold through samples we actually saw, not across an outage
             }
             for (var l : listeners) {
                 // a failing listener (e.g. a DB error while pushing) must not skip the other clusters this tick
@@ -191,7 +197,8 @@ public class Sampler {
                 ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : 0;
                 ClusterState.PartSnap pp = prev == null ? null : prev.partitions.stream().filter(x -> x.partition == p.partition()).findFirst().orElse(null);
                 ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
-                ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high > pp.high ? now : pp.lastMessageAt;
+                // any change counts as activity: a deleted and re-created topic restarts below the old end
+                ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high != pp.high ? now : pp.lastMessageAt;
                 ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? 0 : pp.sizeBytes);
                 if (pp != null && pp.isr.size() != ps.isr.size()) {
                     boolean shrink = ps.isr.size() < pp.isr.size();
@@ -220,6 +227,7 @@ public class Sampler {
 
         // ── groups ──
         Map<String, ClusterState.GroupSnap> groups = new TreeMap<>();
+        Set<String> carried = new HashSet<>(); // groups whose offsets this pass are the previous ones (read failed)
         Collection<GroupListing> listings = admin.listGroups(new ListGroupsOptions()).all().get(20, TimeUnit.SECONDS);
         List<String> consumerIds = new ArrayList<>(), shareIds = new ArrayList<>();
         for (GroupListing g : listings) {
@@ -273,6 +281,7 @@ public class Sampler {
                     // one failed read must not wipe the group's lag windows: keep the previous offsets this sample
                     ClusterState.GroupSnap prev = s.groups.get(id);
                     if (prev != null) prev.committed.forEach((topic, m) -> groups.get(id).committed.put(topic, new TreeMap<>(m)));
+                    carried.add(id);
                 }
             }
         }
@@ -319,10 +328,14 @@ public class Sampler {
                     String key = gs.groupId + "|" + te.getKey() + "|" + pe.getKey();
                     live.add(key);
                     Deque<Lag.Sample> w = s.windows.computeIfAbsent(key, k -> new ArrayDeque<>());
+                    // the topic was deleted and re-created: samples from the old one would run the lag rules backwards
+                    if (w.peekLast() != null && w.peekLast().end() > ps.high) w.clear();
                     Lag.Sample last = w.peekLast();
-                    if (last == null || !Objects.equals(last.committed(), pe.getValue())) s.lastChange.put(key, now);
-                    if (last != null && dtMs > 0 && last.committed() != null) msgsOut += Math.max(0, pe.getValue() - last.committed()) * 1000.0 / dtMs;
-                    w.addLast(new Lag.Sample(now, pe.getValue(), ps.high));
+                    if (!carried.contains(gs.groupId)) { // a carried-over read adds no sample: it would fake a stall, then a 2× spike
+                        if (last == null || !Objects.equals(last.committed(), pe.getValue())) s.lastChange.put(key, now);
+                        if (last != null && now > last.t() && last.committed() != null) msgsOut += Math.max(0, pe.getValue() - last.committed()) * 1000.0 / (now - last.t());
+                        w.addLast(new Lag.Sample(now, pe.getValue(), ps.high));
+                    }
                     while (w.size() > props.lagWindow()) w.removeFirst();
                     long changed = s.lastChange.getOrDefault(key, now);
                     long lastCommitAt = gs.members.isEmpty() ? changed : now;
@@ -381,9 +394,13 @@ public class Sampler {
         // storage or alert problems are not Kafka problems: keep the cluster connected, log, retry next sample
         try {
             history.insert(rows);
+        } catch (RuntimeException e) {
+            log.warn("Cluster {}: couldn't store history: {}", cid, rootMessage(e));
+        }
+        try {
             alerts.evaluate(cid, s, now);
         } catch (RuntimeException e) {
-            log.warn("Cluster {}: couldn't store history or evaluate alerts: {}", cid, rootMessage(e));
+            log.warn("Cluster {}: couldn't evaluate alerts: {}", cid, rootMessage(e));
         }
     }
 

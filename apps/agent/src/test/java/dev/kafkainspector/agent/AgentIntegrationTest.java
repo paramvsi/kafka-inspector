@@ -352,6 +352,60 @@ class AgentIntegrationTest {
     @org.springframework.beans.factory.annotation.Autowired
     org.springframework.jdbc.core.JdbcTemplate jdbc;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    dev.kafkainspector.agent.alerts.AlertService alertService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    dev.kafkainspector.agent.kafka.Sampler sampler;
+
+    // runs last (in-memory database for this run only); leaves one switched-off rule and two resolved events
+    @Test
+    @Order(30)
+    void aSwitchedOffRuleAndARemovedClusterStopFiring() {
+        long now = System.currentTimeMillis();
+        jdbc.update("INSERT INTO alert_rule VALUES ('r-off', 'off', 'lag', 'any', NULL, 0, 0, 'warn', 'in-app', FALSE, FALSE, FALSE)");
+        String ev = "INSERT INTO alert_event VALUES (?, ?, ?, 'warn', 't', 'e', 'x', '/', 'firing', ?, NULL, NULL, FALSE)";
+        jdbc.update(ev, "ev-off", "local", "r-off", now - 60_000);
+        jdbc.update(ev, "ev-gone", "gone-cluster", "r-lag-5k", now - 60_000);
+        alertService.evaluate("local", sampler.state("local"), now);
+        alertService.resolveOrphans(List.of("local"), now);
+        assertEquals(List.of("resolved", "resolved"), jdbc.queryForList("SELECT state FROM alert_event WHERE id IN ('ev-off', 'ev-gone') ORDER BY id", String.class));
+    }
+
+    @Test
+    @Order(31)
+    void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+             KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("again", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            for (int i = 0; i < 50; i++) p.send(new ProducerRecord<>("again", "k", "v" + i));
+            p.flush();
+            long until = System.currentTimeMillis() + 20_000;
+            while (System.currentTimeMillis() < until && get("/api/clusters/local/topics").toString().indexOf("\"again\"") < 0) Thread.sleep(500);
+            Thread.sleep(2500); // a few samples with high = 50
+            admin.deleteTopics(List.of("again")).all().get(30, TimeUnit.SECONDS);
+            until = System.currentTimeMillis() + 30_000;
+            while (true) {
+                try {
+                    admin.createTopics(List.of(new NewTopic("again", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+                    break;
+                } catch (Exception e) {
+                    if (System.currentTimeMillis() > until) throw e;
+                    Thread.sleep(500); // deletion still in progress
+                }
+            }
+            long produced = System.currentTimeMillis();
+            for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>("again", "k", "w" + i));
+            p.flush();
+            Thread.sleep(4000);
+            HttpResponse<String> r = send("GET", "/api/clusters/local/topics/again", null);
+            assertEquals(200, r.statusCode(), r::body);
+            String last = JSON.readTree(r.body()).path("partitions").get(0).path("lastMessageAt").asString();
+            assertTrue(java.time.Instant.parse(last).toEpochMilli() >= produced - 1000, () -> "lastMessageAt " + last + " is from the old topic");
+        }
+    }
+
     @Test
     @Order(14)
     void retentionExpiresDownsamplesAndPrunesResolvedAlertEvents() {
