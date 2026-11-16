@@ -9,6 +9,8 @@ P=ki-smoke
 J=$(mktemp)
 cleanup() {
   rm -f "$J"
+  # the root cause sits above the stack frames: show exception and "Caused by" lines, then the tail
+  docker logs ki-smoke-agent 2>&1 | grep -E 'Exception|Error|Caused by' | grep -v '^\s*at ' | tail -15 || true
   docker logs ki-smoke-agent 2>/dev/null | tail -20 || true
   docker rm -f ki-smoke-agent >/dev/null 2>&1 || true
   docker compose -p $P -f deploy/docker-compose.dev.yml down -v >/dev/null 2>&1 || true

@@ -26,6 +26,9 @@ RUN ./gradlew --no-daemon -q bootJar -PwebOut=/src/web-out -Pversion=${VERSION} 
 
 # 3. Runtime: slim JRE, non-root, writable /data only
 FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+# gcompat: snappy-java's x86_64 native library is built for glibc and needs ld-linux-x86-64.so.2; without it
+# every snappy-compressed topic fails on amd64 (arm64 happened to load). Caught by the CI image smoke test.
+RUN apk add --no-cache gcompat
 RUN addgroup -S -g 10001 ki && adduser -S -u 10001 -G ki -h /home/ki ki && mkdir -p /data /config && chown ki:ki /data
 COPY --from=agent /agent.jar /app/agent.jar
 USER 10001
