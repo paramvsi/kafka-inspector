@@ -56,7 +56,7 @@ const STEPS: Step[] = [
     path: '/app/groups/view/?id=fraud-scorer',
     target: '[data-tour="status"]',
     title: '5 of 5 · Recovered',
-    body: 'Members rejoin, lag drains and the status returns to Healthy. The alert resolves on its own.',
+    body: 'Members rejoin and the status returns to Healthy. The stalled alert resolves; lag alerts clear as the backlog drains.',
   },
 ];
 
@@ -145,12 +145,15 @@ export function GuidedTour() {
     run().catch((e: Error) =>
       toast({ tone: 'crit', title: "That step didn't work", body: e.message }),
     );
+  // steps 1–3 need a stalled fraud-scorer; after a reload (incidents aren't stored) it may be healthy again
+  const needsPoison = step >= 1 && step <= 3 && fraud && fraud.status !== 'stalled';
   const run = async () => {
-    if (step === 1 && fraud && fraud.status !== 'stalled') {
+    if (needsPoison) {
       await client.chaos?.run({ kind: 'poison-message' });
       return;
     }
-    if (step === 4 && client.writes) {
+    // apply only while it's still stuck: a second click, or a fix already applied by hand, must not skip a good message
+    if (step === 4 && client.writes && fraud?.status === 'stalled') {
       await client.writes.resetOffsets(
         clusterId,
         {
@@ -164,14 +167,15 @@ export function GuidedTour() {
     }
     go(step + 1);
   };
-  const primaryLabel =
-    step === 1 && fraud && fraud.status !== 'stalled'
-      ? 'Trigger a poison message'
-      : step === 4
+  const primaryLabel = needsPoison
+    ? 'Trigger a poison message'
+    : step === 4
+      ? fraud?.status === 'stalled'
         ? 'Apply for me'
-        : step === 5
-          ? 'Finish'
-          : 'Next';
+        : 'Next'
+      : step === 5
+        ? 'Finish'
+        : 'Next';
 
   // A modal <dialog> makes everything outside it inert: render inside the open dialog so the tour stays usable.
   const host =

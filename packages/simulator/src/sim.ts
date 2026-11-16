@@ -2321,6 +2321,11 @@ export class Simulator {
         break;
       }
       case 'poison-message': {
+        // one poison at a time: a second would overwrite the first, and stopping it would end both
+        if (this.poison)
+          throw new Error(
+            'A poison message is already stalling fraud-scorer. Fix it first: reset its offset on payments partition 7 (shift +1).',
+          );
         target = `${POISON.topic}-${POISON.partition}`;
         this.startPoison(t, id);
         undo = () => {

@@ -844,3 +844,13 @@ test('a catastrophic regex is refused instead of freezing the worker; rule edits
     'Unknown metric cpu',
   );
 });
+
+test('a second poison message is refused while one is running, so stopping it cannot end the first', async () => {
+  const h = make();
+  await h.init();
+  expect(() => h.sim.runChaos({ kind: 'poison-message' } as never)).toThrow(
+    'already stalling fraud-scorer',
+  );
+  h.advance(15);
+  expect(h.sim.getGroup('fraud-scorer').summary.status).toBe('stalled');
+});
