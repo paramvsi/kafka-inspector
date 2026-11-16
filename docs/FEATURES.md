@@ -36,7 +36,7 @@ Every feature has an ID, a release (**MVP** or **v2**), and acceptance criteria 
 **F-01 App shell — MVP.** Sidebar (232 px) + top bar (56 px) + content, per `designs/screens/Sidebar.dc.html` and `Topbar.dc.html`.
 - AC: Sidebar sections Monitor (Overview, Brokers, Topics, Consumer groups), Data (Schemas, Topology), Operate (Alerts, Chaos panel*, Clusters, Run on your Kafka*). *Demo only.
 - AC: Active item has `aria-current="page"` and the copper marker. Counts in mono; firing-alert count uses the crit chip.
-- AC: Top bar shows breadcrumb (`cluster / section / item`), global search with ⌘K hint, time-range control (15m, 1h, 24h, 7d), Live indicator (pausable).
+- AC: Top bar shows breadcrumb (`cluster / section / item`), global search with ⌘K hint, time-range control (15m, 1h, 24h, 7d), Live indicator (pausable: paused freezes every polled and streamed value and the topology flow; alert toasts, notifications and the bell keep arriving).
 - AC: Demo sidebar footer: "Simulated cluster" note. Self footer: version, Read-only badge, "Signed in as admin · Sign out".
 
 **F-02 Cluster switcher — MVP.** Button in the sidebar listing configured clusters with status dot (Connected / Degraded / Disconnected). Switching keeps the current route where it makes sense.
@@ -152,7 +152,7 @@ Alert rules are app data, not Kafka writes, so they are allowed in read-only Sel
 ## Simulator and chaos (Demo)
 
 **F-100 Simulator — MVP.** See ARCHITECTURE "Simulator". Deterministic, seeded, 1 s ticks, 24 h back-filled history, real Avro bytes on Avro topics, IndexedDB persistence of user changes, Reset demo.
-**F-101 Chaos panel — MVP.** Actions: crash consumer, slow consumer, traffic spike ×10, broker down, rebalance, hot partition, poison message; running-incident banner with Stop; simulator settings (base traffic, daily wave, seed, reset); event log. Per `Chaos`.
+**F-101 Chaos panel — MVP.** Actions: crash consumer, slow consumer, traffic spike ×10, broker down, rebalance, hot partition, poison message; running-incident banner with Stop; simulator settings (base traffic, daily wave, seed, reset); event log. Per `Chaos`. Stopping an incident, or its expiry, logs an end event; a rebalance on a group with no members is refused.
 **F-102 Guided tour — MVP.** 5 steps walking one incident end to end (trigger poison message → see Stalled → open group → reset offsets shift +1 → recovery).
 
 ## Website

@@ -48,7 +48,7 @@ Static export cannot pre-render unknown topic/group names, so detail pages use q
 | Empty (no data exists) | Explain why + primary action (e.g. "No consumer groups yet") |
 | No results (filtered) | Echo the query, offer clear filter + alternatives (03b) |
 | Error (request failed) | Inline alert in the card: what failed, Retry; keep other cards working |
-| Disconnected (cluster) | Global banner (01c), dim stale values, pause actions |
+| Disconnected (cluster) | Global banner (01c), stale values in the muted colour (not faded with opacity: AA contrast) and labelled "stale", pause actions |
 | Read-only | Banner + disabled write actions with tooltip (20) |
 | Decode failure | Per-message error with raw bytes (06b) |
 

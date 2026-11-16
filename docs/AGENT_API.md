@@ -61,11 +61,11 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 ## Topology
 
-- `GET /api/clusters/{c}/topology` → `{ nodes: [{ id, kind: producer|topic|group, label, status, rate }], edges: [{ from, to, rate, kind: produce|consume|dlq }] }`. In self-hosted mode there are no producer nodes: the Admin API doesn't expose producers, so the map shows topics → groups.
+- `GET /api/clusters/{c}/topology` → `{ nodes: [{ id, kind: producer|topic|group, label, status, rate, note? }], edges: [{ from, to, rate, kind: produce|consume|dlq }] }`. A consume edge's `rate` is the group's own commit rate on that topic (a stopped group reads ~0 however busy the topic is) and a group node's `rate` is the sum of its edges; a healthy group between assignments has `status: neutral`. In self-hosted mode there are no producer nodes: the Admin API doesn't expose producers, so the map shows topics → groups.
 
 ## Alerts (app data — allowed in read-only mode)
 
-- `GET /api/alerts/rules`, `POST /api/alerts/rules`, `PUT /api/alerts/rules/{id}`, `DELETE /api/alerts/rules/{id}`
+- `GET /api/alerts/rules`, `POST /api/alerts/rules`, `PUT /api/alerts/rules/{id}`, `DELETE /api/alerts/rules/{id}`. A specific scope names a group, a topic, or a broker as `broker-<id>`; names up to 2,000 characters (Kafka doesn't limit group ids)
 - `GET /api/filters` → `[{ name, expr }]`; `PUT /api/filters/{name}` with `{ expr }` → 204 (saved message-browser filters, F-04; app data like alert rules)
 - `GET /api/alerts/events?state=firing|resolved|all&limit=` ; `POST /api/alerts/events/{id}/mute` `{ until }` ; `POST /api/alerts/events/{id}/ack`
 - Evaluator runs after each sampler pass using the shared lag rules.
