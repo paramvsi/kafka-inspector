@@ -29,7 +29,7 @@ export function SearchInput({
         ref={ref}
         type="search"
         aria-label={label}
-        placeholder="Search topics, groups, offsets"
+        placeholder="Search topics, groups, schemas"
         className="min-w-0 flex-1 border-none bg-transparent font-sans text-[12px] text-ink placeholder:text-ink-muted"
         {...rest}
       />

@@ -215,6 +215,7 @@ export const SEEDED_RULES: AlertRule[] = [
   },
 ];
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const offlineLabel = (n: number) => `${n} ${n === 1 ? 'partition' : 'partitions'} offline`;
 
 export class Simulator {
@@ -562,8 +563,14 @@ export class Simulator {
       });
       statuses.push(gp.status);
       const last = ring.at(-1);
+      const ps = this.parts.get(gp.topic)?.[gp.p];
       fparts.push({
-        lag: last ? Math.max(0, last.end - (last.committed ?? last.end)) : 0,
+        // no samples yet (e.g. right after a reset): the real distance, not 0 — 0 would read as caught up
+        lag: last
+          ? Math.max(0, last.end - (last.committed ?? last.end))
+          : ps
+            ? Math.max(0, Math.floor(ps.end) - Math.floor(gp.committed))
+            : 0,
         forecast: forecastOf(ring),
       });
     }
@@ -875,7 +882,8 @@ export class Simulator {
         id: 'offline',
         severity: 'crit',
         title: offlineLabel(offline),
-        detail: 'No in-sync replica can lead them',
+        detail:
+          offline === 1 ? 'No in-sync replica can lead it' : 'No in-sync replica can lead them',
         since: new Date(t).toISOString(),
         href: '/app/topics/?view=attention',
       });
@@ -883,7 +891,7 @@ export class Simulator {
       items.push({
         id: 'urp',
         severity: 'warn',
-        title: `${urp} partitions under-replicated`,
+        title: `${plural(urp, 'partition')} under-replicated`,
         detail: 'ISR is smaller than the replica set',
         since: new Date(t).toISOString(),
         href: '/app/topics/?view=attention',
@@ -1565,7 +1573,7 @@ export class Simulator {
         if (urp > (rule.threshold ?? 0))
           out.push({
             target: 'cluster',
-            title: `${urp} partitions under-replicated`,
+            title: `${plural(urp, 'partition')} under-replicated`,
             evidence: 'ISR smaller than the replica set',
             href: '/app/topics/?view=attention',
           });
@@ -2133,7 +2141,7 @@ export class Simulator {
         kind: 'offsets-reset',
         severity: 'info',
         title: `Offsets reset for ${g.def.groupId}`,
-        detail: `${req.topic} · ${rows.filter((r) => !r.skipped).length} partitions · ${describeStrategy(req)}`,
+        detail: `${req.topic} · ${plural(rows.filter((r) => !r.skipped).length, 'partition')} · ${describeStrategy(req)}`,
       });
     }
     return { rows, applied: !dryRun };

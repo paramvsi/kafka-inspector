@@ -155,7 +155,7 @@ public class AlertService {
             });
             case "under-replicated" -> {
                 long urp = s.topics.values().stream().flatMap(t -> t.partitions.stream()).filter(p -> p.isr.size() < p.replicas.size()).count();
-                if (urp > threshold) out.add(new Hit("cluster", urp + " partitions under-replicated", "ISR smaller than the replica set", "/app/topics/?view=attention"));
+                if (urp > threshold) out.add(new Hit("cluster", urp + (urp == 1 ? " partition" : " partitions") + " under-replicated", "ISR smaller than the replica set", "/app/topics/?view=attention"));
             }
             case "broker-offline" -> s.brokers.forEach(b -> {
                 if (!b.online() && inScope.test("broker-" + b.id())) out.add(new Hit("broker-" + b.id(), "Broker " + b.id() + " offline", "Not reachable by the controller", "/app/brokers/"));

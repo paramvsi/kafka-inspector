@@ -45,7 +45,7 @@
       }
     },
     {
-      "name": "caught up, unknown ignored",
+      "name": "caught up elsewhere, but an unknown partition is behind: unknown",
       "parts": [
         {
           "lag": 0,
@@ -63,9 +63,7 @@
         }
       ],
       "expect": {
-        "kind": "caught-up",
-        "consumeRate": 10,
-        "produceRate": 10
+        "kind": "unknown"
       }
     },
     {
@@ -149,6 +147,30 @@
         "kind": "eta",
         "seconds": 30,
         "consumeRate": 20,
+        "produceRate": 10
+      }
+    },
+    {
+      "name": "caught up, an unknown partition with no lag is ignored",
+      "parts": [
+        {
+          "lag": 0,
+          "forecast": {
+            "kind": "caught-up",
+            "consumeRate": 10,
+            "produceRate": 10
+          }
+        },
+        {
+          "lag": 0,
+          "forecast": {
+            "kind": "unknown"
+          }
+        }
+      ],
+      "expect": {
+        "kind": "caught-up",
+        "consumeRate": 10,
         "produceRate": 10
       }
     }

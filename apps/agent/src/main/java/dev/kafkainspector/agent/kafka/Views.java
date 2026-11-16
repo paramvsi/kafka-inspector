@@ -216,8 +216,8 @@ public final class Views {
         String now = iso(s.ts);
         List<Dto.AttentionItem> items = new ArrayList<>();
         s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port(), now, "/app/brokers/", "Investigate broker " + b.id())));
-        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), "No in-sync replica can lead them", now, "/app/topics/?view=attention", null));
-        if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + " partitions under-replicated", "ISR is smaller than the replica set", now, "/app/topics/?view=attention", null));
+        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), offline == 1 ? "No in-sync replica can lead it" : "No in-sync replica can lead them", now, "/app/topics/?view=attention", null));
+        if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + (urp == 1 ? " partition" : " partitions") + " under-replicated", "ISR is smaller than the replica set", now, "/app/topics/?view=attention", null));
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
             String detail = String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");

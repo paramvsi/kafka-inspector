@@ -96,7 +96,9 @@ public final class Lag {
         long lag = known.stream().mapToLong(Part::lag).sum();
         double c = known.stream().mapToDouble(p -> p.forecast().consumeRate() == null ? 0 : p.forecast().consumeRate()).sum();
         double pr = known.stream().mapToDouble(p -> p.forecast().produceRate() == null ? 0 : p.forecast().produceRate()).sum();
-        if (lag == 0) return new Forecast("caught-up", null, c, pr);
+        // a partition with no forecast that is still behind: the group can't be called caught up (same as lag.ts)
+        boolean behindUnknown = parts.stream().anyMatch(p -> p.forecast().kind().equals("unknown") && p.lag() > 0);
+        if (lag == 0) return behindUnknown ? Forecast.of("unknown") : new Forecast("caught-up", null, c, pr);
         if (known.stream().anyMatch(p -> p.forecast().kind().equals("never") && p.lag() > 0)) return new Forecast("never", null, c, pr);
         double seconds = known.stream().mapToDouble(p -> p.forecast().seconds() == null ? 0 : p.forecast().seconds()).max().orElse(0);
         return new Forecast("eta", seconds, c, pr);

@@ -1347,3 +1347,20 @@ test('Produce sends whole messages: "2.5" in Send reads and sends 2', async ({ p
   await pr.getByLabel('Send').fill('2.5');
   await expect(pr.getByRole('button', { name: /Produce 2 messages/ })).toBeVisible();
 });
+
+test('the theme switch in Settings shows which theme is selected', async ({ page }) => {
+  await page.goto('/app/');
+  await page.getByRole('button', { name: /^Settings/ }).click();
+  const pressed = page.getByRole('group', { name: /Theme/i }).locator('[aria-pressed="true"]');
+  await expect(pressed).toBeVisible();
+  // the selected option has a visible fill or indicator behind it, not the bare surface
+  const indicatorWidth = await page
+    .getByRole('group', { name: /Theme/i })
+    .evaluate(
+      (g) =>
+        (g.querySelector('span[aria-hidden="true"]') as HTMLElement | null)?.getBoundingClientRect()
+          .width ?? -1,
+    );
+  const fill = await pressed.evaluate((b) => getComputedStyle(b).backgroundColor);
+  expect(indicatorWidth > 0 || (fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent')).toBe(true);
+});

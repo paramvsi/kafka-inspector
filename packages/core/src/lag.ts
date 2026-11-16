@@ -136,9 +136,12 @@ export function combineForecasts(parts: Array<{ lag: number; forecast: Forecast 
   const known = parts.filter((p) => p.forecast.kind !== 'unknown');
   if (known.length === 0) return { kind: 'unknown' };
   const lag = known.reduce((a, p) => a + p.lag, 0);
+  // a partition with no forecast that is still behind: the group can't be called caught up
+  const behindUnknown = parts.some((p) => p.forecast.kind === 'unknown' && p.lag > 0);
   const consumeRate = known.reduce((a, p) => a + (p.forecast.consumeRate ?? 0), 0);
   const produceRate = known.reduce((a, p) => a + (p.forecast.produceRate ?? 0), 0);
-  if (lag === 0) return { kind: 'caught-up', consumeRate, produceRate };
+  if (lag === 0)
+    return behindUnknown ? { kind: 'unknown' } : { kind: 'caught-up', consumeRate, produceRate };
   if (known.some((p) => p.forecast.kind === 'never' && p.lag > 0))
     return { kind: 'never', consumeRate, produceRate };
   // The group catches up when its slowest partition does.

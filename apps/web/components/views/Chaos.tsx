@@ -82,6 +82,10 @@ const ACTIONS: Array<{
   },
 ];
 
+/** "broker 2", not a bare "2": a broker target is an id */
+const targetName = (kind: string, target: string) =>
+  kind === 'broker-down' ? `broker ${target}` : target;
+
 export function ChaosView() {
   const { client, info } = useKafka();
   const toast = useToast();
@@ -135,7 +139,8 @@ export function ChaosView() {
     toast({
       tone: 'warn',
       title: `${label(kind)} started`,
-      body: inc.target && inc.target !== '*' ? `on ${inc.target}` : 'on all topics',
+      body:
+        inc.target && inc.target !== '*' ? `on ${targetName(kind, inc.target)}` : 'on all topics',
       // client-side: a full page load restarts the simulator and would end the incident just started
       action: { label: 'Watch on Overview', onClick: () => router.push('/app/') },
     });
@@ -189,7 +194,7 @@ export function ChaosView() {
                 <div className="grow">
                   <span className="font-semibold">
                     Running: {a.title}
-                    {i.target && i.target !== '*' ? ` on ${i.target}` : ''}
+                    {i.target && i.target !== '*' ? ` on ${targetName(i.kind, i.target)}` : ''}
                   </span>
                   <span className="text-ink-muted">
                     {' '}

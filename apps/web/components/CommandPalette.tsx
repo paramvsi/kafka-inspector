@@ -318,7 +318,7 @@ export function CommandPalette({
               run(items[sel], e.metaKey || e.ctrlKey);
             }
           }}
-          placeholder="Search topics, groups, offsets — or > for actions"
+          placeholder="Search topics, groups, schemas — or > for actions"
           className="grow border-none bg-transparent text-[15px] text-ink placeholder:text-ink-muted"
         />
         <Kbd>Esc</Kbd>

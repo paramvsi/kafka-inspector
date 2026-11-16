@@ -29,10 +29,15 @@ export function SegmentedControl({
   useLayoutEffect(() => {
     const measure = () => {
       const el = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
-      if (el) setBox({ x: el.offsetLeft, w: el.offsetWidth });
+      // inside a closed popover everything measures 0: keep the fallback fill until it has a real size
+      setBox(el && el.offsetWidth > 0 ? { x: el.offsetLeft, w: el.offsetWidth } : null);
     };
     measure();
     document.fonts?.ready.then(measure); // font swap changes option widths
+    // re-measure when the control gets a size (a popover opening) or its options change width
+    const ro = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    if (ref.current) ro?.observe(ref.current);
+    return () => ro?.disconnect();
   }, [current]);
 
   return (
