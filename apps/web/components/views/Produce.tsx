@@ -138,8 +138,8 @@ export function ProduceDrawer({
     false,
   );
   useEffect(() => {
-    const m = source.data?.messages[0];
-    // only for a reprocess: the query keeps the previous message as placeholder data afterwards
+    // only for a reprocess, and only this message: the query holds the previous one as placeholder data
+    const m = source.isPlaceholderData ? undefined : source.data?.messages[0];
     if (!open || !m || !reprocess) return;
     decodeMessage(m, 'auto', 'auto', lookup, []).then((d) => {
       setValue(d.value.ok ? JSON.stringify(d.value.value, null, 2) : d.value.hex);
@@ -149,7 +149,7 @@ export function ProduceDrawer({
         ['reprocessed-from', `${topic}-${m.partition}@${m.offset}`],
       ]);
     });
-  }, [open, source.data, lookup, topic, reprocess]);
+  }, [open, source.data, source.isPlaceholderData, lookup, topic, reprocess]);
   // a fresh sample per target schema: switching topic doesn't keep the previous topic's JSON
   const [sampledFor, setSampledFor] = useState<string>();
   // only once the target's own detail (and schema) loaded — placeholder data is the previous topic's

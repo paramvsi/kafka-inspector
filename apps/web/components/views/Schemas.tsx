@@ -60,7 +60,8 @@ export function SchemasView() {
         : undefined,
     false,
   );
-  const [a, b] = versions.data ?? [];
+  // another pair is another comparison: never the previous pair's diff and verdicts under the new selectors
+  const [a, b] = (versions.isPlaceholderData ? undefined : versions.data) ?? [];
   // "Start from the latest version" seeds the latest, whichever pair is being compared
   const newest = useKafkaQuery(
     ['schema', subject, latest],

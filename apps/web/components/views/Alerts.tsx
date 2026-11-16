@@ -421,6 +421,9 @@ function RuleDialog({
     },
     false,
   );
+  // a changed rule is another preview and another chart: not the previous one's while the new one loads
+  const previewData = preview.isPlaceholderData ? undefined : preview.data;
+  const seriesData = series.isPlaceholderData ? undefined : series.data;
   const scopeOptions = useMemo(() => {
     if (meta.scope === 'group')
       return [
@@ -609,30 +612,30 @@ function RuleDialog({
           <div className="mb-2 flex text-[12px]">
             <span className="font-semibold">Preview · last 24 h</span>
             <span className="ml-auto text-ink-muted" role="status">
-              {previewLabel(preview.data, preview.error)}
+              {previewLabel(previewData, preview.error)}
             </span>
           </div>
-          {r.metric === 'lag' && (series.data?.length ?? 0) > 1 ? (
+          {r.metric === 'lag' && (seriesData?.length ?? 0) > 1 ? (
             <TimeSeriesChart
               label="Lag over the last 24 hours with the threshold"
               height={90}
               xFormat={axisTime('24h')}
               yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
               series={[
-                { key: 'lag', label: 'worst group lag', points: series.data!, color: 'chart-1' },
+                { key: 'lag', label: 'worst group lag', points: seriesData!, color: 'chart-1' },
                 {
                   key: 'threshold',
                   label: 'threshold',
                   points: [
-                    [series.data![0]![0], r.threshold ?? 0],
-                    [series.data!.at(-1)![0], r.threshold ?? 0],
+                    [seriesData![0]![0], r.threshold ?? 0],
+                    [seriesData!.at(-1)![0], r.threshold ?? 0],
                   ],
                   color: 'warn',
                   dashed: true,
                 },
               ]}
             />
-          ) : preview.data ? (
+          ) : previewData ? (
             <p className="m-0 text-[12px] text-ink-muted">
               Replayed against the simulator&apos;s recorded history.
             </p>
