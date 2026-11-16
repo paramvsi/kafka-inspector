@@ -212,6 +212,7 @@ test('produce a valid Avro order, then see it decoded in the drawer', async ({ p
     );
   await drawer.getByRole('button', { name: 'Produce 1 message' }).click();
   await page.getByRole('button', { name: 'Show in messages' }).click();
+  await expect(page).toHaveURL(/[?&]p=\d+/); // the table behind the drawer shows the message's partition
   const msg = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(msg.getByText('"ord_e2e01"')).toBeVisible({ timeout: 10_000 });
   await expect(msg.getByText('orders-value v4 · id 112')).toBeVisible();

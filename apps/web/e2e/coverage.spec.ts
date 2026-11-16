@@ -1033,7 +1033,7 @@ test('a rule switched to lag saves the threshold it shows; empty topics and bad 
   await page.goto('/app/alerts/?tab=rules&rule=r-group-stalled');
   const d = page.getByRole('dialog', { name: 'Edit alert rule' });
   await d.getByLabel('Metric').selectOption('lag');
-  await expect(d.getByLabel('Threshold', { exact: true })).toHaveValue('0');
+  await expect(d.getByLabel('Threshold', { exact: true })).toHaveValue('5000'); // lag's default
   await d.getByRole('button', { name: 'Save rule' }).click();
   await expect(d).toHaveCount(0);
   const threshold = await page.evaluate(
@@ -1051,7 +1051,7 @@ test('a rule switched to lag saves the threshold it shows; empty topics and bad 
         };
       }),
   );
-  expect(threshold).toBe(0);
+  expect(threshold).toBe(5000);
 
   await page.goto('/app/topics/?create=1');
   const c = page.getByRole('dialog', { name: 'Create topic' });
@@ -1441,4 +1441,30 @@ test('a failing topic list keeps its error card through re-checks instead of fla
   });
   await page.waitForTimeout(6_000); // three 2 s polls
   expect(await page.evaluate(() => (window as unknown as { flashes: number }).flashes)).toBe(0);
+});
+
+test('the bell and Manage clusters switch screens without reloading the app (chaos and mutes survive)', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('link', { name: 'orders' })).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => ((window as unknown as { kiAlive: number }).kiAlive = 1));
+  await page.getByRole('link', { name: /^Alerts, / }).click();
+  await expect(page).toHaveURL(/\/app\/alerts\/$/);
+  expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1);
+  await page.getByRole('button', { name: /^Cluster .*Switch cluster$/ }).click();
+  await page.locator('#ki-cluster-menu').getByRole('link', { name: 'Manage clusters' }).click();
+  await expect(page).toHaveURL(/\/app\/clusters\/$/);
+  expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1);
+});
+
+test('switching a new rule to under-replicated partitions resets the lag threshold and name', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog');
+  await d.getByLabel('Metric').selectOption('under-replicated');
+  await expect(d.getByLabel('Threshold', { exact: true })).toHaveValue('0');
+  await expect(d.getByLabel('Name')).not.toHaveValue('Lag too high');
 });

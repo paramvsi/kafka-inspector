@@ -200,6 +200,7 @@ export function ProduceDrawer({
               {
                 tab: 'messages',
                 msg: `${first!.partition}:${first!.offset}`,
+                p: String(first!.partition), // the table behind the drawer starts at this message
                 live: undefined,
                 from: 'offset',
                 offset: first!.offset,

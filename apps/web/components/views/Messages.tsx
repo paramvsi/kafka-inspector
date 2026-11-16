@@ -816,7 +816,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         {!live && regex === undefined && (
           <div className="flex items-center gap-3 border-t border-line-subtle px-4 py-2 text-[12px] text-ink-muted">
             <span>
-              <span className="font-mono tabular-nums">{formatInt(rows.length)}</span> messages ·{' '}
+              <span className="font-mono tabular-nums">{formatInt(rows.length)}</span>{' '}
+              {rows.length === 1 ? 'message' : 'messages'} ·{' '}
               <span className="font-mono tabular-nums">
                 {formatInt((page.data?.scanned ?? 0) + extraScanned)}
               </span>{' '}

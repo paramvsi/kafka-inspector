@@ -2,6 +2,7 @@
 // Alert delivery (F-82): toast in the app and, for rules that ask for it, a browser notification.
 import { shownName, type AlertEvent, type AlertRule } from '@ki/core';
 import { useToast } from '@ki/ui';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { isMuted } from '../lib/baseline';
@@ -62,7 +63,7 @@ export function Bell() {
   const firing = useStream<AlertEvent[]>('alerts', { always: true });
   const n = (firing ?? []).filter((a) => !a.acknowledged && !isMuted(a)).length;
   return (
-    <a
+    <Link
       href="/app/alerts/"
       aria-label={n ? `Alerts, ${n} firing` : 'Alerts, none firing'}
       className="relative flex size-control-md items-center justify-center rounded-md text-ink-muted no-underline transition-colors duration-instant ease-standard hover:bg-surface-hover hover:text-ink"
@@ -89,6 +90,6 @@ export function Bell() {
           {n}
         </span>
       )}
-    </a>
+    </Link>
   );
 }

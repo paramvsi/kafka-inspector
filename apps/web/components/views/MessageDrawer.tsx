@@ -85,7 +85,9 @@ export function MessageDrawer({
     }
   };
 
-  const json = d?.value.ok ? JSON.stringify(d.shown, null, 2) : '';
+  // a hex or text view copies what it shows, not a JSON-quoted string
+  const asText = typeof d?.shown === 'string';
+  const json = d?.value.ok ? (asText ? (d.shown as string) : JSON.stringify(d.shown, null, 2)) : '';
   return (
     <Drawer
       open={!!msgParam}
@@ -107,7 +109,7 @@ export function MessageDrawer({
       footer={
         d && (
           <>
-            {d.value.ok && <CopyButton text={json} label="Copy JSON" />}
+            {d.value.ok && <CopyButton text={json} label={asText ? 'Copy value' : 'Copy JSON'} />}
             {readOnly ? (
               <Tooltip content="Read-only in this version. Writes to real clusters arrive in v2.">
                 <Button size="sm" disabled>

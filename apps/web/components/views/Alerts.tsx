@@ -42,18 +42,35 @@ const METRICS: Array<{
   label: string;
   unit?: string;
   scope: 'group' | 'topic' | 'broker' | 'cluster';
+  /** a new rule's name and threshold when this metric is picked */
+  name: string;
+  threshold?: number;
 }> = [
-  { value: 'lag', label: 'Consumer lag', unit: 'is above', scope: 'group' },
-  { value: 'group-status', label: 'Group status', scope: 'group' },
-  { value: 'topic-silent', label: 'Topic silent', scope: 'topic' },
+  {
+    value: 'lag',
+    label: 'Consumer lag',
+    unit: 'is above',
+    scope: 'group',
+    name: 'Lag too high',
+    threshold: 5000,
+  },
+  { value: 'group-status', label: 'Group status', scope: 'group', name: 'Group not healthy' },
+  { value: 'topic-silent', label: 'Topic silent', scope: 'topic', name: 'Topic went silent' },
   {
     value: 'under-replicated',
     label: 'Under-replicated partitions',
     unit: 'is above',
     scope: 'cluster',
+    name: 'Partitions under-replicated',
+    threshold: 0,
   },
-  { value: 'broker-offline', label: 'Broker offline', scope: 'broker' },
-  { value: 'dlq-receiving', label: 'DLQ receiving messages', scope: 'topic' },
+  { value: 'broker-offline', label: 'Broker offline', scope: 'broker', name: 'Broker offline' },
+  {
+    value: 'dlq-receiving',
+    label: 'DLQ receiving messages',
+    scope: 'topic',
+    name: 'DLQ receiving messages',
+  },
 ];
 const DURATIONS = [10, 30, 60, 300, 600, 1800].map((s) => ({
   value: String(s),
@@ -494,9 +511,19 @@ function RuleDialog({
                 label="Metric"
                 hideLabel
                 value={r.metric}
-                onChange={(e) =>
-                  setR({ ...r, metric: e.target.value as AlertMetric, scope: { kind: 'any' } })
-                }
+                onChange={(e) => {
+                  const next = METRICS.find((m) => m.value === e.target.value)!;
+                  const prev = METRICS.find((m) => m.value === r.metric);
+                  // the old metric's default name and threshold follow the metric; typed ones stay
+                  setR({
+                    ...r,
+                    metric: next.value,
+                    scope: { kind: 'any' },
+                    name: r.name === prev?.name ? next.name : r.name,
+                    threshold: next.threshold,
+                  });
+                  setThresholdText(String(next.threshold ?? 0));
+                }}
                 options={METRICS.map((m) => ({ value: m.value, label: m.label }))}
               />
             </div>

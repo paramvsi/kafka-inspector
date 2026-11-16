@@ -301,12 +301,12 @@ function ClusterMenu({
           <span className="ml-auto font-sans text-[11px] text-ink-muted">Saved</span>
         </a>
       ))}
-      <a
+      <Link
         href="/app/clusters/"
         className="mt-1 border-t border-line-subtle px-2 pt-2 text-[12px] text-copper no-underline hover:underline"
       >
         Manage clusters
-      </a>
+      </Link>
     </div>
   );
 }
