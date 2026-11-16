@@ -43,7 +43,14 @@ export function useBoot(): Boot {
         }
         if (alive) setBoot({ state: 'connecting', step: 'Connecting to the cluster' });
         const info = await picked.client.info();
-        const fromUrl = new URLSearchParams(location.search).get('c');
+        // ?c= picks a cluster; in-app links don't carry it, so this tab remembers the pick until it closes
+        let fromUrl = new URLSearchParams(location.search).get('c');
+        try {
+          if (fromUrl) sessionStorage.setItem('ki-cluster', fromUrl);
+          else fromUrl = sessionStorage.getItem('ki-cluster');
+        } catch {
+          /* storage blocked: ?c= still works for this page */
+        }
         const clusterId =
           info.clusters.find((c) => c.id === fromUrl)?.id ?? info.clusters[0]?.id ?? 'default';
         if (alive) setBoot({ state: 'ready', ctx: { client: picked.client, info, clusterId } });

@@ -172,6 +172,7 @@ export function ProduceDrawer({
     if (!writes || busy || !value || (v && !v.ok)) return;
     setBusy(true);
     setError(undefined);
+    let sent = 0;
     try {
       let first: { partition: number; offset: number } | undefined;
       for (let i = 0; i < n; i++) {
@@ -185,6 +186,7 @@ export function ProduceDrawer({
           valueFormat: schema?.type === 'AVRO' ? 'avro' : 'json',
         });
         first ??= r;
+        sent++;
       }
       await qc.invalidateQueries({ queryKey: [clusterId] });
       toast({
@@ -211,7 +213,13 @@ export function ProduceDrawer({
       onClose();
       url.set({ produce: undefined, reprocess: undefined });
     } catch (e) {
-      setError((e as Error).message);
+      // a multi-send that fails midway: say how many are already in the topic, so a retry doesn't double them
+      setError(
+        sent > 0
+          ? `Produced ${sent} of ${n}, then failed: ${(e as Error).message}`
+          : (e as Error).message,
+      );
+      if (sent > 0) void qc.invalidateQueries({ queryKey: [clusterId] });
     } finally {
       setBusy(false);
     }

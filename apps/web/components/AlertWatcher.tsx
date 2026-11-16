@@ -42,7 +42,12 @@ export function AlertWatcher() {
         Notification.permission === 'granted' &&
         document.visibilityState !== 'visible'
       ) {
-        new Notification(`Kafka Inspector · ${a.title}`, { body: a.evidence, tag: a.id });
+        const n = new Notification(`Kafka Inspector · ${a.title}`, { body: a.evidence, tag: a.id });
+        n.onclick = () => {
+          window.focus();
+          router.push(a.href);
+          n.close();
+        };
       }
     }
   }, [firing, toast, router]);

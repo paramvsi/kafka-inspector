@@ -1306,3 +1306,12 @@ test.describe('touch layout tables', () => {
     await expect(page.locator('.overflow-x-auto[tabindex]')).toHaveCount(0);
   });
 });
+
+test('switching cluster from a detail page goes to that section on the other cluster', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders');
+  await page.getByRole('button', { name: /^Cluster .*Switch cluster$/ }).click();
+  const link = page.locator('#ki-cluster-menu a').first();
+  await expect(link).toHaveAttribute('href', /^\/app\/topics\/\?c=/);
+});

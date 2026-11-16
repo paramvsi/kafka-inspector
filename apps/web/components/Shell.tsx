@@ -269,6 +269,8 @@ function ClusterMenu({
   saved: Array<{ id: string; name: string; url?: string }>;
 }) {
   const DOT = { connected: 'bg-ok', degraded: 'bg-warn', disconnected: 'bg-crit' };
+  // switching keeps the section, not the detail page: a topic or group may not exist on the other cluster
+  const section = (usePathname() ?? '/app/').replace(/^(\/app\/[^/]+\/).*$/, '$1');
   const WORD = { connected: 'Connected', degraded: 'Degraded', disconnected: 'Disconnected' };
   return (
     <div className="flex flex-col">
@@ -278,7 +280,7 @@ function ClusterMenu({
       {clusters.map((c) => (
         <a
           key={c.id}
-          href={`?c=${encodeURIComponent(c.id)}`}
+          href={`${section}?c=${encodeURIComponent(c.id)}`}
           className="flex items-center gap-2 rounded-md px-2 py-2 font-mono text-[12px] text-ink no-underline hover:bg-surface-hover"
         >
           <span aria-hidden="true" className={`size-[7px] rounded-full ${DOT[c.status]}`} />
