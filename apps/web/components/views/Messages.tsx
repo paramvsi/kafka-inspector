@@ -26,7 +26,7 @@ import {
   useSchemaLookup,
   type DecodedMessage,
 } from '../../lib/serdes';
-import { useUrl } from '../../lib/url';
+import { useUrl, useUrlText } from '../../lib/url';
 import { MaskingDialog } from './Masking';
 import { MessageDrawer } from './MessageDrawer';
 
@@ -215,9 +215,10 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       : []; // error, or still filtering this list
 
   // ── quick filters (F-42): key contains, header name[=value], text anywhere; combine with the JS filter ──
-  const qKey = url.get('fk') ?? '';
-  const qHeader = url.get('fh') ?? '';
-  const qText = (url.get('ft') ?? '').toLowerCase();
+  const [qKey, setQKey] = useUrlText('fk');
+  const [qHeader, setQHeader] = useUrlText('fh');
+  const [ftText, setFt] = useUrlText('ft');
+  const qText = ftText.toLowerCase();
   const quickOn = !!(qKey || qHeader || qText);
   const rows = quickOn
     ? jsRows.filter((m) => {
@@ -573,7 +574,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             label="Key contains"
             mono
             value={qKey}
-            onChange={(e) => url.set({ fk: e.target.value || undefined })}
+            onChange={(e) => setQKey(e.target.value)}
             placeholder="ord_"
           />
         </div>
@@ -582,15 +583,15 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             label="Header"
             mono
             value={qHeader}
-            onChange={(e) => url.set({ fh: e.target.value || undefined })}
+            onChange={(e) => setQHeader(e.target.value)}
             placeholder="region=eu"
           />
         </div>
         <div className="w-[220px]">
           <TextField
             label="Text contains"
-            value={url.get('ft') ?? ''}
-            onChange={(e) => url.set({ ft: e.target.value || undefined })}
+            value={ftText}
+            onChange={(e) => setFt(e.target.value)}
             placeholder="key or value text"
           />
         </div>

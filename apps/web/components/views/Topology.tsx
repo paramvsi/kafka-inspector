@@ -4,7 +4,7 @@ import { Button, Card, EmptyState, SearchInput } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
-import { useUrl } from '../../lib/url';
+import { useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
 
 const W = 1040,
@@ -68,10 +68,10 @@ const DOT: Record<string, string> = {
 };
 
 export function TopologyView() {
-  const url = useUrl();
   const { info } = useKafka();
   const data = useKafkaQuery(['topology'], (c, id) => c.getTopology(id), 2000);
-  const q = (url.get('highlight') ?? '').toLowerCase();
+  const [highlight, setHighlight] = useUrlText('highlight');
+  const q = highlight.toLowerCase();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -112,8 +112,8 @@ export function TopologyView() {
               label="Highlight a topic or group"
               placeholder="Highlight a topic or group"
               shortcut="/"
-              value={url.get('highlight') ?? ''}
-              onChange={(e) => url.set({ highlight: e.target.value })}
+              value={highlight}
+              onChange={(e) => setHighlight(e.target.value)}
             />
             <Button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} aria-label="Zoom out">
               −

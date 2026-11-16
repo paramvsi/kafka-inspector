@@ -954,3 +954,12 @@ test('turning Live tail off and on again starts a running tail, not a paused one
   await page.getByLabel('Live tail').click();
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
 });
+
+test('fast typing into a URL-bound filter keeps every character', async ({ page }) => {
+  await page.goto('/app/topics/');
+  const box = page.getByLabel('Filter topics');
+  await expect(box).toBeVisible({ timeout: 15_000 });
+  await box.pressSequentially('order events', { delay: 0 });
+  await expect(box).toHaveValue('order events');
+  await expect(page).toHaveURL(/[?&]q=order(\+|%20)events/);
+});

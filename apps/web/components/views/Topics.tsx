@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
-import { useUrl } from '../../lib/url';
+import { useUrl, useUrlText } from '../../lib/url';
 import { PageHeader, useReadOnly, WriteButton } from '../Page';
 import { CreateTopicDialog } from './CreateTopic';
 
@@ -50,7 +50,7 @@ export function TopicsView() {
   const url = useUrl();
   const router = useRouter();
   const readOnly = useReadOnly();
-  const q = url.get('q') ?? '';
+  const [q, setQ] = useUrlText('q', { page: undefined });
   const view = (url.get('view') as TopicQuery['view']) ?? 'all';
   const internal = url.get('internal') === '1';
   const sort = (url.get('sort') as TopicQuery['sort']) ?? 'issues';
@@ -136,7 +136,7 @@ export function TopicsView() {
           shortcut="/"
           ref={filterRef}
           value={q}
-          onChange={(e) => url.set({ q: e.target.value, page: undefined })}
+          onChange={(e) => setQ(e.target.value)}
         />
         <SegmentedControl
           label="View"

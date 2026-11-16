@@ -19,13 +19,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
-import { useUrl } from '../../lib/url';
+import { useUrl, useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
 
 export function GroupsView() {
   const url = useUrl();
   const router = useRouter();
-  const q = url.get('q') ?? '';
+  const [q, setQ] = useUrlText('q');
   const type = url.get('type') as GroupType | undefined;
   const live = useStream<GroupSummary[]>('lag');
   const fallback = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
@@ -78,7 +78,7 @@ export function GroupsView() {
           placeholder="Filter groups"
           shortcut="/"
           value={q}
-          onChange={(e) => url.set({ q: e.target.value })}
+          onChange={(e) => setQ(e.target.value)}
         />
         <div className="w-[160px]">
           <Select
