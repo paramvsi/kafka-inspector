@@ -208,3 +208,9 @@ test('a map key named __proto__ survives decoding', () => {
   const v = t.decode(bytes) as Record<string, number>;
   expect(Object.keys(v).sort()).toEqual(['__proto__', 'a']);
 });
+
+test('zero-width items cannot repeat without bound (array<null> with many full blocks)', () => {
+  const t = new AvroType({ type: 'array', items: 'null' });
+  const bytes = Uint8Array.from([...Array(20_000).fill([0x80, 0x80, 0x08]).flat(), 0]);
+  expect(() => t.decode(bytes)).toThrow(/exceed the data/);
+});

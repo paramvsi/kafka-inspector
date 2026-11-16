@@ -172,3 +172,9 @@ test('renamed records are incompatible unless the reader has an alias', () => {
     checkCompatibility('AVRO', rec('com.a.User'), rec('com.b.User'), 'BACKWARD').compatible,
   ).toBe(true);
 });
+
+test('a reader field matches the writer field named in its aliases (BACKWARD)', () => {
+  const w = '{"type":"record","name":"R","fields":[{"name":"a","type":"string"}]}';
+  const r = '{"type":"record","name":"R","fields":[{"name":"b","type":"string","aliases":["a"]}]}';
+  expect(checkCompatibility('AVRO', w, r, 'BACKWARD').compatible).toBe(true);
+});

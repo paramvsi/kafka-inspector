@@ -122,11 +122,14 @@ function check(
   }
   if (rt === 'record') {
     const rf =
-      (r as { fields: Array<{ name: string; type: Avro; default?: unknown }> }).fields ?? [];
+      (r as { fields: Array<{ name: string; type: Avro; default?: unknown; aliases?: string[] }> })
+        .fields ?? [];
     const wf = (w as { fields: Array<{ name: string; type: Avro }> }).fields ?? [];
     let ok = true;
     for (const f of rf) {
-      const g = wf.find((x) => x.name === f.name);
+      // a reader field also matches the writer field named by one of its aliases (Avro resolution)
+      const g =
+        wf.find((x) => x.name === f.name) ?? wf.find((x) => f.aliases?.includes(x.name) ?? false);
       if (g)
         ok = canRead(f.type, g.type, rn, wn, path ? `${path}.${f.name}` : f.name, out, seen) && ok;
       else if (!('default' in f)) {

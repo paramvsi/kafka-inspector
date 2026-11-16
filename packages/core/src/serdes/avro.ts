@@ -276,6 +276,8 @@ interface Reader {
   b: Uint8Array;
   p: number;
   dv: DataView;
+  /** array/map items read so far: zero-width items (null, empty records) must not repeat without bound */
+  items?: number;
 }
 
 /** float32 read as the shortest decimal that is the same float32 (0.1, not 0.10000000149011612). */
@@ -356,6 +358,8 @@ function readBlock(r: Reader): number {
   }
   // every item but null takes ≥ 1 byte: a count far beyond the data is corrupt, not a long array
   if (n > r.b.length - r.p + 65_536) throw new AvroError(`block of ${n} items exceeds the data`);
+  r.items = (r.items ?? 0) + n;
+  if (r.items > r.b.length + 65_536) throw new AvroError(`${r.items} items exceed the data`);
   return n;
 }
 
