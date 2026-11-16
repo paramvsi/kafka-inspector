@@ -330,11 +330,14 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           ].join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(
-      new Blob([body], { type: kind === 'json' ? 'application/json' : 'text/csv' }),
+      // a BOM tells Excel the CSV is UTF-8 (otherwise é, €, 日本 open garbled)
+      new Blob([kind === 'csv' ? `\uFEFF${body}` : body], {
+        type: kind === 'json' ? 'application/json' : 'text/csv;charset=utf-8',
+      }),
     );
     a.download = `${topic}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.${kind}`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 0); // after the download has started
   };
 
   return (

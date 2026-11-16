@@ -1067,3 +1067,18 @@ test('"From time" without a time asks for one instead of claiming the topic is e
   await expect(page.getByText('Pick a date and time to read from.')).toBeVisible();
   await expect(page.getByText('no messages in its retention window')).toHaveCount(0);
 });
+
+test('a CSV export starts with a UTF-8 BOM so Excel reads non-ASCII text', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await expect(
+    page.getByRole('table', { name: 'Messages in orders' }).getByRole('row').nth(5),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export CSV' }).click(),
+  ]);
+  const bytes = (await import('node:fs')).readFileSync(await dl.path());
+  expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+});
