@@ -43,4 +43,12 @@ class ClustersTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> of(c("a", "SASL_SSL", "OAUTHBEARER"))).getMessage().contains("token endpoint"));
         assertDoesNotThrow(() -> of(c("a", "SASL_SSL", "SCRAM-SHA-512"), c("b", "SSL", null)));
     }
+
+    @Test
+    void aZeroSampleIntervalOrTinyWindowStopsStartup() {
+        var c = c("a", "PLAINTEXT", null);
+        assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ZERO, 30, List.of(c)), new MockEnvironment())).getMessage().contains("KI_SAMPLE_INTERVAL"));
+        assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 1, List.of(c)), new MockEnvironment())).getMessage().contains("KI_LAG_WINDOW"));
+        assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ZERO, Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage().contains("KI_HISTORY_RETENTION"));
+    }
 }

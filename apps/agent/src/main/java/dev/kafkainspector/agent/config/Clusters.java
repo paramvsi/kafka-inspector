@@ -26,6 +26,13 @@ public class Clusters {
         if (!props.readOnly()) {
             throw new IllegalStateException("KI_READ_ONLY=false is not supported in this version: the agent is read-only. Remove the variable to start.");
         }
+        // 0 s would sample the user's cluster in a tight loop; a window under 2 samples can't judge lag
+        if (props.sampleInterval().compareTo(java.time.Duration.ofSeconds(1)) < 0)
+            throw new IllegalStateException("KI_SAMPLE_INTERVAL must be at least 1s (it is " + props.sampleInterval() + "). Set it to 10s, the default, or more.");
+        if (props.lagWindow() < 2)
+            throw new IllegalStateException("KI_LAG_WINDOW must be at least 2 samples (it is " + props.lagWindow() + "). Remove it to use 30.");
+        if (props.historyRetention().isNegative() || props.historyRetention().isZero())
+            throw new IllegalStateException("KI_HISTORY_RETENTION must be longer than 0 (it is " + props.historyRetention() + "). Remove it to keep 7d.");
         List<KiProperties.Cluster> list = new ArrayList<>(props.clusters() == null ? List.of() : props.clusters());
         String shortcut = env.getProperty("KAFKA_BOOTSTRAP");
         if (list.isEmpty() && shortcut != null && !shortcut.isBlank()) {

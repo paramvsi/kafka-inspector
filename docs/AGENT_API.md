@@ -85,9 +85,9 @@ Environment variables (or `/config/kafka-inspector.yml` with the same keys in YA
 | `KI_PORT` | `8080` | HTTP port |
 | `KI_DB_URL` | `jdbc:h2:file:/data/ki` | History/alerts DB (PostgreSQL URL allowed) |
 | `KI_DB_USER` / `KI_DB_PASSWORD` | `sa` / empty | DB credentials (for PostgreSQL) |
-| `KI_LAG_WINDOW` | `30` | Samples in the lag window |
-| `KI_HISTORY_RETENTION` | `7d` | Metric history retention |
-| `KI_SAMPLE_INTERVAL` | `10s` | Sampler interval |
+| `KI_LAG_WINDOW` | `30` | Samples in the lag window (at least 2, else startup stops) |
+| `KI_HISTORY_RETENTION` | `7d` | Metric history retention (longer than 0) |
+| `KI_SAMPLE_INTERVAL` | `10s` | Sampler interval (at least `1s`) |
 | `KI_CLUSTERS_0_NAME` | — | Cluster display name |
 | `KI_CLUSTERS_0_BOOTSTRAP` | — | Bootstrap servers |
 | `KI_CLUSTERS_0_SECURITY` | `PLAINTEXT` | PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL |
