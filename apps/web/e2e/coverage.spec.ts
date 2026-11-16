@@ -132,16 +132,16 @@ test('F-41: live tail shows new messages, Pause stops them, Resume continues', a
   const table = page.getByRole('table', { name: 'Messages in orders' });
   await expect(table.getByRole('row').nth(3)).toBeVisible({ timeout: 15_000 });
   await page.getByLabel('Live tail').click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   // live rows arrive in batches: wait for the first tail batch, not the browse rows
   await expect(page.getByText('Waiting for messages…')).toHaveCount(0, { timeout: 15_000 });
   await page.waitForTimeout(1500);
-  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
   const top = await table.getByRole('row').nth(1).innerText();
   const count = await table.getByRole('row').count();
   await page.waitForTimeout(2500);
   expect(await table.getByRole('row').nth(1).innerText()).toBe(top);
-  await page.getByRole('button', { name: 'Resume' }).click();
+  await page.getByRole('button', { name: 'Resume', exact: true }).click();
   await expect
     .poll(() => table.getByRole('row').nth(1).innerText(), { timeout: 10_000 })
     .not.toBe(top);
@@ -792,10 +792,7 @@ test('pausing Live stays paused across pages and tabs', async ({ page }) => {
   await page.goto('/app/');
   await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Live' }).click();
-  await expect(page.getByRole('button', { name: 'Paused' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
+  await expect(page.getByRole('button', { name: 'Paused. Resume live updates' })).toBeVisible();
   const nav = page.getByRole('navigation', { name: 'Main' });
   await nav.getByRole('link', { name: /^Topics/ }).click();
   await page.getByRole('link', { name: 'orders', exact: true }).click();
@@ -1151,7 +1148,7 @@ test('Enter creates a topic; a bad regex says so; a paused Live freezes the tail
   await expect(
     page.getByText('Needs attention').or(page.getByRole('table', { name: 'Messages in orders' })),
   ).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Live', exact: true }).click();
+  await page.getByRole('button', { name: 'Live. Pause live updates' }).click();
   await page.getByLabel('Live tail').click();
   const rows = page.getByRole('table', { name: 'Messages in orders' }).getByRole('row');
   await page.waitForTimeout(1500);
