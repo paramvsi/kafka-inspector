@@ -28,6 +28,27 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * Kafka group ids, registry subjects and saved-filter names may contain "/", sent as %2F in one path segment.
+     * Tomcat rejects %2F by default; pass it through so Spring decodes it into the path variable.
+     */
+    @Bean
+    org.springframework.boot.tomcat.TomcatConnectorCustomizer encodedSlashPassthrough() {
+        return c -> c.setEncodedSolidusHandling("passthrough");
+    }
+
+    /**
+     * The strict firewall, allowing %2F: with passthrough the servlet path keeps a literal "%", so "%" leaves the
+     * decoded blocklist too. "%25" is still refused in the raw URI, so double encoding stays blocked.
+     */
+    @Bean
+    org.springframework.security.web.firewall.HttpFirewall httpFirewall() {
+        var f = new org.springframework.security.web.firewall.StrictHttpFirewall();
+        f.setAllowUrlEncodedSlash(true);
+        f.getDecodedUrlBlocklist().remove("%");
+        return f;
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

@@ -426,6 +426,20 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(34)
+    void namesWithASlashReachTheControllerDecoded() throws Exception {
+        signIn();
+        HttpResponse<String> g = send("GET", "/api/clusters/local/groups/svc%2Fa", null);
+        assertEquals(404, g.statusCode(), () -> "group svc/a → " + g.body());
+        assertTrue(g.body().contains("GROUP_NOT_FOUND") && g.body().contains("svc/a"), g::body);
+        HttpResponse<String> f = send("PUT", "/api/filters/a%2Fb", "{\"expr\":\"true\"}");
+        assertEquals(204, f.statusCode(), () -> "saved filter a/b → " + f.body());
+        assertTrue(get("/api/filters").toString().contains("\"a/b\""), "the filter is stored as a/b");
+        assertEquals(200, send("GET", "/api/clusters/local/groups/order-service", null).statusCode());
+        assertEquals(400, send("GET", "/api/clusters/local/groups/svc%252Fa", null).statusCode(), "double encoding stays refused");
+    }
+
+    @Test
     @Order(31)
     void aDeletedAndRecreatedTopicThatReceivesMessagesIsNotSilent() throws Exception {
         signIn();
