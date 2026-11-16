@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# read-only token: when release.yml calls this workflow, its tests don't need its write scopes
+permissions:
+  contents: read
+
 jobs:
   web:
     runs-on: ubuntu-latest

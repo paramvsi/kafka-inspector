@@ -30,7 +30,7 @@ function Field({
       </label>
       {children}
       {error ? (
-        <div id={`${id}-msg`} className="text-[12px] text-crit-text">
+        <div id={`${id}-msg`} role="alert" className="text-[12px] text-crit-text">
           {error}
         </div>
       ) : hint ? (
@@ -135,7 +135,7 @@ export function Select({
     error ? (
       <span className="flex flex-col gap-1">
         {select}
-        <span id={`${id}-msg`} className="text-[12px] text-crit-text">
+        <span id={`${id}-msg`} role="alert" className="text-[12px] text-crit-text">
           {error}
         </span>
       </span>
@@ -155,8 +155,17 @@ export function Checkbox({
   ...rest
 }: InputHTMLAttributes<HTMLInputElement> & { label: ReactNode }) {
   return (
-    <label className={cx('inline-flex cursor-pointer items-center gap-2 text-[13px]', className)}>
-      <input type="checkbox" className="size-4 cursor-pointer accent-copper" {...rest} />
+    <label
+      className={cx(
+        'inline-flex cursor-pointer items-center gap-2 text-[13px] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45',
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        className="size-4 cursor-pointer accent-copper disabled:cursor-not-allowed"
+        {...rest}
+      />
       {label}
     </label>
   );
@@ -174,7 +183,7 @@ export function Switch({
   disabled?: boolean;
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-[13px]">
+    <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45">
       <button
         type="button"
         role="switch"
@@ -182,7 +191,7 @@ export function Switch({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cx(
-          'relative h-5 w-9 cursor-pointer rounded-full border border-line transition-colors duration-fast ease-standard',
+          'relative h-5 w-9 cursor-pointer rounded-full disabled:cursor-not-allowed border border-line transition-colors duration-fast ease-standard',
           checked ? 'bg-copper' : 'bg-surface-hover',
         )}
       >

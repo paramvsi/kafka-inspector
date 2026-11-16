@@ -999,3 +999,12 @@ test('the virtualised messages table numbers its rows for screen readers', async
     '101',
   );
 });
+
+test('a disabled checkbox looks disabled; a form error is announced', async ({ page }) => {
+  await page.goto('/app/clusters/?add=1');
+  const d = page.getByRole('dialog', { name: 'Add cluster' });
+  const label = d.locator('label', { hasText: 'Read-only (always, in this version)' });
+  expect(Number(await label.evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1);
+  await d.getByLabel('Agent URL').fill('not a url');
+  await expect(d.getByRole('alert')).toContainText('Enter a full URL');
+});
