@@ -824,6 +824,44 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(48)
+    void aTopicTheGroupNoLongerReadsIsntLag() throws Exception {
+        signIn();
+        try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
+                KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
+            admin.createTopics(List.of(new NewTopic("keep-a", 1, (short) 1), new NewTopic("drop-b", 1, (short) 1))).all().get(30, TimeUnit.SECONDS);
+            for (int i = 0; i < 20; i++) { p.send(new ProducerRecord<>("keep-a", "k", "v")); p.send(new ProducerRecord<>("drop-b", "k", "v")); }
+            p.flush();
+        }
+        Map<String, Object> cfg = Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "group.id", "switcher", "auto.offset.reset", "earliest", "enable.auto.commit", "false",
+                "key.deserializer", org.apache.kafka.common.serialization.StringDeserializer.class.getName(), "value.deserializer", org.apache.kafka.common.serialization.StringDeserializer.class.getName());
+        try (var c = new org.apache.kafka.clients.consumer.KafkaConsumer<String, String>(cfg)) {
+            // commit behind on drop-b, then stop reading it while staying in the group
+            c.subscribe(List.of("keep-a", "drop-b"));
+            for (long end = System.currentTimeMillis() + 15_000; System.currentTimeMillis() < end && c.assignment().size() < 2; ) c.poll(Duration.ofMillis(200));
+            c.commitSync(Map.of(new org.apache.kafka.common.TopicPartition("drop-b", 0), new org.apache.kafka.clients.consumer.OffsetAndMetadata(1)));
+            c.subscribe(List.of("keep-a"));
+            JsonNode detail = null;
+            for (long end = System.currentTimeMillis() + 25_000; System.currentTimeMillis() < end; ) {
+                c.poll(Duration.ofMillis(300));
+                c.commitSync();
+                HttpResponse<String> r = send("GET", "/api/clusters/local/groups/switcher", null);
+                if (r.statusCode() == 200) {
+                    detail = JSON.readTree(r.body());
+                    if (detail.toString().contains("keep-a") && detail.path("summary").path("members").asInt() > 0) {
+                        Thread.sleep(2500); // another sample with the member assigned only keep-a
+                        detail = JSON.readTree(send("GET", "/api/clusters/local/groups/switcher", null).body());
+                        break;
+                    }
+                }
+            }
+            final JsonNode d = detail;
+            assertTrue(d != null && d.toString().contains("keep-a"), () -> String.valueOf(d));
+            assertFalse(d.path("partitions").toString().contains("drop-b"), () -> "stale commits counted: " + d.path("partitions"));
+        }
+    }
+
+    @Test
     @Order(47)
     void aRuleWithNoChannelsKeepsNone() throws Exception {
         signIn();

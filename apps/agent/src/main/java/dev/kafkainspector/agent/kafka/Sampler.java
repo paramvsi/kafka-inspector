@@ -273,7 +273,14 @@ public class Sampler {
                 try {
                     Map<TopicPartition, OffsetAndMetadata> m = offs.partitionsToOffsetAndMetadata(id).get(left(offsetsBy), TimeUnit.NANOSECONDS);
                     ClusterState.GroupSnap gs = groups.get(id);
-                    m.forEach((tp, om) -> { if (om != null) gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset()); });
+                    // a group that stopped reading a topic keeps its commits there until offsets.retention (7 days):
+                    // with members assigned, those topics aren't lag (frozen offsets would read Stalled for days)
+                    Set<String> assigned = new HashSet<>();
+                    gs.members.forEach(mm -> mm.assignments.forEach(a -> assigned.add(a[0])));
+                    m.forEach((tp, om) -> {
+                        if (om != null && (assigned.isEmpty() || assigned.contains(tp.topic())))
+                            gs.committed.computeIfAbsent(tp.topic(), k -> new TreeMap<>()).put(tp.partition(), om.offset());
+                    });
                 } catch (Exception e) {
                     log.debug("offsets for group {} failed: {}", id, rootMessage(e));
                     // one failed read must not wipe the group's lag windows: keep the previous offsets this sample
