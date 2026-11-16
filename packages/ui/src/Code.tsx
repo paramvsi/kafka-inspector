@@ -90,6 +90,7 @@ export function JsonTree({
 
 // a 100k-item array must not mount 100k rows at once
 const MAX_CHILDREN = 200;
+const MORE_CHILDREN = 5000; // per click: a 100k-item array mustn't mount at once (the tab freezes)
 
 function Node({
   k,
@@ -107,7 +108,7 @@ function Node({
   masked?: Set<string>;
 }) {
   const [open, setOpen] = useState(depth < 2);
-  const [all, setAll] = useState(false);
+  const [shown, setShown] = useState(MAX_CHILDREN);
   const label = k === null ? '' : /^\d+$/.test(k) ? k : `"${k}"`;
   // a control only when it does something
   const key =
@@ -157,7 +158,7 @@ function Node({
         {open && (
           <>
             <div>
-              {(all ? entries : entries.slice(0, MAX_CHILDREN)).map(([ck, cv]) => (
+              {entries.slice(0, shown).map(([ck, cv]) => (
                 <Node
                   key={ck}
                   k={ck}
@@ -168,14 +169,16 @@ function Node({
                   masked={masked}
                 />
               ))}
-              {!all && entries.length > MAX_CHILDREN && (
+              {entries.length > shown && (
                 <button
                   type="button"
-                  onClick={() => setAll(true)}
+                  onClick={() => setShown(shown + MORE_CHILDREN)}
                   style={{ paddingLeft: 36 }}
                   className="cursor-pointer border-none bg-transparent p-0 font-sans text-[12px] text-copper underline"
                 >
-                  Show all {entries.length.toLocaleString('en-US')}{' '}
+                  {entries.length - shown <= MORE_CHILDREN
+                    ? `Show all ${entries.length.toLocaleString('en-US')}`
+                    : `Show ${MORE_CHILDREN.toLocaleString('en-US')} more of ${entries.length.toLocaleString('en-US')}`}{' '}
                   {Array.isArray(v) ? 'items' : 'keys'}
                 </button>
               )}
