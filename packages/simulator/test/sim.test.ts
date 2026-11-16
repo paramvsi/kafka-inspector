@@ -650,3 +650,19 @@ test('the default topic order is stable across live updates (ties break by name,
     expect(order()).toBe(before);
   }
 });
+
+test('alert mute is validated and unknown events are reported; firing alerts list first', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.advance(70);
+  const events = a.sim.listAlerts({ state: 'all' });
+  const firing = events.filter((e) => e.state === 'firing');
+  expect(firing.length).toBeGreaterThan(0);
+  expect(events.findIndex((e) => e.state !== 'firing')).not.toBeLessThan(firing.length);
+  const id = firing[0]!.id;
+  expect(() => a.sim.muteAlert(id, '2000-01-01T00:00:00Z')).toThrow('in the future');
+  expect(() => a.sim.muteAlert(id, 'soon')).toThrow('ISO 8601');
+  expect(() => a.sim.muteAlert('nope', new Date(Date.now() + 3600e3).toISOString())).toThrow(
+    'No alert event',
+  );
+});

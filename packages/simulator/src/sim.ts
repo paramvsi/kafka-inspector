@@ -1695,20 +1695,33 @@ export class Simulator {
 
   listAlerts(q: AlertQuery = {}): AlertEvent[] {
     const state = q.state ?? 'all';
-    return this.alertEvents
-      .filter((a) => state === 'all' || a.state === state)
-      .sort((a, b) => b.firedAt.localeCompare(a.firedAt))
-      .slice(0, q.limit ?? 200);
+    return (
+      this.alertEvents
+        .filter((a) => state === 'all' || a.state === state)
+        // firing first (as the agent lists them): a long-running alert mustn't drop off behind newer resolved ones
+        .sort(
+          (a, b) =>
+            Number(b.state === 'firing') - Number(a.state === 'firing') ||
+            b.firedAt.localeCompare(a.firedAt),
+        )
+        .slice(0, q.limit ?? 200)
+    );
   }
 
   muteAlert(id: string, until: string): void {
     const a = this.alertEvents.find((x) => x.id === id);
-    if (a) a.mutedUntil = until;
+    if (!a) throw new Error(`No alert event ${id}. It may have been pruned; the list refreshes.`);
+    const t = Date.parse(until);
+    if (Number.isNaN(t)) throw new Error('Give "until" as an ISO 8601 time.');
+    if (t <= this.lastTick) throw new Error('"until" must be in the future.');
+    if (t > this.lastTick + 365 * DAY) throw new Error('Mute for a year at most.');
+    a.mutedUntil = until;
   }
 
   acknowledgeAlert(id: string): void {
     const a = this.alertEvents.find((x) => x.id === id);
-    if (a) a.acknowledged = true;
+    if (!a) throw new Error(`No alert event ${id}. It may have been pruned; the list refreshes.`);
+    a.acknowledged = true;
   }
 
   /** "Would have fired N times in the last 24 h" — replays the rule over recorded history. */
