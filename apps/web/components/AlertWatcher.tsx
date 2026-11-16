@@ -1,6 +1,6 @@
 'use client';
 // Alert delivery (F-82): toast in the app and, for rules that ask for it, a browser notification.
-import type { AlertEvent, AlertRule } from '@ki/core';
+import { shownName, type AlertEvent, type AlertRule } from '@ki/core';
 import { useToast } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -31,8 +31,8 @@ export function AlertWatcher() {
       if (!rule || rule.channels.includes('in-app')) {
         toast({
           tone: a.severity === 'crit' ? 'crit' : a.severity === 'warn' ? 'warn' : 'info',
-          title: `Alert: ${a.title}`,
-          body: a.evidence,
+          title: `Alert: ${shownName(a.title)}`,
+          body: shownName(a.evidence),
           action: { label: 'Open', onClick: () => router.push(a.href) },
         });
       }
@@ -42,7 +42,10 @@ export function AlertWatcher() {
         Notification.permission === 'granted' &&
         document.visibilityState !== 'visible'
       ) {
-        const n = new Notification(`Kafka Inspector · ${a.title}`, { body: a.evidence, tag: a.id });
+        const n = new Notification(`Kafka Inspector · ${shownName(a.title)}`, {
+          body: shownName(a.evidence),
+          tag: a.id,
+        });
         n.onclick = () => {
           window.focus();
           router.push(a.href);

@@ -1,5 +1,5 @@
 'use client';
-import { formatCount, type Topology, type TopologyNode } from '@ki/core';
+import { formatCount, shownName, type Topology, type TopologyNode } from '@ki/core';
 import { Button, Card, EmptyState, SearchInput } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -281,7 +281,7 @@ export function TopologyView() {
                         className={`size-[7px] shrink-0 rounded-full ${DOT[n.status]}`}
                       />
                     )}
-                    <span className="truncate">{n.label}</span>
+                    <span className="truncate">{shownName(n.label)}</span>
                     <span
                       className={`ml-auto shrink-0 text-[10px] tabular-nums ${n.status === 'stalled' || n.status === 'stopped' ? 'text-crit-text' : n.status === 'warn' ? 'text-warn-text' : 'text-ink-muted'}`}
                     >

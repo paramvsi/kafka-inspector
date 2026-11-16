@@ -9,6 +9,7 @@ import {
   type GroupSummary,
   type Overview as OverviewData,
   type Series,
+  shownName,
 } from '@ki/core';
 import { AlertItem, Button, Card, DataTable, KpiCard, Sparkline, StatusBadge } from '@ki/ui';
 import { TimeSeriesChart } from '../Chart';
@@ -282,7 +283,7 @@ function NeedsAttention({ data }: { data: OverviewData }) {
             <AlertItem
               key={a.id}
               severity={a.severity}
-              title={a.title}
+              title={shownName(a.title)}
               detail={a.detail}
               time={formatClock(a.since)}
               href={a.href}
@@ -325,7 +326,7 @@ export function GroupTable({
               className="text-ink no-underline hover:text-copper"
               onClick={(e) => e.stopPropagation()}
             >
-              {g.groupId}
+              {shownName(g.groupId)}
             </Link>
           ),
         },

@@ -7,6 +7,7 @@ import {
   formatRate,
   type GroupDetail as Detail,
   type GroupPartitionLag,
+  shownName,
 } from '@ki/core';
 import {
   Button,
@@ -77,13 +78,13 @@ export function GroupDetailView() {
       </Card>
     );
   }
-  if (!d) return <PageHeader title={id} mono />;
+  if (!d) return <PageHeader title={shownName(id)} mono />;
   const s = d.summary;
   const b = groupBadge(s.status, s.state);
   return (
     <>
       <PageHeader
-        title={id}
+        title={shownName(id)}
         mono
         badges={
           <>
@@ -451,13 +452,13 @@ function Members({ d }: { d: Detail }) {
         </EmptyState>
       }
       columns={[
-        { key: 'c', header: 'Client id', kind: 'id', cell: (m) => m.clientId },
-        { key: 'h', header: 'Host', kind: 'id', cell: (m) => m.host },
+        { key: 'c', header: 'Client id', kind: 'id', cell: (m) => shownName(m.clientId) },
+        { key: 'h', header: 'Host', kind: 'id', cell: (m) => shownName(m.host) },
         {
           key: 'id',
           header: 'Member id',
           kind: 'id',
-          cell: (m) => <span className="text-ink-muted">{m.memberId}</span>,
+          cell: (m) => <span className="text-ink-muted">{shownName(m.memberId)}</span>,
         },
         {
           key: 'a',

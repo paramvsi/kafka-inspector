@@ -8,6 +8,7 @@ import {
   type ConfigEntry,
   type PartitionInfo,
   type TopicDetail as Detail,
+  shownName,
 } from '@ki/core';
 import {
   Button,
@@ -272,7 +273,7 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
                         href={`/app/groups/view/?id=${encodeURIComponent(c.groupId)}`}
                         className="font-mono text-[12px] text-ink no-underline hover:text-copper"
                       >
-                        {c.groupId}
+                        {shownName(c.groupId)}
                       </Link>
                       <StatusBadge status={b.status}>
                         <span className="font-mono tabular-nums">{formatInt(c.lag)}</span>
@@ -421,7 +422,7 @@ function ConsumersTab({ d }: { d: Detail }) {
               href={`/app/groups/view/?id=${encodeURIComponent(c.groupId)}`}
               className="text-ink no-underline hover:text-copper"
             >
-              {c.groupId}
+              {shownName(c.groupId)}
             </Link>
           ),
         },

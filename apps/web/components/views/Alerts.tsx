@@ -9,6 +9,7 @@ import {
   type AlertRuleInput,
   type GroupSummary,
   type Severity,
+  shownName,
 } from '@ki/core';
 import {
   Button,
@@ -136,10 +137,10 @@ export function AlertsView() {
                     className={`mt-[6px] size-2 shrink-0 rounded-full ${a.severity === 'crit' ? 'bg-crit' : a.severity === 'warn' ? 'bg-warn' : 'bg-copper'}`}
                   />
                   <div className="min-w-0 grow">
-                    <h3 className="m-0 text-[13px] font-semibold">{a.title}</h3>
+                    <h3 className="m-0 text-[13px] font-semibold">{shownName(a.title)}</h3>
                     <p className="m-0 mt-1 text-[12px] text-ink-muted">
                       Rule “{r?.name ?? a.ruleId}” · firing for{' '}
-                      {formatDuration(now - Date.parse(a.firedAt))} · {a.evidence}
+                      {formatDuration(now - Date.parse(a.firedAt))} · {shownName(a.evidence)}
                       {muted && ` · muted until ${formatClock(a.mutedUntil!)}`}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -213,7 +214,7 @@ export function AlertsView() {
                 header: 'Alert',
                 cell: (a) => (
                   <Link href={a.href} className="text-ink no-underline hover:text-copper">
-                    {a.title}
+                    {shownName(a.title)}
                   </Link>
                 ),
               },

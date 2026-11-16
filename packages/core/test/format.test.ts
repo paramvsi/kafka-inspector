@@ -27,7 +27,7 @@ test('formatters', () => {
   expect(formatDelta(-3.1)).toBe('−3.1%');
 });
 
-import { formatClock, formatPct } from '../src/format';
+import { formatClock, formatPct, shownName } from '../src/format';
 test('more formatters', () => {
   expect(formatBytes(1_250_000_000_000)).toBe('1.3 TB');
   expect(formatCount(2_500_000_000)).toBe('2.5B');
@@ -76,4 +76,11 @@ test('rotation 10 boundaries: 999.6 B promotes to 1 kB; an invalid time is a das
   expect(formatBytes(999)).toBe('999 B');
   expect(formatClock('not a date')).toBe('—');
   expect(formatClock(Number.NaN)).toBe('—');
+});
+
+test('shownName makes bidi overrides and zero-width characters visible; ordinary names are unchanged', () => {
+  expect(shownName('payments‮prod')).toBe('payments\\u{202E}prod');
+  expect(shownName('fraud​scorer')).toBe('fraud\\u{200B}scorer');
+  expect(shownName('order-service_v2.east')).toBe('order-service_v2.east');
+  expect(shownName('naïve-grüppe')).toBe('naïve-grüppe');
 });

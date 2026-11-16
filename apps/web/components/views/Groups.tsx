@@ -5,6 +5,7 @@ import {
   type ClusterEvent,
   type GroupSummary,
   type GroupType,
+  shownName,
 } from '@ki/core';
 import {
   DataTable,
@@ -134,7 +135,7 @@ export function GroupsView() {
                 onClick={(e) => e.stopPropagation()}
                 className="text-ink no-underline hover:text-copper"
               >
-                {g.groupId}
+                {shownName(g.groupId)}
               </Link>
             ),
           },

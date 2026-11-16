@@ -1,6 +1,6 @@
 'use client';
 import type { GroupSummary, SubjectSummary, TopicSummary } from '@ki/core';
-import { formatCount, formatInt } from '@ki/core';
+import { formatCount, formatInt, shownName } from '@ki/core';
 import { Kbd, SearchIcon, StatusBadge } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -114,7 +114,7 @@ export function CommandPalette({
               text: g.groupId,
               label: (
                 <span className="font-mono">
-                  <Highlight text={g.groupId} q={term} />
+                  <Highlight text={shownName(g.groupId)} q={term} />
                 </span>
               ),
               meta: (

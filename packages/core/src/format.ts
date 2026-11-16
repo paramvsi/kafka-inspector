@@ -110,3 +110,21 @@ export function formatDelta(pct: number): string {
 
 /** Kafka's topic-name rule: letters, digits, ".", "_", "-", at most 249 characters, and not "." or "..". */
 export const TOPIC_NAME = /^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/;
+
+// bidi overrides/isolates, zero-width and other invisible format characters, and C0/C1 controls
+const INVISIBLE = new RegExp(
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point: they're made visible
+  '[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u2069\\ufeff]',
+  'g',
+);
+
+/**
+ * A cluster-supplied name (group id, client id, host, alert title) as shown: invisible and direction-changing
+ * characters become visible escapes, so "pay‮ements" can't display as another name and two ids that differ
+ * only by a zero-width space don't look identical. Display only — links and API calls keep the raw value.
+ */
+export const shownName = (s: string): string =>
+  s.replace(
+    INVISIBLE,
+    (c) => `\\u{${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}}`,
+  );
