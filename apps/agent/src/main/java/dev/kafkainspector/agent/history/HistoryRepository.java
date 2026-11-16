@@ -68,7 +68,10 @@ public class HistoryRepository {
     /** Points [epochMillis, value] from `from` to now, averaged into at most maxPoints buckets. */
     public List<double[]> series(String cluster, String scope, String key, String metric, long from, int maxPoints) {
         long now = System.currentTimeMillis();
-        long bucket = Math.max(1000, (now - from) / maxPoints);
+        // span rounded to whole seconds: a pause between the caller's `from` and this `now` must not change the
+        // bucket width, or the epoch-anchored buckets would regroup the samples and old points would jump
+        long span = Math.round((now - from) / 1000.0) * 1000;
+        long bucket = Math.max(1000, span / maxPoints);
         List<double[]> out = new ArrayList<>();
         // bucket computed once in a subquery: portable across H2 and PostgreSQL
         jdbc.query(

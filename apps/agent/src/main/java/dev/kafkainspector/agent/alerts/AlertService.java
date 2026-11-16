@@ -74,6 +74,7 @@ public class AlertService {
     public void remove(String id) {
         jdbc.update("UPDATE alert_rule SET deleted = TRUE, enabled = FALSE WHERE id = ?", id);
         jdbc.update("UPDATE alert_event SET state = 'resolved', resolved_at = ? WHERE rule_id = ? AND state = 'firing'", System.currentTimeMillis(), id);
+        pending.keySet().removeIf(k -> k.contains("|" + id + "|")); // its timers go with it (evaluate only visits live rules)
     }
 
     public List<Event> events(String state, int limit) {
