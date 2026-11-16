@@ -388,8 +388,11 @@ test.describe('touch layout', () => {
 test('F-47: a masking rule hides a field and the drawer names the rule; F-44 Copy JSON', async ({
   page,
   context,
+  browserName,
 }) => {
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  // clipboard permissions exist only in Chromium; Firefox and WebKit check masking, not the copy
+  if (browserName === 'chromium')
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/app/topics/view/?name=payments&tab=messages');
   await page.getByRole('button', { name: /^Masking/ }).click();
   const dialog = page.getByRole('dialog', { name: /Masking/ });
@@ -403,6 +406,7 @@ test('F-47: a masking rule hides a field and the drawer names the rule; F-44 Cop
   await table.getByRole('row').nth(1).click();
   const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
   await expect(drawer.getByText(/hide merchant/)).toBeVisible();
+  if (browserName !== 'chromium') return;
   await drawer.getByRole('button', { name: 'Copy JSON' }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(JSON.parse(copied)).toHaveProperty('paymentId');
@@ -710,9 +714,9 @@ test('Produce after a reprocess has no leftover key or reprocessed-from header',
   await page.getByRole('button', { name: 'Produce message' }).click();
   const pr = page.getByRole('dialog', { name: 'Produce message' });
   await expect(pr.getByLabel('Key')).toHaveValue('');
-  const headerValues = await pr
-    .locator('input[aria-label="Header value"]')
-    .evaluateAll((es) => es.map((e) => (e as HTMLInputElement).value));
+  // inputValue per field: evaluateAll crashes Firefox's Playwright driver on this dialog (the app is fine)
+  const fields = await pr.locator('input[aria-label="Header value"]').all();
+  const headerValues = await Promise.all(fields.map((f) => f.inputValue()));
   expect(headerValues.some((v) => v.includes('@'))).toBe(false); // no reprocessed-from header
   await pr.getByRole('button', { name: 'Cancel' }).click();
 });
@@ -843,7 +847,11 @@ test('Add cluster refuses credentials in the URL, bad URLs, blank seeds and dupl
 
 test('hand-edited links fall back instead of crashing or showing NaN', async ({ page }) => {
   const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push(e.message));
+  // WebKit on Linux reports a fetch cancelled by the next page.goto as "… due to access control checks":
+  // that's the test navigating away mid-request, not an app error
+  page.on('pageerror', (e) => {
+    if (!/due to access control checks/.test(e.message)) errors.push(e.message);
+  });
   for (const q of ['dk=bogus', 'dv=bogus', 'from=bogus&p=abc', 'msg=abc']) {
     await page.goto(`/app/topics/view/?name=orders&tab=messages&${q}`);
     await expect(page.getByRole('table', { name: 'Messages in orders' })).toBeVisible({

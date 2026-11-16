@@ -279,9 +279,13 @@ test('command palette: ⌘K, type, arrows, Enter navigates; > shows actions only
   await pal.getByRole('combobox').fill('payments.dlq');
   await pal.getByRole('combobox').press('Enter');
   await expect(page).toHaveURL(/name=payments.dlq/);
-  await page.keyboard.press('g');
-  await page.keyboard.press('g');
-  await expect(page).toHaveURL(/\/app\/groups\/$/);
+  // the palette must be gone (focus back on the page) before a shortcut can reach the page's handler
+  await expect(pal).toBeHidden();
+  await expect(async () => {
+    await page.keyboard.press('g');
+    await page.keyboard.press('g');
+    await expect(page).toHaveURL(/\/app\/groups\/$/, { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 });
 
 test('the decode-error hex dump passes contrast in the light theme', async ({ page }) => {
