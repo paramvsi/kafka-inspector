@@ -116,6 +116,9 @@ public class Sampler {
         Map<String, TopicDescription> desc = names.isEmpty() ? Map.of() : admin.describeTopics(names).allTopicNames().get(30, TimeUnit.SECONDS);
         Map<TopicPartition, OffsetSpec> latest = new HashMap<>(), earliest = new HashMap<>();
         desc.values().forEach(d -> d.partitions().forEach(p -> {
+            // a leaderless partition can't answer ListOffsets: asking would time the whole sample out and freeze
+            // the view exactly when a broker is down — it keeps its last offsets instead
+            if (p.leader() == null || p.leader().isEmpty()) return;
             TopicPartition tp = new TopicPartition(d.name(), p.partition());
             latest.put(tp, OffsetSpec.latest());
             earliest.put(tp, OffsetSpec.earliest());
@@ -193,9 +196,9 @@ public class Sampler {
                 ps.leader = p.leader() == null || p.leader().isEmpty() ? null : p.leader().id();
                 p.replicas().forEach(r -> ps.replicas.add(r.id()));
                 p.isr().forEach(r -> ps.isr.add(r.id()));
-                ps.high = hi.containsKey(tp) ? hi.get(tp).offset() : 0;
-                ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : 0;
                 ClusterState.PartSnap pp = prev == null ? null : prev.partitions.stream().filter(x -> x.partition == p.partition()).findFirst().orElse(null);
+                ps.high = hi.containsKey(tp) ? hi.get(tp).offset() : pp != null ? pp.high : 0;
+                ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : pp != null ? pp.low : 0;
                 ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
                 // any change counts as activity: a deleted and re-created topic restarts below the old end
                 ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high != pp.high ? now : pp.lastMessageAt;
@@ -213,8 +216,9 @@ public class Sampler {
 
         // ── brokers ──
         List<ClusterState.BrokerSnap> brokers = new ArrayList<>();
+        // online brokers, plus offline ones that partitions still name: a decommissioned broker drops out
+        // ponytail: an offline broker hosting no replicas drops out too (no "down" event for it)
         Set<Integer> known = new TreeSet<>(online);
-        s.brokers.forEach(b -> known.add(b.id()));
         topics.values().forEach(t -> t.partitions.forEach(p -> known.addAll(p.replicas)));
         for (int id : known) {
             Node n = nodes.stream().filter(x -> x.id() == id).findFirst().orElse(null);
