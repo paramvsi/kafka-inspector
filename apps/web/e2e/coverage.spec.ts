@@ -1170,3 +1170,14 @@ test('muting an alert takes it out of the "N firing" count, as in the bell', asy
   await page.getByRole('button', { name: 'Mute 1 h' }).first().click();
   await expect(sub).toHaveText(new RegExp(`^${n - 1} firing · `), { timeout: 10_000 });
 });
+
+test('a dialog with its own width gets it (the shortcuts dialog is 440 px, not the 560 px default)', async ({
+  page,
+}) => {
+  await page.goto('/app/');
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press('?');
+  const d = page.getByRole('dialog').first();
+  await expect(d).toBeVisible();
+  expect(Math.round((await d.boundingBox())!.width)).toBeLessThanOrEqual(445);
+});

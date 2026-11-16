@@ -97,7 +97,10 @@ export function Dialog({
       ref={ref}
       aria-labelledby={`${id}-t`}
       className={cx(
-        'ki-dialog m-auto w-[560px] max-w-[calc(100vw-32px)] rounded-lg border border-line bg-surface p-0 text-ink',
+        'ki-dialog m-auto max-w-[calc(100vw-32px)] rounded-lg border border-line bg-surface p-0 text-ink',
+        // cx only joins classes: a caller's width wouldn't reliably beat a default one, so the default is
+        // left out when the caller gives a width (w-[440px] used to lose to w-[560px])
+        /(^|\s)w-/.test(className ?? '') ? undefined : 'w-[560px]',
         className,
       )}
     >
