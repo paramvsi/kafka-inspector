@@ -130,14 +130,18 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       !(regex === undefined && from === 'group' && !group) &&
       !(/^\d+$/.test(pRaw) && !partitions),
   );
-  const pageRef = useRef(page.data);
+  // another start, partition or position is another request: the previous page's rows (React Query's
+  // same-topic placeholder) must not stand in for it, nor its cursor feed Load more
+  const pageData = page.isPlaceholderData ? undefined : page.data;
+  const pageLoading = page.isLoading || (page.isPlaceholderData && page.isFetching);
+  const pageRef = useRef(pageData);
   useEffect(() => {
-    pageRef.current = page.data;
+    pageRef.current = pageData;
     setExtra([]);
     setExtraScanned(0);
     setLoadError(undefined); // a new first page: an old "couldn't load more" no longer applies
-    setCursor(page.data?.nextCursor);
-  }, [page.data]);
+    setCursor(pageData?.nextCursor);
+  }, [pageData]);
 
   // ── live tail ──
   const [ring, setRing] = useState<RawMessage[]>([]);
@@ -169,8 +173,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
 
   // stable identity: the decode and filter effects key on it
   const raws = useMemo(
-    () => (live ? ring : [...(page.data?.messages ?? []), ...extra]),
-    [live, ring, page.data, extra],
+    () => (live ? ring : [...(pageData?.messages ?? []), ...extra]),
+    [live, ring, pageData, extra],
   );
 
   // ── decode (async, cached per message + format) ──
@@ -290,7 +294,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [loadError, setLoadError] = useState<string>();
   const loadMore = async () => {
     if (!cursor || loading) return;
-    const base = page.data;
+    const base = pageData;
     setLoading(true);
     setLoadError(undefined);
     try {
@@ -794,7 +798,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                       ? 'Choose where to start'
                       : page.error
                         ? "Couldn't read messages"
-                        : page.isLoading
+                        : pageLoading
                           ? 'Loading messages…'
                           : 'No messages here'
               }
@@ -819,7 +823,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               <span className="font-mono tabular-nums">{formatInt(rows.length)}</span>{' '}
               {rows.length === 1 ? 'message' : 'messages'} ·{' '}
               <span className="font-mono tabular-nums">
-                {formatInt((page.data?.scanned ?? 0) + extraScanned)}
+                {formatInt((pageData?.scanned ?? 0) + extraScanned)}
               </span>{' '}
               scanned
             </span>

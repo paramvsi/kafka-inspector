@@ -1581,3 +1581,12 @@ test('self-host warnings are announced, without an exclamation mark', async ({ p
   await expect(warn).toBeVisible();
   await expect(warn).not.toContainText('!');
 });
+
+test('changing where to start does not leave the previous rows on screen', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const table = page.getByRole('table', { name: 'Messages in orders' });
+  await expect(table.getByRole('row').nth(2)).toBeVisible({ timeout: 15_000 });
+  await page.getByLabel('Start from').selectOption('timestamp');
+  await expect(page.getByText('Choose where to start')).toBeVisible();
+  await expect(table.getByRole('row')).toHaveCount(1); // the header only
+});
