@@ -5,6 +5,8 @@
 # The hosted demo never has an agent: skip the /api/info probe.
 [build.environment]
   NEXT_PUBLIC_KI_MODE = "demo"
+  # same pnpm as package.json "packageManager" (the lockfile needs pnpm 9+)
+  PNPM_VERSION = "10.28.0"
 
 # Every /app route is pre-rendered as <route>/index.html (trailingSlash) and detail pages use query
 # params (/app/topics/view/?name=…), so no SPA rewrite is needed. Unknown paths get out/404.html.
