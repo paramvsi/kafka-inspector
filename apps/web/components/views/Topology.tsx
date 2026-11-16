@@ -91,10 +91,23 @@ export function TopologyView() {
   );
   if (!t)
     return (
-      <PageHeader
-        title="Topology"
-        subtitle="Producers → topics → consumer groups · line width = messages per second"
-      />
+      <>
+        <PageHeader
+          title="Topology"
+          subtitle="Producers → topics → consumer groups · line width = messages per second"
+        />
+        <Card>
+          {data.error ? (
+            <EmptyState title="Couldn't load the topology">
+              {(data.error as Error).message} It retries every few seconds.
+            </EmptyState>
+          ) : (
+            <p className="m-0 p-4 text-[13px] text-ink-muted" role="status">
+              Loading topology…
+            </p>
+          )}
+        </Card>
+      </>
     );
   const max = Math.max(1, ...t.edges.map((e) => e.rate));
   const width = (r: number) => 1.5 + (6 * Math.log10(1 + r)) / Math.log10(1 + max);
@@ -152,6 +165,7 @@ export function TopologyView() {
             drag.current && setPan({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y })
           }
           onPointerUp={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
         >
           <div
             className="origin-top-left"
@@ -269,7 +283,7 @@ export function TopologyView() {
                     )}
                     <span className="truncate">{n.label}</span>
                     <span
-                      className={`ml-auto shrink-0 text-[10px] ${n.status === 'stalled' || n.status === 'stopped' ? 'text-crit-text' : n.status === 'warn' ? 'text-warn-text' : 'text-ink-muted'}`}
+                      className={`ml-auto shrink-0 text-[10px] tabular-nums ${n.status === 'stalled' || n.status === 'stopped' ? 'text-crit-text' : n.status === 'warn' ? 'text-warn-text' : 'text-ink-muted'}`}
                     >
                       {tag}
                     </span>

@@ -1,6 +1,6 @@
 'use client';
 import { formatBytes, formatInt, formatPct } from '@ki/core';
-import { Card, DataTable, Drawer, SearchInput, StatusBadge } from '@ki/ui';
+import { Card, DataTable, Drawer, EmptyState, SearchInput, StatusBadge } from '@ki/ui';
 import { useState } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
@@ -38,13 +38,22 @@ export function BrokersView() {
         title="Brokers"
         subtitle={
           list.length
-            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'} ${overview.data?.cluster.kafkaVersion && overview.data.cluster.kafkaVersion !== 'unknown' ? ` · Kafka ${overview.data.cluster.kafkaVersion}` : ''}`
+            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'}${overview.data?.cluster.kafkaVersion && overview.data.cluster.kafkaVersion !== 'unknown' ? ` · Kafka ${overview.data.cluster.kafkaVersion}` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />
       <DataTable
         caption="Brokers"
         rows={list}
+        empty={
+          brokers.error ? (
+            <EmptyState title="Couldn't list brokers">
+              {(brokers.error as Error).message} It retries every few seconds.
+            </EmptyState>
+          ) : (
+            <EmptyState title="Loading brokers…">{'\u00a0'}</EmptyState>
+          )
+        }
         rowKey={(b) => String(b.id)}
         onRowClick={(b) => url.set({ broker: b.id })}
         rowClassName={(b) => (b.id === selected ? '[&>td]:bg-surface-hover' : undefined)}
@@ -205,7 +214,7 @@ export function BrokersView() {
           </thead>
           <tbody>
             {all
-              .filter((e) => e.name.includes(q))
+              .filter((e) => e.name.toLowerCase().includes(q.toLowerCase()))
               .map((e) => (
                 <tr key={e.name} className="border-t border-line-subtle">
                   <td className="py-1 pr-2 font-mono">{e.name}</td>

@@ -107,11 +107,21 @@ export function GroupsView() {
         rowKey={(g) => g.groupId}
         onRowClick={(g) => router.push(`/app/groups/view/?id=${encodeURIComponent(g.groupId)}`)}
         empty={
-          <EmptyState title={q || type ? 'No groups match' : 'No consumer groups yet'}>
-            {q || type
-              ? 'Clear the filter to see every group.'
-              : 'Groups appear once a consumer commits offsets.'}
-          </EmptyState>
+          !live && !fallback.data ? (
+            fallback.error ? (
+              <EmptyState title="Couldn't list consumer groups">
+                {(fallback.error as Error).message} It retries on the next refresh.
+              </EmptyState>
+            ) : (
+              <EmptyState title="Loading consumer groups…">{'\u00a0'}</EmptyState>
+            )
+          ) : (
+            <EmptyState title={q || type ? 'No groups match' : 'No consumer groups yet'}>
+              {q || type
+                ? 'Clear the filter to see every group.'
+                : 'Groups appear once a consumer commits offsets.'}
+            </EmptyState>
+          )
         }
         columns={[
           {

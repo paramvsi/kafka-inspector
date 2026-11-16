@@ -1221,3 +1221,11 @@ test('a message link to an offset that does not exist says so instead of loading
     drawer.getByText(/past the end of the partition or no longer retained/),
   ).toBeVisible();
 });
+
+test('a link to a deleted alert rule says so instead of opening a blank new-rule form', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/?rule=no-such-rule');
+  await expect(page.getByText('Rule not found')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('dialog', { name: /alert rule/i })).toHaveCount(0);
+});

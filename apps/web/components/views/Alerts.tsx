@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAttempt } from '../../lib/attempt';
 import { axisTime } from '../../lib/axis';
 import { isMuted } from '../../lib/baseline';
+import { previewLabel } from '../../lib/preview';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -84,6 +85,15 @@ export function AlertsView() {
   const ruleOf = (id: string) => rules.data?.find((r) => r.id === id);
   const refresh = () => qc.invalidateQueries({ queryKey: [clusterId, 'alerts'] });
   const editing = url.get('rule');
+  const edited = editing && editing !== 'new' ? ruleOf(editing) : undefined;
+  // a link to a rule that's gone must not open a blank form that saves a new rule
+  const gone = !!editing && editing !== 'new' && !!rules.data && !edited;
+  const setUrl = url.set;
+  useEffect(() => {
+    if (!gone) return;
+    setUrl({ rule: undefined });
+    toast({ tone: 'info', title: 'Rule not found', body: 'It may have been deleted.' });
+  }, [gone, setUrl, toast]);
   return (
     <>
       <PageHeader
@@ -284,8 +294,8 @@ export function AlertsView() {
         </Card>
       </div>
       <RuleDialog
-        open={!!editing}
-        rule={editing && editing !== 'new' ? ruleOf(editing) : undefined}
+        open={editing === 'new' || !!edited}
+        rule={edited}
         onClose={() => url.set({ rule: undefined })}
       />
     </>
@@ -345,7 +355,7 @@ function RuleDialog({
     : { ...r, threshold: undefined };
   const preview = useKafkaQuery(
     ['rule-preview', input.metric, JSON.stringify(input.scope), input.threshold, input.durationSec],
-    (c) => c.previewAlertRule?.(input) ?? Promise.resolve({ firings: 0 }),
+    (c) => (c.previewAlertRule ? c.previewAlertRule(input) : Promise.resolve(null)), // null: this cluster can't replay
     false,
   );
   const target = r.scope.kind === 'specific' ? r.scope.target : undefined;
@@ -542,9 +552,7 @@ function RuleDialog({
           <div className="mb-2 flex text-[12px]">
             <span className="font-semibold">Preview · last 24 h</span>
             <span className="ml-auto text-ink-muted" role="status">
-              {preview.data
-                ? `Would have fired ${preview.data.firings} time${preview.data.firings === 1 ? '' : 's'}`
-                : '…'}
+              {previewLabel(preview.data, preview.error)}
             </span>
           </div>
           {r.metric === 'lag' && (series.data?.length ?? 0) > 1 ? (
@@ -567,11 +575,11 @@ function RuleDialog({
                 },
               ]}
             />
-          ) : (
+          ) : preview.data ? (
             <p className="m-0 text-[12px] text-ink-muted">
               Replayed against the simulator&apos;s recorded history.
             </p>
-          )}
+          ) : null}
         </div>
         <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
           <legend className="mb-1 p-0 text-[12px] font-medium text-ink-muted">Notify</legend>
