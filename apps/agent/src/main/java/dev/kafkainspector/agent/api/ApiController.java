@@ -118,7 +118,7 @@ public class ApiController {
         return out;
     }
 
-    private static final Pattern SENSITIVE = Pattern.compile("(?i)password|secret|token|key");
+    private static final Pattern SENSITIVE = Pattern.compile("(?i)password|secret|token|key|jaas|credential");
 
     private List<Dto.ConfigEntry> configs(String c, ConfigResource r) throws Exception {
         Config cfg;

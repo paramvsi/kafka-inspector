@@ -18,6 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Read-only Schema Registry proxy with server-side credentials (AGENT_API "Schemas"). */
 @Service
 public class SchemaRegistry {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SchemaRegistry.class);
     private final Clusters clusters;
     private final JsonMapper json;
     // one client per cluster: an HTTPS registry signed by a private CA trusts the cluster's truststore too
@@ -57,7 +58,9 @@ public class SchemaRegistry {
             if (r.statusCode() >= 400) throw new IllegalStateException("Schema Registry answered " + r.statusCode() + ": " + r.body());
             return json.readTree(r.body());
         } catch (java.io.IOException e) {
-            throw new IllegalStateException("Couldn't reach the Schema Registry at " + c.schemaRegistry() + ": " + e.getMessage());
+            // the URL may carry credentials (user:pass@): it goes to the log without them, never to the browser
+            log.warn("Schema Registry for cluster {} unreachable at {}: {}", cid, c.schemaRegistry().replaceFirst("//[^/@]*@", "//"), e.toString());
+            throw new IllegalStateException("Couldn't reach the Schema Registry for cluster " + cid + ". Check that it's running and KI_CLUSTERS_n_SCHEMA_REGISTRY is right; the agent log has the detail.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted");

@@ -43,4 +43,17 @@ class SchemaRegistryTest {
             reg.stop(0);
         }
     }
+
+    @Test
+    void anUnreachableRegistryErrorNeverCarriesTheUrlCredentials() throws Exception {
+        int port;
+        try (var probe = new java.net.ServerSocket(0)) {
+            port = probe.getLocalPort(); // closed again: nothing listens there
+        }
+        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://admin:s3cret@127.0.0.1:" + port, null, null);
+        var clusters = new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment());
+        Exception e = org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+                () -> new SchemaRegistry(clusters, JsonMapper.builder().build()).compatibility("local", "x-value", "{}", null));
+        assertTrue(!e.getMessage().contains("s3cret") && !e.getMessage().contains("admin:"), e.getMessage());
+    }
 }
