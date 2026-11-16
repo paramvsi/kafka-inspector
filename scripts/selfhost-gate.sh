@@ -17,8 +17,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 YML
-docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" up -d
+# cleanup armed first: a failed `up` still tears down what it started
 trap 'docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" down -v >/dev/null 2>&1; rm -rf "$OUT"' EXIT
+docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" up -d
 for i in $(seq 1 60); do curl -fs http://localhost:8090/api/health >/dev/null && break; sleep 2; done
 J=$(mktemp)
 curl -fs -c "$J" -b "$J" http://localhost:8090/api/info >/dev/null

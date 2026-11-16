@@ -1,6 +1,6 @@
 name: Nightly
 
-# Full Playwright suite on all three engines (prompts/08). CI on every push runs Chromium only.
+# Full Playwright suite on all three engines. CI on every push runs Chromium only.
 on:
   schedule:
     - cron: '17 3 * * *'

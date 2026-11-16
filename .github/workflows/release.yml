@@ -1,23 +1,26 @@
 name: Release
 
 # Publishes ghcr.io/paramvsi/kafka-inspector:<version> when a v* tag is pushed.
-# Not triggered yet: the product name (DECISIONS Q-01) must be settled before the first image is published.
+# Not triggered yet: the product name must be settled before the first image is published.
 on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write
-  packages: write
+permissions: {} # each job asks for what it needs
 
 jobs:
   # the same checks as CI must pass for the tagged commit before anything is published
   ci:
     uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
 
   image:
     needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # the GitHub release
+      packages: write # the ghcr.io image
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-qemu-action@v3
