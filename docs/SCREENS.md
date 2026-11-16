@@ -44,6 +44,7 @@ Static export cannot pre-render unknown topic/group names, so detail pages use q
 | --- | --- |
 | Loading (first load) | Skeleton blocks shaped like the content (`surface-hover` fills), status line with what's happening |
 | Refreshing | Keep data; subtle Live dot pulse; never blank the table |
+| Boot failed (demo worker or agent unreachable at start) | Status line "Couldn't start: <reason>. Reload the page to try again." — never an endless skeleton |
 | Empty (no data exists) | Explain why + primary action (e.g. "No consumer groups yet") |
 | No results (filtered) | Echo the query, offer clear filter + alternatives (03b) |
 | Error (request failed) | Inline alert in the card: what failed, Retry; keep other cards working |
