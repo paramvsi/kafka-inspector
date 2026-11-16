@@ -230,7 +230,7 @@ class AgentIntegrationTest {
         expect.accept(send("GET", "/api/clusters/local/topics?page=abc", null), 400);
         assertEquals(200, send("GET", "/api/clusters/local/topics?page=2147483647", null).statusCode());
         expect.accept(send("POST", "/api/alerts/events/nope/mute", "{}"), 400);
-        expect.accept(send("POST", "/api/alerts/events/nope/mute", "{\"until\":\"2030-01-01T00:00:00Z\"}"), 404);
+        expect.accept(send("POST", "/api/alerts/events/nope/mute", "{\"until\":\"" + java.time.Instant.now().plusSeconds(7200) + "\"}"), 404);
         expect.accept(send("POST", "/api/alerts/events/nope/ack", null), 404);
         expect.accept(send("POST", "/api/alerts/rules", "{\"name\":\"a\",\"metric\":\"lag\"}"), 400);
         expect.accept(send("GET", "/api/clusters/local/history?metric=bytesOut&scope=topic&key=orders", null), 400);
@@ -516,6 +516,25 @@ class AgentIntegrationTest {
         for (JsonNode e : t.path("edges")) if (e.path("to").asString().equals("group:flow-reader")) edgeRate = e.path("rate").asDouble();
         assertTrue(topicRate > 10, "the topic is busy: " + topicRate);
         assertEquals(0.0, edgeRate, 0.01, "the stopped group reads nothing");
+    }
+
+    @Test
+    @Order(38)
+    void longFiringAlertsStayListedMuteIsValidatedAndPruneCountsFromResolution() throws Exception {
+        signIn();
+        long now = System.currentTimeMillis(), day = 24 * 3_600_000L;
+        String ev = "INSERT INTO alert_event VALUES (?, 'local', 'r-lag-5k', 'warn', 't', 'e', ?, '/', ?, ?, ?, NULL, FALSE)";
+        jdbc.update(ev, "old-firing-x", "old-x", "firing", now - 5 * day, null);
+        for (int i = 0; i < 30; i++) jdbc.update(ev, "newer-res-" + i, "t" + i, "resolved", now - i * 1000, now - i * 1000);
+        JsonNode list = get("/api/alerts/events?state=all&limit=10");
+        assertTrue(list.toString().contains("old-firing-x"), "a long-firing alert fell off the list behind newer resolved ones");
+
+        assertEquals(400, send("POST", "/api/alerts/events/old-firing-x/mute", "{\"until\":\"+1000000000-01-01T00:00:00Z\"}").statusCode());
+        assertEquals(400, send("POST", "/api/alerts/events/old-firing-x/mute", "{\"until\":\"2000-01-01T00:00:00Z\"}").statusCode());
+
+        jdbc.update(ev, "long-then-resolved", "lr", "resolved", now - 8 * day, now - 3_600_000L);
+        history.prune(now);
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE id = 'long-then-resolved'", Integer.class), "pruned right after resolving");
     }
 
     @Test

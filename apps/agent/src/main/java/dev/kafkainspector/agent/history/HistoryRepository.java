@@ -46,7 +46,8 @@ public class HistoryRepository {
         int expired = jdbc.update("DELETE FROM metric_sample WHERE ts < ?", now - props.historyRetention().toMillis());
         int perMinute = step < 60_000 ? jdbc.update("DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 60000) >= ?", now - HOUR, step) : 0;
         int perTen = step < 600_000 ? jdbc.update("DELETE FROM metric_sample WHERE ts < ? AND MOD(ts, 600000) >= ?", now - DAY, step) : 0;
-        int events = jdbc.update("DELETE FROM alert_event WHERE fired_at < ? AND state = 'resolved'", now - 7 * DAY);
+        // kept 7 days after it RESOLVED: an alert that fired 8 days ago and resolved just now stays in history
+        int events = jdbc.update("DELETE FROM alert_event WHERE state = 'resolved' AND COALESCE(resolved_at, fired_at) < ?", now - 7 * DAY);
         if (expired + perMinute + perTen + events > 0) log.debug("History pruned: {} expired, {} + {} downsampled, {} alert events", expired, perMinute, perTen, events);
         return new int[] {expired, perMinute, perTen, events};
     }

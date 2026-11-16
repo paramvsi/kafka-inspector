@@ -79,13 +79,23 @@ public class AlertService {
     public List<Event> events(String state, int limit) {
         String where = state == null || "all".equals(state) ? "" : "firing".equals(state) ? " WHERE state = 'firing'" : " WHERE state = 'resolved'";
         int n = Math.max(1, Math.min(limit, 500));
-        return jdbc.query("SELECT * FROM alert_event" + where + " ORDER BY fired_at DESC LIMIT " + n, (rs, i) -> new Event(rs.getString("id"), rs.getString("rule_id"), rs.getString("severity"), rs.getString("title"), rs.getString("evidence"), rs.getString("target"), rs.getString("href"), rs.getString("state"),
+        // firing first: a long-running alert must not drop off the list behind newer resolved ones
+        return jdbc.query("SELECT * FROM alert_event" + where + " ORDER BY CASE WHEN state = 'firing' THEN 0 ELSE 1 END, fired_at DESC LIMIT " + n, (rs, i) -> new Event(rs.getString("id"), rs.getString("rule_id"), rs.getString("severity"), rs.getString("title"), rs.getString("evidence"), rs.getString("target"), rs.getString("href"), rs.getString("state"),
                 iso(rs.getLong("fired_at")), rs.getObject("resolved_at") == null ? null : iso(rs.getLong("resolved_at")), rs.getObject("muted_until") == null ? null : iso(rs.getLong("muted_until")), rs.getBoolean("acknowledged")));
     }
 
     public void mute(String id, String until) {
         if (until == null) throw new IllegalArgumentException("Give \"until\" as an ISO 8601 time.");
-        if (jdbc.update("UPDATE alert_event SET muted_until = ? WHERE id = ?", Instant.parse(until).toEpochMilli(), id) == 0) throw notFound(id);
+        long t;
+        try {
+            t = Instant.parse(until).toEpochMilli();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("\"until\" is too far in the future.");
+        }
+        long now = System.currentTimeMillis();
+        if (t <= now) throw new IllegalArgumentException("\"until\" must be in the future.");
+        if (t > now + 365L * 24 * 3_600_000) throw new IllegalArgumentException("Mute for a year at most.");
+        if (jdbc.update("UPDATE alert_event SET muted_until = ? WHERE id = ?", t, id) == 0) throw notFound(id);
     }
 
     public void acknowledge(String id) {
