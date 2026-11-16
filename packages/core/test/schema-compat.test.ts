@@ -178,3 +178,16 @@ test('a reader field matches the writer field named in its aliases (BACKWARD)', 
   const r = '{"type":"record","name":"R","fields":[{"name":"b","type":"string","aliases":["a"]}]}';
   expect(checkCompatibility('AVRO', w, r, 'BACKWARD').compatible).toBe(true);
 });
+
+test('Protobuf pairs are "not checked", not incompatible, and never crash the diff', () => {
+  const r = checkCompatibility('PROTOBUF', 'syntax = "proto3";', 'syntax = "proto3";', 'BACKWARD');
+  expect(r.checked).toBe(false);
+  expect(diffFields('PROTOBUF', 'syntax = "proto3";', 'syntax = "proto3";')).toEqual([]);
+  expect(diffFields('JSON', '{', '{}')).toEqual([]);
+});
+
+test('a JSON Schema candidate that is not an object is refused with a message, not a TypeError', () => {
+  const r = checkCompatibility('JSON', '{"type":"object"}', 'null', 'BACKWARD');
+  expect(r.compatible).toBe(false);
+  expect(r.messages[0]).toBe('A JSON Schema must be a JSON object.');
+});

@@ -347,6 +347,8 @@ export interface SchemaVersion {
 export interface CompatibilityResult {
   compatible: boolean;
   messages: string[];
+  /** false: this pair wasn't checked (e.g. Protobuf in v1) — not the same as incompatible */
+  checked?: boolean;
 }
 
 export interface TopologyNode {

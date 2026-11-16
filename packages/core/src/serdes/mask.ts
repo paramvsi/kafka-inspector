@@ -51,6 +51,21 @@ export interface MaskResult {
 
 export function applyMasks(value: unknown, topic: string, rules: MaskRule[]): MaskResult {
   const applied: MaskResult['applied'] = [];
+  // "Show as text" of a JSON body: mask the parsed JSON and give the text back, so text views don't leak
+  if (typeof value === 'string' && rules.some((r) => topicMatches(r.topics, topic))) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return { value, applied };
+    }
+    if (parsed !== null && typeof parsed === 'object') {
+      const r = applyMasks(parsed, topic, rules);
+      return r.applied.length
+        ? { value: JSON.stringify(r.value), applied: r.applied }
+        : { value, applied };
+    }
+  }
   if (value === null || typeof value !== 'object') return { value, applied };
   const copy = structuredClone(value) as Record<string, unknown>;
   for (const rule of rules) {

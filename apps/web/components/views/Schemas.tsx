@@ -256,6 +256,18 @@ function Verdict({
   backward: CompatibilityResult;
   forward: CompatibilityResult;
 }) {
+  if (backward.checked === false)
+    return (
+      <Card
+        title={
+          <span className="flex items-center gap-3">
+            Compatibility <StatusBadge status="neutral">Not checked</StatusBadge>
+          </span>
+        }
+      >
+        <p className="m-0 text-[13px] leading-5 text-ink-muted">{backward.messages[0]}</p>
+      </Card>
+    );
   const code = (s: string) => <code className="font-mono text-[12px] text-ink">{s}</code>;
   const join = (xs: React.ReactNode[]) =>
     xs.flatMap((x, i) => (i === 0 ? [x] : i === xs.length - 1 ? [' and ', x] : [', ', x]));
@@ -399,10 +411,10 @@ function CheckDialog({
         {result && (
           <div
             role="status"
-            className={`rounded-md p-3 text-[13px] ${result.compatible ? 'bg-ok-soft' : 'bg-crit-soft'}`}
+            className={`rounded-md p-3 text-[13px] ${result.checked === false ? 'bg-surface-hover' : result.compatible ? 'bg-ok-soft' : 'bg-crit-soft'}`}
           >
             <div className="font-semibold">
-              {result.compatible ? 'Compatible' : 'Not compatible'}
+              {result.checked === false ? 'Not checked' : result.compatible ? 'Compatible' : 'Not compatible'}
             </div>
             {result.messages.length > 0 && (
               <ul className="m-0 mt-1 pl-4">

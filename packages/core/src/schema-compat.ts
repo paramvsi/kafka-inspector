@@ -229,6 +229,15 @@ function jsonCheck(
   } catch {
     return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
   }
+  if (
+    !o ||
+    typeof o !== 'object' ||
+    Array.isArray(o) ||
+    !n ||
+    typeof n !== 'object' ||
+    Array.isArray(n)
+  )
+    return { compatible: false, messages: ['A JSON Schema must be a JSON object.'] };
   const messages: string[] = [];
   const backward = mode.startsWith('BACKWARD') || mode.startsWith('FULL');
   const forward = mode.startsWith('FORWARD') || mode.startsWith('FULL');
@@ -247,7 +256,11 @@ function jsonCheck(
   if (forward)
     for (const r of o.required ?? [])
       if (!np[r]) messages.push(`Forward: ${r} was removed but old consumers require it.`);
-  return { compatible: mode === 'NONE' || messages.length === 0, messages };
+  const compatible = mode === 'NONE' || messages.length === 0;
+  // say what "compatible" covers: nested objects, items, enums, $ref and oneOf aren't compared
+  if (compatible)
+    messages.push('Checked top-level properties, their types and required fields only.');
+  return { compatible, messages };
 }
 
 export function checkCompatibility(
@@ -263,7 +276,11 @@ export function checkCompatibility(
     };
   if (type === 'AVRO') return avroCheck(oldSchema, newSchema, mode);
   if (type === 'JSON') return jsonCheck(oldSchema, newSchema, mode);
-  return { compatible: false, messages: ['Protobuf compatibility checks are planned for v2.'] };
+  return {
+    compatible: false,
+    checked: false,
+    messages: ['Not checked: Protobuf compatibility checks are planned for v2.'],
+  };
 }
 
 export interface FieldChange {
@@ -280,8 +297,14 @@ export function diffFields(
   oldSchema: string,
   newSchema: string,
 ): FieldChange[] {
+  if (type === 'PROTOBUF') return []; // .proto source: no field diff in v1
   const fields = (s: string): Array<{ name: string; type: string; hasDefault: boolean }> => {
-    const j = JSON.parse(s);
+    let j;
+    try {
+      j = JSON.parse(s) ?? {};
+    } catch {
+      return []; // a version that isn't valid JSON can't be diffed (and mustn't crash the page)
+    }
     if (type === 'AVRO') {
       const named: Named = new Map();
       collect(j, named);

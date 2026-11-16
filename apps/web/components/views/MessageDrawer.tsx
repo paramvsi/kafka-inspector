@@ -11,7 +11,7 @@ import {
 } from '../../lib/serdes';
 import { useUrl } from '../../lib/url';
 import { useReadOnly } from '../Page';
-import { decode as decodeBytes } from '@ki/core';
+import { applyMasks, decode as decodeBytes } from '@ki/core';
 
 export function MessageDrawer({
   topic,
@@ -74,7 +74,7 @@ export function MessageDrawer({
       );
       setAlt({
         label: `Decoded with latest ${subject} (v${latest.version}, id ${latest.id})`,
-        value: r.ok ? r.value : `Still failed: ${r.detail}`,
+        value: r.ok ? applyMasks(r.value, m.topic, rules).value : `Still failed: ${r.detail}`, // masks apply here too
       });
     } catch (e) {
       setAlt({

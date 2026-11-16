@@ -316,3 +316,20 @@ test('a NaN or Infinity double previews as itself, not "null"', async () => {
   const r2 = await decode(b, 'double', undefined);
   expect(r2.ok && r2.text).toBe('-Infinity');
 });
+
+test('masks also apply to a JSON body shown as text', () => {
+  const rules = [
+    {
+      id: 'm',
+      name: 'hide email',
+      topics: 'orders',
+      path: '$.email',
+      action: 'mask',
+      enabled: true,
+    },
+  ];
+  const r = applyMasks('{"orderId":"o1","email":"a@b.c"}', 'orders', rules as never);
+  expect(r.value).not.toContain('a@b.c');
+  expect(r.applied).toHaveLength(1);
+  expect(applyMasks('plain text', 'orders', rules as never).value).toBe('plain text');
+});
