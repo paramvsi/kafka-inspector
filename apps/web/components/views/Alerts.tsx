@@ -31,6 +31,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAttempt } from '../../lib/attempt';
 import { axisTime } from '../../lib/axis';
 import { isMuted } from '../../lib/baseline';
+import { useStickyError } from '../../lib/stickyError';
 import { previewLabel } from '../../lib/preview';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
@@ -78,6 +79,9 @@ export function AlertsView() {
     3000,
   );
   const rules = useKafkaQuery(['alert-rules'], (c) => c.listAlertRules(), 3000);
+  // a failed load must never read as "Nothing is firing" (an all-clear that isn't one)
+  const alertsFailed = useStickyError(all, 'alerts');
+  const rulesFailed = useStickyError(rules, 'alert-rules');
   const now = Date.now();
   const firing = (firingLive ?? all.data?.filter((a) => a.state === 'firing') ?? []).filter(
     (a) => !a.acknowledged,
@@ -109,13 +113,20 @@ export function AlertsView() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.9fr_1fr]">
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="section-title m-0">Firing</h2>
-          {firing.length === 0 && (
-            <Card>
-              <EmptyState title="Nothing is firing">
-                Rules are checked every second against live metrics.
-              </EmptyState>
-            </Card>
-          )}
+          {firing.length === 0 &&
+            (alertsFailed && !firingLive ? (
+              <Card>
+                <EmptyState title="Couldn't load alerts">
+                  {(alertsFailed as Error).message} It retries every few seconds.
+                </EmptyState>
+              </Card>
+            ) : (
+              <Card>
+                <EmptyState title="Nothing is firing">
+                  Rules are checked every second against live metrics.
+                </EmptyState>
+              </Card>
+            ))}
           {firing.map((a) => {
             const r = ruleOf(a.ruleId);
             const muted = isMuted(a, now);
@@ -200,7 +211,15 @@ export function AlertsView() {
             caption="Alert history"
             rows={history.slice(0, 50)}
             rowKey={(a) => a.id}
-            empty={<EmptyState title="No alerts in the last 24 hours" />}
+            empty={
+              alertsFailed ? (
+                <EmptyState title="Couldn't load alert history">
+                  {(alertsFailed as Error).message}
+                </EmptyState>
+              ) : (
+                <EmptyState title="No alerts in the last 24 hours" />
+              )
+            }
             columns={[
               {
                 key: 'w',
@@ -249,6 +268,11 @@ export function AlertsView() {
           }
           className="self-start"
         >
+          {!!rulesFailed && !rules.data && (
+            <p className="m-0 text-[13px] text-crit-text" role="alert">
+              Couldn&apos;t load the rules: {(rulesFailed as Error).message}
+            </p>
+          )}
           <ul className="m-0 flex list-none flex-col p-0">
             {(rules.data ?? []).map((r) => (
               <li
