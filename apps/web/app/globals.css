@@ -76,6 +76,21 @@
   --animate-live-pulse: ki-pulse var(--pulse-period) var(--ease-standard) infinite;
 }
 
+/* Tailwind 4 has no --duration-* theme namespace: without these, every duration-* class was missing from the CSS
+   and colour transitions ran at the 150 ms default, even under reduced motion (MOTION.md: ≤ 120 ms). */
+@utility duration-instant {
+  transition-duration: var(--dur-instant);
+}
+@utility duration-fast {
+  transition-duration: var(--dur-fast);
+}
+@utility duration-base {
+  transition-duration: var(--dur-base);
+}
+@utility duration-slow {
+  transition-duration: var(--dur-slow);
+}
+
 @keyframes ki-pulse {
   50% {
     opacity: 0.4;

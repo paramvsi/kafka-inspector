@@ -206,7 +206,7 @@ export function HexDump({
   caption?: ReactNode;
 }) {
   const tone = [
-    'bg-copper-soft text-copper',
+    'bg-copper-soft text-copper-strong', // copper on copper-soft is 4.17:1 in light; strong is 5.5:1
     'bg-surface-hover text-ink underline decoration-copper underline-offset-2',
     'bg-surface-hover text-ink',
   ];

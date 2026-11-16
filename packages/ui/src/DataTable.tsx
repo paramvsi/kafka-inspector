@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+'use client';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from './cx';
 
 export interface Column<T> {
@@ -49,11 +50,35 @@ export function DataTable<T>({
   className,
   stale,
 }: DataTableProps<T>) {
+  // a table wider than its box scrolls sideways: then the scroll area must take keyboard focus (WCAG 2.1.1);
+  // only then, so tables that fit add no tab stop
+  const scroller = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => setScrolls(el.scrollWidth > el.clientWidth + 1);
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    check();
+    return () => ro.disconnect();
+  }, []);
   return (
     <div
       className={cx('min-w-0 overflow-hidden rounded-lg border border-line bg-surface', className)}
     >
-      <div className="overflow-x-auto">
+      <div
+        ref={scroller}
+        className="overflow-x-auto"
+        {...(scrolls
+          ? {
+              tabIndex: 0,
+              role: 'region',
+              'aria-label': caption,
+            }
+          : {})}
+      >
         <table
           className={cx(
             'w-full border-separate border-spacing-0 text-[13px]',

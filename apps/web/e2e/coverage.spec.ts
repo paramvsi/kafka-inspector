@@ -1276,3 +1276,33 @@ test('a mistyped address gets a branded page with a way back, not a bare 404', a
     /\/app\/?$/,
   );
 });
+
+test('duration utilities come from the motion tokens (rule 11), including under reduced motion', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  const row = page.getByRole('row').nth(1);
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const [got, token] = await row.evaluate((el) => [
+    getComputedStyle(el).transitionDuration,
+    getComputedStyle(document.documentElement).getPropertyValue('--dur-instant').trim(),
+  ]);
+  // the row uses duration-instant: its duration is the token, not Tailwind's 150 ms default
+  expect(got).not.toBe('0.15s');
+  const ms = (v: string) => (v.endsWith('ms') ? parseFloat(v) : parseFloat(v) * 1000);
+  expect(ms(got)).toBeCloseTo(ms(token), 3);
+});
+
+test.describe('touch layout tables', () => {
+  test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true });
+  test('a table that scrolls sideways can be reached by keyboard; one that fits adds no tab stop', async ({
+    page,
+  }) => {
+    await page.goto('/app/topics/view/?name=orders&tab=partitions');
+    const region = page.getByRole('region', { name: /partitions/i });
+    await expect(region).toBeVisible({ timeout: 15_000 });
+    await expect(region).toHaveAttribute('tabindex', '0');
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await expect(page.locator('.overflow-x-auto[tabindex]')).toHaveCount(0);
+  });
+});
