@@ -14,11 +14,21 @@ type Sub =
       kind: 'tail';
       req: Parameters<Simulator['tail']>[0];
       cb: Parameters<Simulator['tail']>[1];
+      onError?: (message: string) => void;
       off?: () => void;
     };
 const subs = new Map<number, Sub>();
 const attach = (s: Sub) => {
-  s.off = s.kind === 'events' ? sim!.onEvent(s.cb) : sim!.tail(s.req, s.cb);
+  if (s.kind === 'events') {
+    s.off = sim!.onEvent(s.cb);
+    return;
+  }
+  try {
+    s.off = sim!.tail(s.req, s.cb, s.onError);
+  } catch (e) {
+    // the topic doesn't exist (or no longer, after a reboot): say so instead of an unhandled rejection
+    s.onError?.((e as Error).message);
+  }
 };
 
 async function boot(seed?: string): Promise<void> {
@@ -79,6 +89,7 @@ const api = new Proxy(
             kind: 'tail',
             req: args[0] as Parameters<Simulator['tail']>[0],
             cb: args[1] as Parameters<Simulator['tail']>[1],
+            onError: args[2] as ((message: string) => void) | undefined,
           };
           attach(s);
           subs.set(id, s);

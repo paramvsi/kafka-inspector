@@ -251,7 +251,12 @@ export class Simulator {
   private listeners = new Set<Listener>();
   private tails = new Map<
     number,
-    { req: TailRequest; next: Map<number, number>; cb: (b: RawMessage[]) => void }
+    {
+      req: TailRequest;
+      next: Map<number, number>;
+      cb: (b: RawMessage[]) => void;
+      onError?: (message: string) => void;
+    }
   >();
   private tailSeq = 0;
   private lastTick = 0;
@@ -724,26 +729,38 @@ export class Simulator {
       l('metrics', overview);
       l('lag', groups);
       l('events', overview.events);
+      // newest first, as listAlerts and the agent stream order them (the list mustn't reorder when the stream takes over)
       l(
         'alerts',
-        this.alertEvents.filter((a) => a.state === 'firing'),
+        this.alertEvents
+          .filter((a) => a.state === 'firing')
+          .sort((a, b) => b.firedAt.localeCompare(a.firedAt)),
       );
     }
   }
 
-  tail(req: TailRequest, cb: (batch: RawMessage[]) => void): () => void {
+  tail(
+    req: TailRequest,
+    cb: (batch: RawMessage[]) => void,
+    onError?: (message: string) => void,
+  ): () => void {
     const id = ++this.tailSeq;
     const next = new Map<number, number>();
     for (const s of this.topicParts(req.topic))
       if (req.partition === 'all' || req.partition === s.p) next.set(s.p, Math.floor(s.end));
-    this.tails.set(id, { req, next, cb });
+    this.tails.set(id, { req, next, cb, onError });
     return () => this.tails.delete(id);
   }
 
   private emitTails(): void {
-    for (const t of this.tails.values()) {
+    for (const [id, t] of this.tails) {
       const ps = this.parts.get(t.req.topic);
-      if (!ps) continue;
+      // deleted (or re-created with other partitions): end the tail with the agent's message, don't idle on old offsets
+      if (!ps || [...t.next.keys()].some((p) => !ps[p] || ps[p].end < t.next.get(p)!)) {
+        this.tails.delete(id);
+        t.onError?.(`Topic ${t.req.topic} was deleted. The live tail stopped.`);
+        continue;
+      }
       const maxRate = t.req.maxRate ?? 50;
       const fresh: Array<{ s: PState; offsets: number[] }> = [];
       let total = 0;
@@ -851,7 +868,11 @@ export class Simulator {
         underMinIsr,
         activeController: this.controllerId(),
         activeAlerts: this.alertEvents.filter(
-          (a) => a.state === 'firing' && !(a.mutedUntil && Date.parse(a.mutedUntil) > t),
+          // as the agent counts them: acknowledged alerts aren't active
+          (a) =>
+            a.state === 'firing' &&
+            !a.acknowledged &&
+            !(a.mutedUntil && Date.parse(a.mutedUntil) > t),
         ).length,
         topics: this.topics.size,
         groups: groups.length,

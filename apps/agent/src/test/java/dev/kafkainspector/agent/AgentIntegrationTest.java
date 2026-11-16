@@ -824,6 +824,19 @@ class AgentIntegrationTest {
     }
 
     @Test
+    @Order(47)
+    void aRuleWithNoChannelsKeepsNone() throws Exception {
+        signIn();
+        HttpResponse<String> made = send("POST", "/api/alerts/rules", "{\"name\":\"quiet\",\"metric\":\"lag\",\"scope\":{\"kind\":\"any\"},\"threshold\":1000000,\"durationSec\":60,\"severity\":\"info\",\"channels\":[],\"enabled\":true}");
+        assertTrue(made.statusCode() < 300, made::body);
+        JsonNode rule = JSON.readTree(made.body());
+        assertEquals(0, rule.path("channels").size(), made::body);
+        boolean listed = false;
+        for (JsonNode r : get("/api/alerts/rules")) if (r.path("name").asString().equals("quiet")) { listed = true; assertEquals(0, r.path("channels").size(), r::toString); }
+        assertTrue(listed);
+    }
+
+    @Test
     @Order(46)
     void oddRequestsGetTheEnvelope() throws Exception {
         signIn();

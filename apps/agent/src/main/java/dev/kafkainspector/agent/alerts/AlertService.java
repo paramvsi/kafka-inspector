@@ -35,7 +35,7 @@ public class AlertService {
 
     public List<Rule> rules() {
         return jdbc.query("SELECT * FROM alert_rule WHERE deleted = FALSE ORDER BY name, id", (rs, i) -> new Rule(rs.getString("id"), rs.getString("name"), rs.getString("metric"), new Scope(rs.getString("scope_kind"), rs.getString("scope_target")),
-                rs.getObject("threshold") == null ? null : rs.getDouble("threshold"), rs.getInt("duration_sec"), rs.getString("severity"), List.of(rs.getString("channels").split(",")), rs.getBoolean("enabled"), rs.getBoolean("muted"), stateOf(rs.getString("id"))));
+                rs.getObject("threshold") == null ? null : rs.getDouble("threshold"), rs.getInt("duration_sec"), rs.getString("severity"), java.util.Arrays.stream(rs.getString("channels").split(",")).filter(c -> !c.isBlank()).toList(), rs.getBoolean("enabled"), rs.getBoolean("muted"), stateOf(rs.getString("id"))));
     }
 
     private String stateOf(String ruleId) {
@@ -59,7 +59,8 @@ public class AlertService {
         String id = create ? "r_" + java.util.UUID.randomUUID().toString().substring(0, 12) : r.id();
         String scopeKind = r.scope() == null ? "any" : r.scope().kind();
         String scopeTarget = r.scope() == null ? null : r.scope().target();
-        String channels = String.join(",", r.channels() == null || r.channels().isEmpty() ? List.of("in-app") : r.channels());
+        // omitted → in-app; an explicit empty list means "no notifications" (as the demo keeps it), not in-app
+        String channels = String.join(",", r.channels() == null ? List.of("in-app") : r.channels());
         // a deleted rule stays deleted: PUT on its id is a 404, not a revival
         int updated = jdbc.update("UPDATE alert_rule SET name = ?, metric = ?, scope_kind = ?, scope_target = ?, threshold = ?, duration_sec = ?, severity = ?, channels = ?, enabled = ?, muted = ? WHERE id = ? AND deleted = FALSE",
                 r.name(), r.metric(), scopeKind, scopeTarget, r.threshold(), r.durationSec(), r.severity(), channels, r.enabled(), Boolean.TRUE.equals(r.muted()), id);

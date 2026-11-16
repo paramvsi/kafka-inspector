@@ -854,3 +854,24 @@ test('a second poison message is refused while one is running, so stopping it ca
   h.advance(15);
   expect(h.sim.getGroup('fraud-scorer').summary.status).toBe('stalled');
 });
+
+test('acknowledged alerts aren’t active; a deleted topic ends its live tail with a message', async () => {
+  const h = make();
+  await h.init();
+  h.advance(30);
+  const firing = h.sim.listAlerts({ state: 'firing' } as never);
+  expect(firing.length).toBeGreaterThan(0);
+  const before = h.sim.getOverview().kpis.activeAlerts;
+  h.sim.acknowledgeAlert(firing[0]!.id);
+  expect(h.sim.getOverview().kpis.activeAlerts).toBe(before - 1);
+  await h.sim.createTopic({ name: 'brief', partitions: 1, replicationFactor: 1 } as never);
+  const errors: string[] = [];
+  h.sim.tail(
+    { topic: 'brief', partition: 'all' } as never,
+    () => {},
+    (m) => errors.push(m),
+  );
+  await h.sim.deleteTopic('brief');
+  h.advance(2);
+  expect(errors).toEqual(['Topic brief was deleted. The live tail stopped.']);
+});

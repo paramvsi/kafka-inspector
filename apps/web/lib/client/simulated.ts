@@ -61,8 +61,18 @@ export function createSimulatedClient(): KafkaClient {
     getTopicConfig: (_c, name) => call('getTopicConfig', name),
     browse: (_c, req) => call('browse', req),
     search: (_c, req) => call('search', req),
-    tail: (_c, req: TailRequest, onBatch: (b: RawMessage[]) => void) => {
-      const id = call<number>('tailStart', req, Comlink.proxy(onBatch));
+    tail: (
+      _c,
+      req: TailRequest,
+      onBatch: (b: RawMessage[]) => void,
+      onError?: (m: string) => void,
+    ) => {
+      const id = call<number>(
+        'tailStart',
+        req,
+        Comlink.proxy(onBatch),
+        onError ? Comlink.proxy(onError) : undefined,
+      );
       // after the worker died both reject: nothing to release, and no unhandled rejection
       return () => void id.then((i) => call('release', i)).catch(() => undefined);
     },
