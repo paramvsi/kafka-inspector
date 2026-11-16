@@ -163,19 +163,24 @@ export function ChaosView() {
     )
     .slice(0, 8);
   const groupNames = (groups ?? []).map((g) => g.groupId);
-  const optionsFor = (t?: 'group' | 'topic' | 'broker') =>
-    t === 'group'
-      ? groupNames.filter((g) => g !== 'notify-workers').map((g) => ({ value: g, label: g }))
-      : t === 'topic'
-        ? [
-            { value: '*', label: 'all topics' },
-            ...(topics.data?.items ?? [])
-              .filter((x) => x.messagesInPerSec > 0)
-              .map((x) => ({ value: x.name, label: x.name })),
-          ]
-        : t === 'broker'
-          ? [1, 2, 3].map((b) => ({ value: String(b), label: `broker ${b}` }))
-          : [];
+  const optionsFor = (t?: 'group' | 'topic' | 'broker', kind?: string) =>
+    kind === 'hot-partition'
+      ? // one topic, with enough partitions for its 40% to show as skew (the simulator refuses the rest)
+        (topics.data?.items ?? [])
+          .filter((x) => x.messagesInPerSec > 0 && x.partitions >= 6)
+          .map((x) => ({ value: x.name, label: x.name }))
+      : t === 'group'
+        ? groupNames.filter((g) => g !== 'notify-workers').map((g) => ({ value: g, label: g }))
+        : t === 'topic'
+          ? [
+              { value: '*', label: 'all topics' },
+              ...(topics.data?.items ?? [])
+                .filter((x) => x.messagesInPerSec > 0)
+                .map((x) => ({ value: x.name, label: x.name })),
+            ]
+          : t === 'broker'
+            ? [1, 2, 3].map((b) => ({ value: String(b), label: `broker ${b}` }))
+            : [];
 
   return (
     <>
@@ -259,7 +264,7 @@ export function ChaosView() {
                       hideLabel
                       value={target}
                       onChange={(e) => setTargets({ ...targets, [a.kind]: e.target.value })}
-                      options={optionsFor(a.target)}
+                      options={optionsFor(a.target, a.kind)}
                       className="h-control-sm font-mono text-[12px]"
                     />
                   </div>

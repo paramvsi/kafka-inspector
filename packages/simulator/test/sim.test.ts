@@ -888,3 +888,13 @@ test('with a broker down, Overview messages-in matches what the topics take (lea
     .reduce((a, t) => a + t.messagesInPerSec, 0);
   expect(overview).toBeCloseTo(topics, 0);
 });
+
+test('a hot partition needs enough partitions for its 40% to read as skew', async () => {
+  const h = make();
+  await h.init();
+  expect(() => h.sim.runChaos({ kind: 'hot-partition', target: 'experiments' })).toThrow(
+    '6 or more partitions',
+  );
+  h.sim.runChaos({ kind: 'hot-partition', target: 'orders' });
+  expect(h.sim.getOverview().attention.some((i) => i.id === 'skew-orders')).toBe(true);
+});

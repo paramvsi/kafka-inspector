@@ -2325,6 +2325,11 @@ export class Simulator {
         target ||= 'orders';
         const def = this.topics.get(target);
         if (!def) throw new Error(`Topic ${target} not found.`);
+        // 40% only reads as skew past 2/n (skewOf), so n ≥ 6; on 1 partition it would just cut the topic's traffic
+        if (def.partitions < 6)
+          throw new Error(
+            `${target} has ${def.partitions} partition${def.partitions === 1 ? '' : 's'}. Pick a topic with 6 or more partitions.`,
+          );
         const p = Math.min(5, def.partitions - 1);
         this.hot.set(target, p);
         ev(`Chaos: ${target} partition ${p} is hot`, '40% of topic traffic');

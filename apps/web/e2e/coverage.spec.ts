@@ -1468,3 +1468,11 @@ test('switching a new rule to under-replicated partitions resets the lag thresho
   await expect(d.getByLabel('Threshold', { exact: true })).toHaveValue('0');
   await expect(d.getByLabel('Name')).not.toHaveValue('Lag too high');
 });
+
+test('hot partition offers only topics where a skew warning can appear', async ({ page }) => {
+  await page.goto('/app/chaos/');
+  const pick = page.getByLabel('Hot partition target');
+  await expect(pick.locator('option', { hasText: 'orders' })).toHaveCount(1, { timeout: 15_000 });
+  await expect(pick.locator('option', { hasText: 'all topics' })).toHaveCount(0);
+  await expect(pick.locator('option', { hasText: /^experiments$/ })).toHaveCount(0);
+});
