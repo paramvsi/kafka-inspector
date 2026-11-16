@@ -67,7 +67,7 @@ All responses are JSON. Errors use `{ "error": { "code": "STRING_CODE", "message
 
 - `GET /api/alerts/rules`, `POST /api/alerts/rules`, `PUT /api/alerts/rules/{id}`, `DELETE /api/alerts/rules/{id}`. A specific scope names a group, a topic, or a broker as `broker-<id>`; names up to 2,000 characters (Kafka doesn't limit group ids)
 - `GET /api/filters` → `[{ name, expr }]`; `PUT /api/filters/{name}` with `{ expr }` → 204 (saved message-browser filters, F-04; app data like alert rules)
-- `GET /api/alerts/events?state=firing|resolved|all&limit=` ; `POST /api/alerts/events/{id}/mute` `{ until }` ; `POST /api/alerts/events/{id}/ack`
+- `GET /api/alerts/events?state=firing|resolved|all&limit=` ; `POST /api/alerts/events/{id}/mute` `{ until }` ; `POST /api/alerts/events/{id}/ack`. Events list firing first, then newest-fired first. `mute` needs `until` in the future and at most a year ahead (else 400); an unknown id is 404
 - Evaluator runs after each sampler pass using the shared lag rules.
 
 ## Not present in v1
@@ -122,5 +122,5 @@ These refine the contract above; the agent and `AgentClient` implement them.
 - **Topology.** Producers are not visible to the Admin API: the agent returns topics → consumer groups only.
 - **Schemas.** Without a configured registry every schema route answers `404 NO_SCHEMA_REGISTRY` with the variable to set.
 - **Alert rules.** `DELETE /api/alerts/rules/{id}` is a soft delete (the rule disappears; its firing alerts resolve).
-- **History retention** (`KI_HISTORY_RETENTION`, default 7 d) runs every 10 min: samples older than 1 h are thinned to 1 per minute, older than 24 h to 1 per 10 min; resolved alert events are removed after 7 days. Queries bucket-average, so a thinned range reads the same.
+- **History retention** (`KI_HISTORY_RETENTION`, default 7 d) runs every 10 min: samples older than 1 h are thinned to 1 per minute, older than 24 h to 1 per 10 min; resolved alert events are removed 7 days after they resolve. Queries bucket-average, so a thinned range reads the same.
 - **Errors.** See "Errors" above: `400`, `404 *_NOT_FOUND`, `405`, `429`, `502 KAFKA_UNAVAILABLE` (brokers unreachable), `503 UNAVAILABLE` (still connecting) / `STORAGE_UNAVAILABLE` (agent database), `500 INTERNAL`.
