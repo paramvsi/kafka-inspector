@@ -255,6 +255,15 @@ export function HexDump({
                   </span>
                 );
               })}
+              {/* a short last row keeps full-row width, so the text column stays in line */}
+              {Array.from({ length: Math.max(0, 16 - l.bytes.length) }, (_, k) => {
+                const j = l.bytes.length + k;
+                return (
+                  <span key={`pad${j}`} aria-hidden="true" className="px-[1px]">
+                    {j === 7 ? '    ' : '   '}
+                  </span>
+                );
+              })}
             </span>
             <span className="text-ink-muted">{l.ascii}</span>
           </div>

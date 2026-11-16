@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render } from '@testing-library/react';
+import { render, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { HexDump } from './Code';
 
@@ -15,4 +15,20 @@ test('the hex dump is a named region and annotated bytes name their range, not o
   );
   expect(r.getByRole('region', { name: 'Hex dump' })).toBeTruthy();
   expect(r.getAllByTitle('schema id')).toHaveLength(4);
+});
+
+test('a short last row keeps the text column in line with full rows', () => {
+  const full = Array.from({ length: 16 }, (_, i) => i);
+  const r = render(
+    <HexDump
+      lines={[
+        { offset: 0, bytes: full, ascii: '................' },
+        { offset: 16, bytes: [1, 2, 3, 4, 5], ascii: '.....' },
+      ]}
+      annotations={[]}
+    />,
+  );
+  const rows = [...within(r.container).getByRole('region', { name: 'Hex dump' }).children]; // this render only
+  const hex = rows.map((row) => row.children[1]!.textContent!.length);
+  expect(hex[1]).toBe(hex[0]);
 });

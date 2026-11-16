@@ -222,8 +222,11 @@ function Toast({
         className={cx('mt-[6px] size-2 shrink-0 rounded-full', TOAST_DOT[item.tone])}
       />
       <div className="min-w-0 grow">
-        <div className="font-semibold">{item.title}</div>
-        {item.body && <div className="mt-[2px] text-[12px] text-ink-muted">{item.body}</div>}
+        {/* long Kafka names have no spaces: they wrap inside the 360 px card instead of running past it */}
+        <div className="break-words font-semibold">{item.title}</div>
+        {item.body && (
+          <div className="mt-[2px] break-words text-[12px] text-ink-muted">{item.body}</div>
+        )}
         {item.action && (
           <button
             type="button"
