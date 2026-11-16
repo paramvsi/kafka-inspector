@@ -659,11 +659,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         >
           <table
             className="w-full border-separate border-spacing-0 text-[13px]"
-            aria-rowcount={rows.length}
+            aria-rowcount={rows.length + 1} // + the header row; only ~20 body rows are in the DOM
           >
             <caption className="sr-only">Messages in {topic}</caption>
             <thead className="sticky top-0 z-[1]">
-              <tr>
+              <tr aria-rowindex={1}>
                 {regex !== undefined && <Th>Topic</Th>}
                 <Th right>Offset</Th>
                 <Th right>P</Th>
@@ -687,6 +687,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                 return (
                   <tr
                     key={msgId(m)}
+                    aria-rowindex={vi.index + 2}
                     style={{ height: ROW_H }}
                     onClick={() => url.set({ msg: `${m.partition}:${m.offset}` }, 'push')}
                     className={`cursor-pointer ${animateRows ? 'ki-fade-in' : ''} ${isSel ? '[&>td]:bg-copper-soft' : '[&>td]:hover:bg-surface-hover'}`}

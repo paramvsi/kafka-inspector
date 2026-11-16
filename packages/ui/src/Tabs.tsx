@@ -30,6 +30,13 @@ export function Tabs({
     };
     measure();
     document.fonts?.ready.then(measure);
+    // a live label ("Consumers · 3" → "· 12") resizes its tab and moves those after it
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (ref.current) {
+      ro?.observe(ref.current);
+      ref.current.querySelectorAll('a').forEach((a) => ro?.observe(a));
+    }
+    return () => ro?.disconnect();
   }, [active, items.length]);
   return (
     <nav ref={ref} aria-label={label} className="relative flex gap-6 border-b border-line">

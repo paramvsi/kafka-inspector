@@ -984,3 +984,18 @@ test('a stored preference of the wrong shape is ignored, not a crash', async ({ 
   });
   expect(errors).toEqual([]);
 });
+
+test('the virtualised messages table numbers its rows for screen readers', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const table = page.getByRole('table', { name: 'Messages in orders' });
+  await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 15_000 });
+  await expect(table).toHaveAttribute('aria-rowcount', '101'); // 100 messages + header
+  await table.evaluate((t) => {
+    const s = t.closest('[class*="overflow"]') ?? t.parentElement!;
+    s.scrollTop = s.scrollHeight;
+  });
+  await expect(table.locator('tbody tr[aria-rowindex]').last()).toHaveAttribute(
+    'aria-rowindex',
+    '101',
+  );
+});

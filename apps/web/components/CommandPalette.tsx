@@ -266,6 +266,8 @@ export function CommandPalette({
     );
     return out;
   }, [term, actionsOnly, data, readOnly, info.mode]);
+  // the list can shrink under the selection (live data): clamp it so Enter always has a target
+  const sel = Math.max(0, Math.min(active, items.length - 1));
 
   const run = (it: Item | undefined, newTab = false) => {
     if (!it) return;
@@ -295,7 +297,7 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="ki-palette-list"
-          aria-activedescendant={items[active] ? `pal-${active}` : undefined}
+          aria-activedescendant={items[sel] ? `pal-${sel}` : undefined}
           aria-label="Search topics, groups, schemas and actions"
           value={q}
           onChange={(e) => {
@@ -305,15 +307,15 @@ export function CommandPalette({
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {
               e.preventDefault();
-              setActive((a) => Math.min(items.length - 1, a + 1));
+              setActive(Math.min(items.length - 1, sel + 1));
             }
             if (e.key === 'ArrowUp') {
               e.preventDefault();
-              setActive((a) => Math.max(0, a - 1));
+              setActive(Math.max(0, sel - 1));
             }
             if (e.key === 'Enter') {
               e.preventDefault();
-              run(items[active], e.metaKey || e.ctrlKey);
+              run(items[sel], e.metaKey || e.ctrlKey);
             }
           }}
           placeholder="Search topics, groups, offsets — or > for actions"
@@ -345,14 +347,14 @@ export function CommandPalette({
             <div
               id={`pal-${i}`}
               role="option"
-              aria-selected={i === active}
+              aria-selected={i === sel}
               onMouseMove={() => setActive(i)}
               onClick={(e) => run(it, e.metaKey || e.ctrlKey)}
-              className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-[13px] ${i === active ? 'bg-copper-soft' : ''}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-[13px] ${i === sel ? 'bg-copper-soft' : ''}`}
             >
               <span className="text-ink-muted">{it.label}</span>
               {it.meta && <span className="text-[12px] text-ink-muted">{it.meta}</span>}
-              {i === active && (
+              {i === sel && (
                 <span className="ml-auto">
                   <Kbd>↵</Kbd>
                 </span>
