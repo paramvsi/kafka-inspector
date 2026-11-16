@@ -1,7 +1,24 @@
 // User regexes run on the demo's worker thread, which can't be interrupted: the agent's 50 ms match budget
 // (SafeRegex.java) isn't possible here, so the shapes that backtrack exponentially are refused up front.
-// ponytail: catches nested quantifiers like (a+)+ and (\w*)* — the classic cases — not every slow pattern.
-const NESTED = /\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)\s*(?:[+*]|\{\d+,\d*\})/;
+// ponytail: catches nested quantifiers like (a+)+, (\w*)* and ((a)+b)+ — the classic cases — not every slow
+// pattern: overlapping alternation such as (a|aa)+ still gets through (needs a step budget to catch).
+function nested(source: string): boolean {
+  // escapes and classes are single atoms, and an exact {n} doesn't multiply paths: none of them count
+  let s = source
+    .replace(/\\./g, 'e')
+    .replace(/\[[^\]]*\]/g, 'e')
+    .replace(/\{\d+\}/g, '');
+  for (;;) {
+    if (/\([^()]*[+*}][^()]*\)\s*(?:[+*]|\{\d+,\d*\})/.test(s)) return true;
+    // collapse innermost groups to one atom, quantified if anything inside or on it repeats
+    const t = s.replace(
+      /\(([^()]*)\)(\s*(?:[+*?]|\{\d+,?\d*\}))?/g,
+      (_, body: string, q?: string) => (/[+*}]/.test(body) || (q && /[+*,]/.test(q)) ? 'e+' : 'e'),
+    );
+    if (t === s) return false;
+    s = t;
+  }
+}
 
 /** Same limits and messages as the agent's SafeRegex.compile. */
 export function safeRegex(source: string, flags = ''): RegExp {
@@ -12,7 +29,7 @@ export function safeRegex(source: string, flags = ''): RegExp {
   } catch {
     throw new Error(`Invalid regular expression: ${source}`);
   }
-  if (NESTED.test(source))
+  if (nested(source))
     throw new Error('That regular expression takes too long to match. Simplify it.');
   return re;
 }

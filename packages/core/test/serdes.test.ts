@@ -405,3 +405,11 @@ test('a 64-bit JSON id keeps its digits; a value of a union’s second record ke
   framed.set(bytes, 5);
   expect(await decode(framed, 'auto', lookupU)).toMatchObject({ ok: true, value: { b: 7 } });
 });
+
+test('masking a text view keeps the digits of an unmasked integer beyond 2^53', () => {
+  const r = applyMasks('{"id":12345678901234567890,"email":"a@b.c"}', 'orders', [
+    { id: '1', name: 'emails', topics: '*', path: '$.email', action: 'remove' },
+  ]);
+  expect(r.applied).toHaveLength(1);
+  expect(r.value).toContain('12345678901234567890');
+});

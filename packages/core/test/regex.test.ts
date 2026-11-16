@@ -9,3 +9,11 @@ test('catastrophic and oversized regexes are refused with the agent’s messages
   expect(safeRegex('^orders\\.(eu|us)-[0-9]+$').test('orders.eu-12')).toBe(true);
   expect(safeRegex('pay(ments)?').test('payments')).toBe(true);
 });
+
+test('a quantified group nested inside another is refused; quantifiers in classes and exact counts are not', () => {
+  expect(() => safeRegex('^(([a-z])+.)+[A-Z]([a-z])+$')).toThrow('takes too long');
+  expect(() => safeRegex('((a+)b)*')).toThrow('takes too long');
+  expect(safeRegex('(\\d{3})+').test('123456')).toBe(true);
+  expect(safeRegex('([+-]?\\d)+').test('+1-2')).toBe(true);
+  expect(safeRegex('(\\(x\\))+').test('(x)(x)')).toBe(true);
+});

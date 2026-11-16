@@ -1,4 +1,4 @@
-import { toBase64, toHex } from './decode';
+import { parseJson, toBase64, toHex } from './decode';
 // Data masking (F-47): applied after decoding, on JSON paths. A display feature, not a security control.
 export interface MaskRule {
   id: string;
@@ -56,7 +56,7 @@ export function applyMasks(value: unknown, topic: string, rules: MaskRule[]): Ma
   if (typeof value === 'string' && rules.some((r) => topicMatches(r.topics, topic))) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(value);
+      parsed = parseJson(value); // ponytail: a big integer comes back quoted, digits exact (JSON.rawJSON would keep it bare)
     } catch {
       return { value, applied };
     }
