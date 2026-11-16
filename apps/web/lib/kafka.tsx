@@ -1,4 +1,5 @@
 'use client';
+import { sameEntity } from './keep';
 import { nextPoll } from './poll';
 // React access to the KafkaClient (rule 1: components never construct clients or import the simulator).
 import type { AppInfo, KafkaClient, StreamChannel, StreamEvent } from '@ki/core';
@@ -104,7 +105,9 @@ export function useKafkaQuery<T>(
     queryFn: () => fn(client, clusterId),
     // Paused (Live off) freezes polled data too; writes still refresh through invalidation
     refetchInterval: (q) => (live ? nextPoll(q.state, refreshMs) : false),
-    placeholderData: (prev) => prev,
+    // the last result stays while a filter or range changes; another entity's data never shows under a new name
+    placeholderData: (prev, prevQuery) =>
+      sameEntity(prevQuery?.queryKey, [clusterId, ...key]) ? prev : undefined,
   });
 }
 
