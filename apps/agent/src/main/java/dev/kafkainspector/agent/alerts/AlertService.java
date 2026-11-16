@@ -108,8 +108,9 @@ public class AlertService {
         return new dev.kafkainspector.agent.config.Clusters.NotFound("ALERT_NOT_FOUND", "Alert " + id + " doesn't exist.");
     }
 
-    public int firingCount() {
-        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE state = 'firing' AND acknowledged = FALSE AND (muted_until IS NULL OR muted_until < ?)", Integer.class, System.currentTimeMillis());
+    /** Active alerts of one cluster: its Overview tile and sidebar badge mustn't count another cluster's. */
+    public int firingCount(String cid) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM alert_event WHERE cluster = ? AND state = 'firing' AND acknowledged = FALSE AND (muted_until IS NULL OR muted_until < ?)", Integer.class, cid, System.currentTimeMillis());
         return n == null ? 0 : n;
     }
 

@@ -464,15 +464,17 @@ export class Simulator {
       const def = ps[0]!.def;
       const rate = this.rateOf(def, t);
       const shares = this.shares(def);
+      let produced = 0; // what the partitions actually take: a leaderless one takes nothing (as the topic rows show)
       for (const s of ps) {
         s.rate = s.leader === null ? 0 : rate * shares[s.p]!;
+        produced += s.rate;
         const before = Math.floor(s.end);
         s.end += s.rate * dt;
         if (Math.floor(s.end) > before) s.lastMsgAt = t;
       }
       if (!def.internal) {
-        msgsIn += rate;
-        bytesIn += rate * def.avgBytes;
+        msgsIn += produced;
+        bytesIn += produced * def.avgBytes;
       }
     }
 

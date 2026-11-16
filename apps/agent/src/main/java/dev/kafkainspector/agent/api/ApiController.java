@@ -82,7 +82,7 @@ public class ApiController {
     public Dto.Overview overview(@PathVariable String c) {
         ClusterState s = state(c);
 
-        return Views.overview(c, clusters.get(c), s, alerts.firingCount(), trends.groups(c, s));
+        return Views.overview(c, clusters.get(c), s, alerts.firingCount(c), trends.groups(c, s));
     }
 
     @GetMapping("/clusters/{c}/brokers")

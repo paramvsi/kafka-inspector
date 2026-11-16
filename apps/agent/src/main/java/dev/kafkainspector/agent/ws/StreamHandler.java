@@ -204,7 +204,7 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
         if (s == null) return;
         Object data = switch (channel) {
             // the same shapes as GET /overview and GET /groups (trends, worst first): the UI swaps one for the other
-            case "metrics" -> Views.overview(cid, clusters.get(cid), st, alerts.firingCount(), trends.groups(cid, st));
+            case "metrics" -> Views.overview(cid, clusters.get(cid), st, alerts.firingCount(cid), trends.groups(cid, st));
             case "lag" -> st.groups.values().stream().map(g -> Views.group(st, g, trends.of(cid, "group", g.groupId, "lag"))).sorted(Views.WORST_FIRST).toList();
             case "events" -> {
                 synchronized (st.events) {

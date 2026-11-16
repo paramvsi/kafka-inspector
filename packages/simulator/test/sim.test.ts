@@ -875,3 +875,16 @@ test('acknowledged alerts aren’t active; a deleted topic ends its live tail wi
   h.advance(2);
   expect(errors).toEqual(['Topic brief was deleted. The live tail stopped.']);
 });
+
+test('with a broker down, Overview messages-in matches what the topics take (leaderless partitions take nothing)', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'broker-down', target: '2' });
+  h.advance(5);
+  const overview = h.sim.getOverview().kpis.messagesInPerSec;
+  const topics = h.sim
+    .listTopics({ size: 500 } as never)
+    .items.filter((t) => !t.internal)
+    .reduce((a, t) => a + t.messagesInPerSec, 0);
+  expect(overview).toBeCloseTo(topics, 0);
+});
