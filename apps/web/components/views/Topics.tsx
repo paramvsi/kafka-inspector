@@ -1,5 +1,5 @@
 'use client';
-import { formatBytes, formatInt, formatRelative, type TopicSummary } from '@ki/core';
+import { formatBytes, formatInt, formatRelative, TOPIC_NAME, type TopicSummary } from '@ki/core';
 import {
   Banner,
   Button,
@@ -200,7 +200,7 @@ export function TopicsView() {
                       Include internal topics
                     </Button>
                   )}
-                  {!readOnly && /^[a-zA-Z0-9._-]+$/.test(q) && (
+                  {!readOnly && TOPIC_NAME.test(q) && (
                     <Button variant="primary" onClick={() => url.set({ create: 1, name: q })}>
                       Create “{q}”
                     </Button>

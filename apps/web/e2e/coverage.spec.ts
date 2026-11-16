@@ -1324,3 +1324,25 @@ test('switching cluster from a detail page goes to that section on the other clu
   const link = page.locator('#ki-cluster-menu a').first();
   await expect(link).toHaveAttribute('href', /^\/app\/topics\/\?c=/);
 });
+
+test('Create topic refuses a replication factor below the min.insync.replicas override, and says what to change', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/?create=1');
+  const d = page.getByRole('dialog', { name: /Create topic/ });
+  await d.getByLabel('Name', { exact: true }).fill('rf-one');
+  await d.getByLabel('Replication factor').fill('1');
+  await expect(
+    d.getByText(/min\.insync\.replicas is 2: use a replication factor of 2 or more/),
+  ).toBeVisible();
+  await expect(d.getByRole('button', { name: 'Create topic' })).toBeDisabled();
+  await d.getByLabel('Name', { exact: true }).fill('x'.repeat(250));
+  await expect(d.getByText(/At most 249 characters/)).toBeVisible();
+});
+
+test('Produce sends whole messages: "2.5" in Send reads and sends 2', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&produce=1');
+  const pr = page.getByRole('dialog', { name: 'Produce message' });
+  await pr.getByLabel('Send').fill('2.5');
+  await expect(pr.getByRole('button', { name: /Produce 2 messages/ })).toBeVisible();
+});

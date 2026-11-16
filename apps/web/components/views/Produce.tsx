@@ -163,7 +163,7 @@ export function ProduceDrawer({
   }, [open, reprocess, sampleKey, sampledFor, schema, subject]);
 
   const v = useMemo(() => validate(schema, value), [schema, value]);
-  const n = Math.max(1, Math.min(100, Number(count) || 1));
+  const n = Math.max(1, Math.min(100, Math.trunc(Number(count)) || 1)); // whole messages: "2.5" sends 2
   const dlq = topics.data?.items.find((t) => t.name === `${topic}.dlq`);
   const parts = target === topic ? partitions : (detail.data?.partitions.length ?? 1);
 

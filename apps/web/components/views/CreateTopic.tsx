@@ -59,17 +59,24 @@ export function CreateTopicDialog({
   const p = Number(partitions),
     r = Number(rf);
   const minIsr = Number(overrides.find(([k]) => k === 'min.insync.replicas')?.[1] ?? 2) || 1;
-  const nameErr =
-    name && !NAME.test(name)
-      ? 'Use letters, numbers, dots, dashes and underscores only.'
-      : undefined;
+  const nameErr = !name
+    ? undefined
+    : name.length > 249
+      ? `At most 249 characters (this is ${formatInt(name.length)}).`
+      : name === '.' || name === '..'
+        ? 'A topic can’t be named “.” or “..”.'
+        : !NAME.test(name)
+          ? 'Use letters, numbers, dots, dashes and underscores only.'
+          : undefined;
   const pErr = !Number.isInteger(p) || p < 1 || p > 1000 ? 'Between 1 and 1,000.' : undefined;
   const rfErr =
     !Number.isInteger(r) || r < 1
       ? 'At least 1.'
       : r > online
         ? `Only ${online} brokers are online.`
-        : undefined;
+        : minIsr > r
+          ? `min.insync.replicas is ${minIsr}: use a replication factor of ${minIsr} or more, or lower that override.`
+          : undefined;
   const configs = Object.fromEntries([
     ...overrides.filter(([k]) => k.trim()),
     ...(retention !== '604800000' ? [['retention.ms', retention]] : []),

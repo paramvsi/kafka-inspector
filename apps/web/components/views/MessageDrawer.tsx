@@ -95,7 +95,7 @@ export function MessageDrawer({
           <span className="font-mono">
             {topic} · partition {m.partition} · offset {formatInt(m.offset)}
           </span>
-        ) : fetched.isLoading ? (
+        ) : fetched.isLoading || fetched.isPlaceholderData ? (
           'Loading…'
         ) : (
           <span className="font-mono">
@@ -129,7 +129,7 @@ export function MessageDrawer({
     >
       {!m && (
         <p className="text-[13px] text-ink-muted">
-          {fetched.isLoading
+          {fetched.isLoading || fetched.isPlaceholderData
             ? 'Loading message…'
             : fetched.error
               ? `Couldn't load the message: ${(fetched.error as Error).message} Close the drawer and try again.`
