@@ -22,11 +22,14 @@ import { groupBadge, sparkTone } from '../../lib/status';
 import { useUrl, useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
 
+const TYPES: readonly GroupType[] = ['classic', 'consumer', 'share', 'streams', 'unknown'];
+
 export function GroupsView() {
   const url = useUrl();
   const router = useRouter();
   const [q, setQ] = useUrlText('q');
-  const type = url.get('type') as GroupType | undefined;
+  const t = url.get('type');
+  const type = t && TYPES.includes(t as GroupType) ? (t as GroupType) : undefined;
   const live = useStream<GroupSummary[]>('lag');
   const fallback = useKafkaQuery(['groups'], (c, id) => c.listGroups(id), false);
   const events = useStream<ClusterEvent[]>('events');

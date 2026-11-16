@@ -59,10 +59,6 @@ public class Sampler {
         return states.get(cid);
     }
 
-    public Map<String, ClusterState> states() {
-        return states;
-    }
-
     public void onSample(java.util.function.BiConsumer<String, ClusterState> l) {
         listeners.add(l);
     }
@@ -158,7 +154,6 @@ public class Sampler {
                 log.debug("describeLogDirs failed: {}", e.getMessage());
             }
         }
-        // topic configs every 30th sample
         Map<String, Map<String, String>> configs = new HashMap<>();
         // all topics every 30th sample; a topic that appeared since gets its config right away (min ISR etc.)
         boolean full = tick % 30 == 1 || s.ts == 0;
@@ -340,7 +335,6 @@ public class Sampler {
                     long changed = s.lastChange.getOrDefault(key, now);
                     long lastCommitAt = gs.members.isEmpty() ? changed : now;
                     // displayed "last commit": when an offset last moved (a frozen consumer must not read "just now");
-                    // the lag rules keep getting lastCommitAt as before (shared vectors)
                     lastCommit = Math.max(lastCommit, changed);
                     Lag.Status st = Lag.evaluate(List.copyOf(w), lastCommitAt, now, windowMs);
                     gs.partStatus.put(te.getKey() + "|" + pe.getKey(), st);

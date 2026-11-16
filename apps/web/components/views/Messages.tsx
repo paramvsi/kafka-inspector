@@ -26,7 +26,7 @@ import {
   useSchemaLookup,
   type DecodedMessage,
 } from '../../lib/serdes';
-import { useUrl, useUrlText } from '../../lib/url';
+import { useUrl, useUrlText, pick } from '../../lib/url';
 import { MaskingDialog } from './Masking';
 import { MessageDrawer } from './MessageDrawer';
 
@@ -41,8 +41,6 @@ const FROM = [
 ];
 
 const FROMS = ['newest', 'oldest', 'offset', 'timestamp', 'group'] as const;
-const pick = <T extends string>(v: string | undefined, allowed: readonly T[], fallback: T): T =>
-  allowed.includes(v as T) ? (v as T) : fallback;
 
 const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
 

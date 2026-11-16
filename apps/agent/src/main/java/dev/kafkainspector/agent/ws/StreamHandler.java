@@ -1,7 +1,6 @@
 package dev.kafkainspector.agent.ws;
 
 import dev.kafkainspector.agent.alerts.AlertService;
-import dev.kafkainspector.agent.api.Dto;
 import dev.kafkainspector.agent.config.Clusters;
 import dev.kafkainspector.agent.kafka.ClusterState;
 import dev.kafkainspector.agent.kafka.MessageService;
@@ -198,9 +197,5 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 // already closed
             }
         }
-    }
-
-    static List<Dto.ClusterEvent> none() {
-        return List.of();
     }
 }

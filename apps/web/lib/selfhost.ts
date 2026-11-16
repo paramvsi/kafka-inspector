@@ -18,8 +18,8 @@ const yamlStr = (s: string) => JSON.stringify(s).replace(/\$/g, '$$$$');
 
 /** Rule 6: credentials typed into a URL never reach a generated file. Everything up to the authority's
  * last `@` is userinfo (a password may contain `@`), with or without a scheme. */
-const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^/?#\s]*@/i;
-const withoutUserinfo = (url: string) =>
+export const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^/?#\s]*@/i;
+export const withoutUserinfo = (url: string) =>
   url.replace(USERINFO, (_, scheme?: string) => scheme ?? '');
 
 /** Non-secret settings, shared by compose and docker run. */

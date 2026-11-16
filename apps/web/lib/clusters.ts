@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { useLocal } from './local';
+import { USERINFO, withoutUserinfo } from './selfhost';
 
 /** Saved connections in the demo (F-95). Never stores passwords (rule 6). */
 export interface SavedCluster {
@@ -15,9 +16,7 @@ export interface SavedCluster {
 
 /** Drops a user name/password from a URL saved before that was refused, so it is neither shown nor kept. */
 const clean = (c: SavedCluster): SavedCluster =>
-  c.url && /^[a-z][a-z0-9+.-]*:\/\/[^/?#\s]*@/i.test(c.url)
-    ? { ...c, url: c.url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#\s]*@/i, '$1') }
-    : c;
+  c.url && USERINFO.test(c.url) ? { ...c, url: withoutUserinfo(c.url) } : c;
 
 export function useSavedClusters() {
   const [saved, setSaved] = useLocal<SavedCluster[]>('ki-saved-clusters', []);

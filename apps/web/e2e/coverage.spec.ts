@@ -1008,3 +1008,15 @@ test('a disabled checkbox looks disabled; a form error is announced', async ({ p
   await d.getByLabel('Agent URL').fill('not a url');
   await expect(d.getByRole('alert')).toContainText('Enter a full URL');
 });
+
+test('junk list params fall back to the defaults (no NaN, no empty list)', async ({ page }) => {
+  await page.goto('/app/topics/?view=bogus&sort=bogus&page=abc');
+  await expect(page.getByRole('link', { name: 'orders', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.locator('main').getByText(/NaN|undefined/)).toHaveCount(0);
+  await page.goto('/app/groups/?type=bogus');
+  await expect(page.getByRole('link', { name: 'fraud-scorer', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+});

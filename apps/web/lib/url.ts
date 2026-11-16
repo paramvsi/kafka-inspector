@@ -25,14 +25,14 @@ export function useUrl() {
   );
   /** href for the same page with a patch applied (for links and tabs). */
   const hrefWith = useCallback(
-    (patch: Record<string, string | number | undefined | null>, path = pathname) => {
+    (patch: Record<string, string | number | undefined | null>) => {
       const next = new URLSearchParams(params.toString());
       for (const [k, v] of Object.entries(patch)) {
         if (v === undefined || v === null || v === '') next.delete(k);
         else next.set(k, String(v));
       }
       const qs = next.toString();
-      return `${path}${qs ? `?${qs}` : ''}`;
+      return `${pathname}${qs ? `?${qs}` : ''}`;
     },
     [params, pathname],
   );
@@ -70,3 +70,10 @@ export function useUrlText(key: string, extra?: Record<string, undefined>) {
   };
   return [text, onChange] as const;
 }
+
+/** A URL value from a fixed set, or the fallback: a hand-edited or stale link never reaches the views as junk. */
+export const pick = <T extends string>(
+  v: string | undefined,
+  allowed: readonly T[],
+  fallback: T,
+): T => (allowed.includes(v as T) ? (v as T) : fallback);

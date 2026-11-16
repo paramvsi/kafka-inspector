@@ -3,7 +3,6 @@ import {
   formatBytes,
   formatInt,
   formatRelative,
-  type TopicQuery,
   type TopicSummary,
 } from '@ki/core';
 import {
@@ -23,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
-import { useUrl, useUrlText } from '../../lib/url';
+import { useUrl, useUrlText, pick } from '../../lib/url';
 import { PageHeader, useReadOnly, WriteButton } from '../Page';
 import { CreateTopicDialog } from './CreateTopic';
 
@@ -51,10 +50,10 @@ export function TopicsView() {
   const router = useRouter();
   const readOnly = useReadOnly();
   const [q, setQ] = useUrlText('q', { page: undefined });
-  const view = (url.get('view') as TopicQuery['view']) ?? 'all';
+  const view = pick(url.get('view'), ['all', 'attention', 'starred'] as const, 'all');
   const internal = url.get('internal') === '1';
-  const sort = (url.get('sort') as TopicQuery['sort']) ?? 'issues';
-  const page = Number(url.get('page') ?? 1);
+  const sort = pick(url.get('sort'), ['issues', 'name', 'size', 'rate'] as const, 'issues');
+  const page = Math.max(1, Math.floor(Number(url.get('page') ?? 1)) || 1);
   const [starred, setStarred] = useLocal<string[]>('ki-starred-topics', []);
   const filterRef = useRef<HTMLInputElement>(null);
 
