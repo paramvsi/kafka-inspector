@@ -82,7 +82,7 @@ export function CreateTopicDialog({
     .join('')}`;
 
   const submit = async () => {
-    if (!writes || nameErr || pErr || rfErr || !name) return;
+    if (!writes || busy || nameErr || pErr || rfErr || !name) return;
     setBusy(true);
     setError(undefined);
     try {

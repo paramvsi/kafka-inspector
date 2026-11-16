@@ -182,6 +182,8 @@ function check(
 const jtype = (t: unknown): string =>
   t === undefined ? 'any' : Array.isArray(t) ? [...t].sort().join(' | ') : String(t);
 
+const NOT_JSON = 'The candidate schema is not valid JSON.';
+
 function avroCheck(
   oldSchema: string,
   newSchema: string,
@@ -192,7 +194,7 @@ function avroCheck(
     o = JSON.parse(oldSchema);
     n = JSON.parse(newSchema);
   } catch {
-    return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
+    return { compatible: false, messages: [NOT_JSON] };
   }
   const shape = (x: unknown) =>
     typeof x === 'string' ||
@@ -236,7 +238,7 @@ function jsonCheck(
     o = JSON.parse(oldSchema);
     n = JSON.parse(newSchema);
   } catch {
-    return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
+    return { compatible: false, messages: [NOT_JSON] };
   }
   if (
     !o ||
@@ -284,7 +286,7 @@ export function checkCompatibility(
       try {
         JSON.parse(newSchema);
       } catch {
-        return { compatible: false, messages: ['The candidate schema is not valid JSON.'] };
+        return { compatible: false, messages: [NOT_JSON] };
       }
     return {
       compatible: true,

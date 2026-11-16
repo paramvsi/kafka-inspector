@@ -168,7 +168,7 @@ export function ProduceDrawer({
   const parts = target === topic ? partitions : (detail.data?.partitions.length ?? 1);
 
   const submit = async () => {
-    // Enter in a field submits the form even while the button is disabled: guard here too
+    // the disabled submit button already blocks Enter; this also stops a second call within one tick
     if (!writes || busy || !value || (v && !v.ok)) return;
     setBusy(true);
     setError(undefined);
