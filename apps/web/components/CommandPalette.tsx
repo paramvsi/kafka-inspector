@@ -1,5 +1,5 @@
 'use client';
-import type { GroupSummary, SubjectSummary, TopicSummary } from '@ki/core';
+import { loadPaletteData, type PaletteData } from '../lib/palette';
 import { formatCount, formatInt, shownName } from '@ki/core';
 import { Kbd, SearchIcon, StatusBadge } from '@ki/ui';
 import { useRouter } from 'next/navigation';
@@ -53,11 +53,12 @@ export function CommandPalette({
   useEffect(() => {
     document.getElementById(`pal-${active}`)?.scrollIntoView({ block: 'nearest' });
   }, [active]);
-  const [data, setData] = useState<{
-    topics: TopicSummary[];
-    groups: GroupSummary[];
-    subjects: SubjectSummary[];
-  }>({ topics: [], groups: [], subjects: [] });
+  const [data, setData] = useState<PaletteData>({
+    topics: [],
+    groups: [],
+    subjects: [],
+    failed: false,
+  });
 
   useEffect(() => {
     const d = ref.current;
@@ -67,11 +68,7 @@ export function CommandPalette({
       setQ(initial ?? '');
       setActive(0);
       input.current?.focus();
-      Promise.all([
-        client.listTopics(clusterId, { size: 500, sort: 'name' }),
-        client.listGroups(clusterId),
-        client.listSubjects(clusterId).catch(() => []),
-      ]).then(([t, g, s]) => setData({ topics: t.items, groups: g, subjects: s }));
+      void loadPaletteData(client, clusterId).then(setData);
     }
     if (!open && d.open) d.close();
   }, [open, initial, client, clusterId]);
@@ -330,7 +327,9 @@ export function CommandPalette({
       >
         {items.length === 0 && (
           <li role="presentation" className="px-3 py-6 text-center text-[13px] text-ink-muted">
-            Nothing matches “{term}”.
+            {data.failed
+              ? `Couldn't load all topics and groups, so “${term}” may be missing. Actions still work.`
+              : `Nothing matches “${term}”.`}
           </li>
         )}
         {items.map((it, i) => (
