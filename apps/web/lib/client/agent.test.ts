@@ -84,7 +84,34 @@ test('a non-JSON error page becomes an ApiError with the status', async () => {
     .listBrokers('local')
     .catch((e) => e);
   expect(err).toBeInstanceOf(ApiError);
-  expect(err.message).toBe('The agent answered 502.');
+  expect(err.message).toBe(
+    "The agent didn't answer (502 from a proxy in front of it). Check that the agent is running.",
+  );
+});
+
+test('429 and 413 from a proxy say what to do; every request carries a timeout and a timeout says so', async () => {
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080', pathname: '/', search: '' });
+  const status = async (code: number) => {
+    vi.stubGlobal('fetch', async () => new Response('<html>nope</html>', { status: code }));
+    return (
+      await createAgentClient()
+        .listBrokers('local')
+        .catch((e) => e)
+    ).message as string;
+  };
+  expect(await status(429)).toBe('Too many requests. Wait a moment, then try again.');
+  expect(await status(413)).toBe('That request is too large for the agent (1 MB at most).');
+  let signal: AbortSignal | undefined;
+  vi.stubGlobal('fetch', async (_: string, init: RequestInit) => {
+    signal = init.signal ?? undefined;
+    throw new DOMException('timed out', 'TimeoutError');
+  });
+  const err = await createAgentClient()
+    .listBrokers('local')
+    .catch((e) => e);
+  expect(signal).toBeDefined(); // a half-open connection can't leave the spinner up forever
+  expect(err).toBeInstanceOf(ApiError);
+  expect(err.code).toBe('TIMEOUT');
 });
 
 test('a tail the agent ended is not restarted by a reconnect', () => {

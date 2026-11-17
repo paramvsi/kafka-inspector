@@ -69,7 +69,18 @@ export function useBoot(): Boot {
 }
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 5_000,
+      refetchOnWindowFocus: false,
+      // a 4xx won't change on a retry (not found, refused, bad input): show it now; network and 5xx get one more try
+      // (checked by shape: the agent client is lazy-loaded, the demo bundle shouldn't pull it in for ApiError)
+      retry: (n, e) => {
+        const st = (e as { status?: unknown } | null)?.status;
+        return n < 1 && !(typeof st === 'number' && st >= 400 && st < 500);
+      },
+    },
+  },
 });
 
 /** `ctx` is null while booting, so the shell can render one stable tree before and after boot. */

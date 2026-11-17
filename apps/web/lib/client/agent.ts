@@ -50,6 +50,15 @@ export class ApiError extends Error {
   }
 }
 
+/** What a status means when the reply isn't the agent's own JSON error (a proxy's page, or no body). */
+function statusMessage(status: number): string {
+  if (status === 502 || status === 503 || status === 504)
+    return `The agent didn't answer (${status} from a proxy in front of it). Check that the agent is running.`;
+  if (status === 429) return 'Too many requests. Wait a moment, then try again.';
+  if (status === 413) return 'That request is too large for the agent (1 MB at most).';
+  return `The agent answered ${status}.`;
+}
+
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (method !== 'GET') {
@@ -64,8 +73,17 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'same-origin',
+      // a half-open connection (a NAT or proxy that stopped forwarding) must not leave a spinner up forever; the
+      // slowest call, a search, has a 10 s budget on the agent
+      signal: AbortSignal.timeout(30_000),
     });
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.name === 'TimeoutError')
+      throw new ApiError(
+        0,
+        'TIMEOUT',
+        "The agent didn't answer within 30 seconds. Check the network, then try again.",
+      );
     throw new ApiError(
       0,
       'UNREACHABLE',
@@ -90,7 +108,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     throw new ApiError(
       res.status,
       json?.error?.code ?? 'ERROR',
-      json?.error?.message ?? `The agent answered ${res.status}.`,
+      json?.error?.message ?? statusMessage(res.status),
     );
   return json as T;
 }
