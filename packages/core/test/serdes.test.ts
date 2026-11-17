@@ -413,3 +413,32 @@ test('masking a text view keeps the digits of an unmasked integer beyond 2^53', 
   expect(r.applied).toHaveLength(1);
   expect(r.value).toContain('12345678901234567890');
 });
+
+test('Avro decimal (bytes or fixed) shows the exact number, not base64', async () => {
+  const { logicalDisplay } = await import('../src/serdes/decode');
+  const dec = { type: 'bytes', logicalType: 'decimal', precision: 10, scale: 2 };
+  expect(logicalDisplay(dec, Uint8Array.of(0x04, 0xd2))).toBe('12.34');
+  expect(logicalDisplay(dec, Uint8Array.of(0xfb, 0x2e))).toBe('-12.34'); // two's complement
+  expect(logicalDisplay(dec, Uint8Array.of(0x05))).toBe('0.05');
+  expect(logicalDisplay({ ...dec, scale: 0 }, Uint8Array.of(0x7f))).toBe('127');
+  const fixed = {
+    type: 'record',
+    name: 'R',
+    fields: [
+      {
+        name: 'amt',
+        type: {
+          type: 'fixed',
+          name: 'Amt',
+          size: 2,
+          logicalType: 'decimal',
+          precision: 4,
+          scale: 1,
+        },
+      },
+    ],
+  };
+  expect(logicalDisplay(fixed, { amt: Uint8Array.of(0x00, 0x7b) })).toEqual({ amt: '12.3' });
+  // not a decimal: plain bytes stay base64
+  expect(logicalDisplay('bytes', Uint8Array.of(0x04, 0xd2))).toBe('BNI=');
+});

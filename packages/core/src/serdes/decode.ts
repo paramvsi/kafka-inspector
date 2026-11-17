@@ -183,6 +183,8 @@ export function logicalDisplay(schema: AnySchema, v: unknown): unknown {
       return b === undefined ? x : walk(b, x);
     }
     if (s && typeof s === 'object') {
+      // decimal: big-endian two's-complement unscaled value, shown exactly as a string ("12.34")
+      if (s.logicalType === 'decimal' && x instanceof Uint8Array) return decimal(x, s.scale ?? 0);
       // beyond ±8.64e15 ms a Date is invalid: show the number rather than fail the whole record
       if (s.logicalType === 'timestamp-millis' && typeof x === 'number')
         return Number.isNaN(new Date(x).getTime())
@@ -203,6 +205,16 @@ export function logicalDisplay(schema: AnySchema, v: unknown): unknown {
     return x;
   };
   return walk(root, v);
+}
+
+function decimal(b: Uint8Array, scale: number): string {
+  let n = 0n;
+  for (const byte of b) n = (n << 8n) | BigInt(byte);
+  if (b.length && b[0]! & 0x80) n -= 1n << BigInt(b.length * 8);
+  const neg = n < 0n;
+  const digits = (neg ? -n : n).toString().padStart(scale + 1, '0');
+  const int = digits.slice(0, digits.length - scale);
+  return `${neg ? '-' : ''}${int}${scale ? `.${digits.slice(-scale)}` : ''}`;
 }
 
 async function viaRegistry(
