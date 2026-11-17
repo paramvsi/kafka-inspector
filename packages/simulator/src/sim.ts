@@ -1280,11 +1280,24 @@ export class Simulator {
   // ───────────────────────────── messages ─────────────────────────────
 
   browse(req: BrowseRequest): RawMessagePage {
-    const ps = this.topicParts(req.topic).filter(
-      (s) => req.partition === 'all' || s.p === req.partition,
-    );
+    // the agent's refusals (ApiController, MessageService): a stale link errors in both modes, not just one
+    const all = this.topicParts(req.topic);
+    const ps = all.filter((s) => req.partition === 'all' || s.p === req.partition);
+    if (!ps.length)
+      throw new Error(
+        `Topic ${req.topic} has partitions 0–${all.length - 1}; there is no partition ${req.partition}.`,
+      );
+    const g = req.from === 'group' && !req.cursor && req.group ? this.group(req.group) : undefined;
+    const at = req.from === 'timestamp' ? Date.parse(req.timestamp ?? '') : 0;
+    if (req.from === 'timestamp' && Number.isNaN(at))
+      throw new Error('Enter the timestamp as a date and time, like 2026-11-17T09:00:00Z.');
     const limit = Math.min(Math.max(1, req.limit ?? 100), 500);
-    const cursor: Record<number, number> = req.cursor ? JSON.parse(req.cursor) : {};
+    let cursor: Record<number, number> = {};
+    try {
+      if (req.cursor) cursor = JSON.parse(req.cursor);
+    } catch {
+      throw new Error("The cursor isn't valid. Start again without it.");
+    }
     const descending = req.from === 'newest';
     const candidates: Array<{ s: PState; o: number; t: number }> = [];
     const next: Record<number, number> = {};
@@ -1297,10 +1310,8 @@ export class Simulator {
       else if (req.from === 'newest') startAt = hw - 1;
       else if (req.from === 'oldest') startAt = lo;
       else if (req.from === 'offset') startAt = Math.max(lo, Math.min(hw, req.offset ?? lo));
-      else if (req.from === 'timestamp')
-        startAt = this.offsetAt(s, Date.parse(req.timestamp ?? '') || this.lastTick);
+      else if (req.from === 'timestamp') startAt = this.offsetAt(s, at);
       else {
-        const g = req.group ? this.groups.get(req.group) : undefined;
         const gp = g?.parts.find((x) => x.topic === s.def.name && x.p === s.p);
         startAt = gp ? Math.floor(gp.committed) : hw;
       }

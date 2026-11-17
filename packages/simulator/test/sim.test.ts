@@ -1010,3 +1010,17 @@ test('an attention item keeps the time it first appeared; stopping a poison mess
   h.sim.stopChaos(inc.id);
   expect(h.sim.getOverview().events.some((e) => /Chaos ended: .*poison/i.test(e.title))).toBe(true);
 });
+
+test('browse refuses what the agent refuses instead of showing an empty topic', async () => {
+  const h = make();
+  await h.init();
+  const b = (r: object) => () =>
+    h.sim.browse({ topic: 'orders', partition: 'all', from: 'newest', ...r });
+  expect(b({ partition: 99 })).toThrow(/no partition 99/);
+  expect(b({ from: 'group', group: 'nobody' })).toThrow(/not found/);
+  h.sim.runChaos({ kind: 'crash-consumer', target: 'fraud-scorer' });
+  await h.sim.deleteGroup('fraud-scorer');
+  expect(b({ from: 'group', group: 'fraud-scorer' })).toThrow(/not found/);
+  expect(b({ from: 'timestamp', timestamp: 'garbage' })).toThrow(/timestamp/);
+  expect(b({ cursor: '{oops' })).toThrow("The cursor isn't valid. Start again without it.");
+});
