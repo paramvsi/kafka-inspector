@@ -1976,3 +1976,20 @@ test('the topology map lists who feeds whom, with rates, for screen readers and 
       .filter({ hasText: /^web-checkout → orders · [\d,]+ messages \/ s$/ }),
   ).toHaveCount(1);
 });
+
+test('the Clusters page shows a cluster’s current status, not the one it had when the app loaded', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const down = page.getByRole('article').filter({ hasText: 'Broker down' });
+  await down.getByRole('button', { name: 'Trigger' }).click({ timeout: 15_000 });
+  // in-app navigation: a reload would end the incident
+  await page.keyboard.press('ControlOrMeta+k');
+  const pal = page.getByRole('dialog', { name: 'Command palette' });
+  await pal.getByRole('combobox').fill('Clusters');
+  await pal.getByRole('combobox').press('Enter');
+  await expect(page.getByRole('heading', { name: 'Clusters', level: 1 })).toBeVisible();
+  await expect(page.getByRole('row', { name: /prod-eu-1/ }).getByText('Degraded')).toBeVisible({
+    timeout: 15_000,
+  });
+});

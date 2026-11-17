@@ -11,7 +11,7 @@ import {
 } from '@ki/ui';
 import { useEffect, useRef, useState } from 'react';
 import { pingAgent } from '../../lib/client/agent';
-import { useKafka } from '../../lib/kafka';
+import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useSavedClusters, type SavedCluster } from '../../lib/clusters';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -46,10 +46,13 @@ const kafkaLabel = (v?: string) => (v && v !== 'unknown' ? ` · Kafka ${v}` : ''
 export function ClustersView() {
   const url = useUrl();
   const { info } = useKafka();
+  // boot info is a snapshot: a cluster that went down (or came back) since the page loaded must say so here
+  const live = useKafkaQuery(['info'], (c) => c.info(), 10_000);
+  const clusters = live.data?.clusters ?? info.clusters;
   const [saved, setSaved] = useSavedClusters();
   const demo = info.mode === 'demo';
   const rows: Row[] = [
-    ...info.clusters.map((c) => ({
+    ...clusters.map((c) => ({
       id: c.id,
       name: c.name,
       color: 'chart-1',
