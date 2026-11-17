@@ -1999,6 +1999,8 @@ export class Simulator {
         for (const k of this.produced.keys()) if (k.startsWith(`${name}:`)) this.produced.delete(k);
         for (const k of this.poisoned) if (k.startsWith(`${name}:`)) this.poisoned.delete(k);
         if (this.poison?.topic === name) this.endPoison(); // no topic, no poison message, no DLQ trickle
+        // its experiments end too (a hot partition or spike left behind would apply to a re-created topic)
+        for (const [id, inc] of [...this.incidents]) if (inc.target === name) this.stopChaos(id);
         // a re-created topic of the same name starts a fresh history (timeOf assumes a rising series)
         this.history.drop((k) => k.startsWith(`end:${name}:`) || k.startsWith(`topic:${name}:`));
         this.pushEvent({
@@ -2438,6 +2440,11 @@ export class Simulator {
         break;
       }
       case 'poison-message': {
+        // no payments topic, no partition to poison: refuse rather than show a running incident that does nothing
+        if (!this.topics.has(POISON.topic))
+          throw new Error(
+            `Topic ${POISON.topic} not found. The poison message needs it; Reset demo brings it back.`,
+          );
         // one poison at a time: a second would overwrite the first, and stopping it would end both
         if (this.poison)
           throw new Error(

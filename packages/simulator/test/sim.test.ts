@@ -497,8 +497,9 @@ test('poison scenario: deleting payments does not brick reloads; only a reset th
   await c.init();
   expect(c.getGroup('fraud-scorer').summary.status).toBe('stalled');
 
-  expect(() => a.sim.runChaos({ kind: 'poison-message' })).not.toThrow();
-  expect(() => a.sim.runChaos({ kind: 'poison-message' })).toThrow('already running');
+  // with payments deleted the poison is refused with a reason (it used to register an incident that did nothing,
+  // which a second start then refused as "already running")
+  expect(() => a.sim.runChaos({ kind: 'poison-message' })).toThrow('payments not found');
 });
 
 test('config edits reject values Kafka would refuse', async () => {
@@ -1226,4 +1227,17 @@ test('Reset demo starts with default topic settings: a config edit does not leak
   await fresh.init();
   const v = fresh.getTopicConfig('orders').find((c) => c.name === 'retention.ms')!;
   expect(v.value).not.toBe('3600000');
+});
+
+test('deleting a topic ends its chaos experiments; a poison message on a deleted topic is refused', async () => {
+  const a = make();
+  await a.init();
+  a.sim.runChaos({ kind: 'hot-partition', target: 'orders' } as never);
+  a.sim.runChaos({ kind: 'traffic-spike', target: 'orders' } as never);
+  expect(a.sim.listIncidents().filter((i) => i.target === 'orders')).toHaveLength(2);
+  await a.sim.deleteTopic('orders');
+  expect(a.sim.listIncidents().filter((i) => i.target === 'orders')).toEqual([]);
+  await a.sim.deleteTopic('payments');
+  expect(() => a.sim.runChaos({ kind: 'poison-message' } as never)).toThrow(/payments/);
+  expect(a.sim.listIncidents().some((i) => i.kind === ('poison-message' as never))).toBe(false);
 });
