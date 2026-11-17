@@ -153,7 +153,9 @@ public class AlertService {
             });
             case "group-status" -> s.groups.values().forEach(g -> {
                 if (inScope.test(g.groupId) && (g.status == Lag.Status.stalled || g.status == Lag.Status.stopped)) {
-                    out.add(new Hit(g.groupId, g.groupId + " " + g.status, String.format("%,d behind", Views.groupLag(s, g)), "/app/groups/view/?id=" + enc(g.groupId)));
+                    long lag = Views.groupLag(s, g);
+                    String line = Views.stuckLine(s, g, lag); // the demo's evidence wording
+                    out.add(new Hit(g.groupId, g.groupId + " " + g.status, line != null ? line : String.format("%,d behind", lag), "/app/groups/view/?id=" + enc(g.groupId)));
                 }
             });
             case "under-replicated" -> {
@@ -167,7 +169,7 @@ public class AlertService {
                 long last = t.partitions.stream().mapToLong(p -> p.lastMessageAt).max().orElse(0);
                 boolean consumed = s.groups.values().stream().anyMatch(g -> g.committed.containsKey(t.name));
                 if (!t.internal && consumed && inScope.test(t.name) && last > 0 && now - last > r.durationSec() * 1000L) {
-                    out.add(new Hit(t.name, t.name + " is silent", "No messages for " + ((now - last) / 60000) + " min", "/app/topics/view/?name=" + enc(t.name)));
+                    out.add(new Hit(t.name, t.name + " is silent", "No messages for " + Views.duration(now - last), "/app/topics/view/?name=" + enc(t.name)));
                 }
             });
             case "dlq-receiving" -> s.topics.values().forEach(t -> {

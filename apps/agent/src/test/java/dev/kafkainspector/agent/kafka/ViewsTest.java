@@ -34,4 +34,19 @@ class ViewsTest {
         s.ts = 1_030_000; // a later sample: the broker is still offline
         assertEquals(first, Views.attention(s, List.of(), 0, 0).get(0).since());
     }
+
+    @Test
+    void aStalledGroupsAttentionDetailNamesThePartitionAndHowLongAsTheDemoDoes() {
+        ClusterState s = new ClusterState();
+        s.ts = 10_000_000;
+        ClusterState.GroupSnap g = new ClusterState.GroupSnap();
+        g.groupId = "fraud-scorer";
+        g.status = dev.kafkainspector.agent.lag.Lag.Status.stalled;
+        g.partStatus.put("payments|7", dev.kafkainspector.agent.lag.Lag.Status.stalled);
+        s.groups = new java.util.HashMap<>(java.util.Map.of("fraud-scorer", g));
+        s.lastChange.put("fraud-scorer|payments|7", s.ts - 372_000);
+        var sum = new dev.kafkainspector.agent.api.Dto.GroupSummary("fraud-scorer", "consumer", "Stable", 2, List.of("payments"), 812, null, "stalled",
+                new dev.kafkainspector.agent.api.Dto.Forecast("never", null, null, null), List.of());
+        assertEquals("Partition 7 · same offset for 6m 12s", Views.attention(s, List.of(sum), 0, 0).get(0).detail());
+    }
 }

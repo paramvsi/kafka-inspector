@@ -213,16 +213,43 @@ public final class Views {
         return now;
     }
 
+    /** 6m 12s · 45s · 2h 5m · 3d 4h — packages/core formatDuration, so agent and demo text read alike. */
+    public static String duration(long ms) {
+        long s = Math.max(0, Math.round(ms / 1000.0));
+        if (s < 60) return s + "s";
+        long m = s / 60;
+        if (m < 60) return m + "m " + (s % 60) + "s";
+        long h = m / 60;
+        if (h < 48) return h + "h " + (m % 60) + "m";
+        return (h / 24) + "d " + (h % 24) + "h";
+    }
+
+    /** The demo's line for a stalled or stopped group (sim.ts groupDetailLine); null for any other status. */
+    public static String stuckLine(ClusterState s, ClusterState.GroupSnap g, long lag) {
+        if (g.status == Lag.Status.stalled) {
+            List<String> stuck = g.partStatus.entrySet().stream().filter(e -> e.getValue() == Lag.Status.stalled).map(Map.Entry::getKey).sorted().toList();
+            if (stuck.isEmpty()) return null;
+            String where = stuck.size() == 1 ? "Partition " + stuck.get(0).substring(stuck.get(0).lastIndexOf('|') + 1) : stuck.size() + " partitions";
+            long first = stuck.stream().mapToLong(k -> s.lastChange.getOrDefault(g.groupId + "|" + k, 0L)).filter(x -> x > 0).min().orElse(0);
+            return first > 0 ? where + " · same offset for " + duration(s.ts - first) : where + " · same offset";
+        }
+        if (g.status == Lag.Status.stopped && g.lastCommitAt > 0)
+            return "No commits for " + duration(s.ts - g.lastCommitAt) + " · " + String.format("%,d behind", lag);
+        return null;
+    }
+
     static List<Dto.AttentionItem> attention(ClusterState s, List<Dto.GroupSummary> groups, int urp, int offline) {
         // first-seen per item, like the demo: an offline broker reads "since 03:12", not "just now" every sample
         java.util.function.Function<String, String> firstSeen = id -> iso(s.attentionSince.computeIfAbsent(id, k -> s.ts));
         List<Dto.AttentionItem> items = new ArrayList<>();
-        s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port(), firstSeen.apply("broker-" + b.id()), "/app/brokers/", "Investigate broker " + b.id())));
+        s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port() + " · leaders moved to other brokers", firstSeen.apply("broker-" + b.id()), "/app/brokers/", "Investigate broker " + b.id())));
         if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), offline == 1 ? "No in-sync replica can lead it" : "No in-sync replica can lead them", firstSeen.apply("offline"), "/app/topics/?view=attention", null));
         if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + (urp == 1 ? " partition" : " partitions") + " under-replicated", "ISR is smaller than the replica set", firstSeen.apply("urp"), "/app/topics/?view=attention", null));
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
-            String detail = String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
+            ClusterState.GroupSnap gs = s.groups.get(g.groupId());
+            String stuck = gs == null ? null : stuckLine(s, gs, g.totalLag());
+            String detail = stuck != null ? stuck : String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
             items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), firstSeen.apply("group-" + g.groupId())), "/app/groups/view/?id=" + java.net.URLEncoder.encode(g.groupId(), java.nio.charset.StandardCharsets.UTF_8), "Investigate " + g.groupId()));
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {
