@@ -70,4 +70,24 @@ class ViewsTest {
         org.junit.jupiter.api.Assertions.assertEquals("~119 min", Views.eta(119 * 60));
         org.junit.jupiter.api.Assertions.assertEquals("~3 h", Views.eta(3 * 3600));
     }
+
+    @Test
+    void committedOffsetsForADeletedTopicAreNotListedAsLiveRows() {
+        ClusterState s = new ClusterState();
+        ClusterState.TopicSnap t = new ClusterState.TopicSnap();
+        t.name = "orders";
+        ClusterState.PartSnap p0 = part(0, 0);
+        p0.high = 100;
+        t.partitions.add(p0);
+        s.topics = new java.util.HashMap<>(java.util.Map.of("orders", t));
+        ClusterState.GroupSnap g = new ClusterState.GroupSnap();
+        g.groupId = "old-reader";
+        g.state = "Empty";
+        g.committed.put("orders", new java.util.TreeMap<>(java.util.Map.of(0, 90L)));
+        g.committed.put("gone", new java.util.TreeMap<>(java.util.Map.of(0, 48_210L))); // topic deleted since
+        g.committed.get("orders").put(5, 7L); // partition that no longer exists
+        var d = Views.groupDetail(s, g, List.of());
+        assertEquals(List.of("orders|0"), d.partitions().stream().map(x -> x.topic() + "|" + x.partition()).toList());
+        assertEquals(List.of("orders"), d.summary().topics());
+    }
 }

@@ -122,7 +122,8 @@ public final class Views {
     }
 
     public static Dto.GroupSummary group(ClusterState s, ClusterState.GroupSnap g, List<Double> trend) {
-        List<String> topics = new ArrayList<>(g.committed.keySet());
+        // a topic deleted since the group last committed isn't one it reads: Kafka keeps the offsets, the UI shouldn't list them
+        List<String> topics = new ArrayList<>(g.committed.keySet().stream().filter(s.topics::containsKey).toList());
         if (topics.isEmpty()) g.members.forEach(m -> m.assignments.forEach(a -> { if (!topics.contains(a[0])) topics.add(a[0]); }));
         Collections.sort(topics);
         return new Dto.GroupSummary(g.groupId, g.type, g.state, g.members.size(), topics, groupLag(s, g), iso(g.lastCommitAt), g.status.name(), forecast(g.forecast), trend);
@@ -134,9 +135,12 @@ public final class Views {
         List<Dto.GroupPartitionLag> parts = new ArrayList<>();
         for (var te : g.committed.entrySet()) {
             ClusterState.TopicSnap t = s.topics.get(te.getKey());
+            if (t == null) continue; // topic deleted: its old offsets aren't live rows (committed 48,210 · end 0 · lag 0)
             for (var pe : te.getValue().entrySet()) {
-                long end = 0;
-                if (t != null) for (ClusterState.PartSnap p : t.partitions) if (p.partition == pe.getKey()) end = p.high;
+                ClusterState.PartSnap ps = null;
+                for (ClusterState.PartSnap p : t.partitions) if (p.partition == pe.getKey()) ps = p;
+                if (ps == null) continue; // a partition the topic no longer has (shrunk or re-created)
+                long end = ps.high;
                 ClusterState.MemberSnap m = owner.get(te.getKey() + "|" + pe.getKey());
                 parts.add(new Dto.GroupPartitionLag(te.getKey(), pe.getKey(), g.reportedCommitted.getOrDefault(te.getKey() + "|" + pe.getKey(), pe.getValue()), end, Math.max(0, end - pe.getValue()), m == null ? null : m.memberId, m == null ? null : m.clientId, m == null ? null : m.host,
                         g.partStatus.getOrDefault(te.getKey() + "|" + pe.getKey(), Lag.Status.unknown).name()));
