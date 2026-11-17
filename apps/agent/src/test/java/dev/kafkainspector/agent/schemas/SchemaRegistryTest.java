@@ -93,4 +93,13 @@ class SchemaRegistryTest {
             reg.stop(0);
         }
     }
+
+    @Test
+    void registryCompatibilityMessagesReadAsSentences() {
+        String raw = "{errorType:'TYPE_MISMATCH', description:'The type (path '/fields/0/type') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: STRING not compatible with writer type: INT'}";
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "The type (path '/fields/0/type') of a field in the new schema does not match with the old schema (reader type: STRING not compatible with writer type: INT).",
+                SchemaRegistry.readable(raw));
+        org.junit.jupiter.api.Assertions.assertEquals("plain text stays as it is", SchemaRegistry.readable("plain text stays as it is"));
+    }
 }

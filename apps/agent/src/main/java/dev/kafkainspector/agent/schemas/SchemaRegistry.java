@@ -188,7 +188,21 @@ public class SchemaRegistry {
         String body = json.writeValueAsString(Map.of("schema", schema, "schemaType", type == null ? "AVRO" : type));
         JsonNode r = call(cid, "POST", "/compatibility/subjects/" + enc(subject) + "/versions/latest?verbose=true", body);
         List<String> msgs = new ArrayList<>();
-        r.path("messages").forEach(m -> msgs.add(m.asString()));
+        r.path("messages").forEach(m -> msgs.add(readable(m.asString())));
         return new Dto.CompatibilityResult(r.path("is_compatible").asBoolean(false), msgs);
+    }
+
+    private static final java.util.regex.Pattern VERBOSE =
+            java.util.regex.Pattern.compile("^\\{.*?description:'(.*?)'(?:, additionalInfo:'(.*?)')?\\}$", java.util.regex.Pattern.DOTALL);
+
+    /** A registry message as the user reads it: its description sentence (and detail), not the raw
+     * `{errorType:'…', description:'…', additionalInfo:'…'}` record — the demo writes plain sentences too.
+     * Anything else is passed through unchanged. */
+    static String readable(String m) {
+        if (m == null) return "";
+        var x = VERBOSE.matcher(m.trim());
+        if (!x.matches()) return m;
+        String info = x.group(2);
+        return x.group(1) + (info == null || info.isBlank() ? "." : " (" + info + ").");
     }
 }
