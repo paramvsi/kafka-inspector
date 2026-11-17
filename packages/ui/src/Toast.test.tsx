@@ -67,3 +67,22 @@ test('a focused toast stays when the pointer leaves', () => {
   act(() => vi.advanceTimersByTime(20_000));
   expect(queryByText('kept')).not.toBeNull();
 });
+
+function ActionPusher() {
+  const toast = useToast();
+  useEffect(() => {
+    toast({ tone: 'ok', title: 'Produced 1 message', action: { label: 'Show in messages', onClick: () => {} } });
+  }, [toast]);
+  return null;
+}
+
+test('a toast with an action stays until dismissed, so a keyboard user can reach the action', () => {
+  vi.useFakeTimers();
+  const { queryByText } = render(
+    <ToastProvider>
+      <ActionPusher />
+    </ToastProvider>,
+  );
+  act(() => vi.advanceTimersByTime(20_000));
+  expect(queryByText('Show in messages')).not.toBeNull();
+});

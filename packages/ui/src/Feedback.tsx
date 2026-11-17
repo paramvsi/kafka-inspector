@@ -200,10 +200,11 @@ function Toast({
   const held = hovered || focused;
   const onDismiss = () => dismiss(item.id);
   useEffect(() => {
-    if (held || item.leaving) return;
+    // a toast with an action stays until dismissed: it's last in tab order, and 6 s is too short to Tab there
+    if (held || item.leaving || item.action) return;
     const t = setTimeout(() => dismiss(item.id), 6000);
     return () => clearTimeout(t);
-  }, [held, item.leaving, item.id, dismiss]);
+  }, [held, item.leaving, item.action, item.id, dismiss]);
   return (
     <div
       onMouseEnter={() => setHovered(true)}
