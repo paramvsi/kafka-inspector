@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useKafka } from '../../lib/kafka';
+import { resetSkipLabel } from '../../lib/status';
 import { useWrites } from '../Page';
 
 type Kind = ResetStrategy['kind'];
@@ -298,8 +299,8 @@ export function ResetOffsetsDialog({
                 kind: 'num',
                 cell: (r) =>
                   r.skipped ? (
-                    <span className="text-ink-muted">
-                      {r.reason === 'Already at that offset' ? 'no change' : 'not selected'}
+                    <span className="text-ink-muted" title={r.reason}>
+                      {resetSkipLabel(r.reason)}
                     </span>
                   ) : (
                     formatInt(Math.max(0, r.next - (r.current ?? r.next)))
@@ -309,6 +310,10 @@ export function ResetOffsetsDialog({
             ]}
           />
         </div>
+        <p className="m-0 text-[12px] text-ink-muted">
+          Offsets are worked out again when you apply, so they can differ a little from this
+          preview.
+        </p>
         {skippedOne && (
           <p className="m-0 text-[12px] text-ink-muted">
             Tip: send the skipped message to <code className="font-mono">{topic}.dlq</code> first so

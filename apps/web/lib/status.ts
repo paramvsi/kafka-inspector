@@ -65,3 +65,11 @@ export function totalSizeText(topics: { sizeBytes?: number | null }[]): string {
   const sum = formatBytes(known.reduce((a, t) => a + t.sizeBytes!, 0));
   return known.length < topics.length ? `at least ${sum}` : sum;
 }
+
+/** The reset preview's Skipped cell: why a partition is left alone (a leaderless one was selected but can't move). */
+export function resetSkipLabel(reason?: string): string {
+  if (reason === 'Already at that offset') return 'no change';
+  if (!reason || reason === 'Not selected') return 'not selected';
+  if (reason.startsWith('No leader')) return 'no leader';
+  return reason;
+}
