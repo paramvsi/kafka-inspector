@@ -766,15 +766,14 @@ export class Simulator {
         continue;
       }
       const maxRate = t.req.maxRate ?? 50;
-      const fresh: Array<{ s: PState; offsets: number[] }> = [];
+      // ranges, not lists: after a long sleep one tick can cover millions of offsets (~78M for orders in 1 h)
+      const fresh: Array<{ s: PState; from: number; count: number }> = [];
       let total = 0;
       for (const [p, from] of t.next) {
         const s = ps[p]!;
         const to = Math.floor(s.end);
         if (to > from) {
-          const offsets: number[] = [];
-          for (let o = from; o < to; o++) offsets.push(o);
-          fresh.push({ s, offsets });
+          fresh.push({ s, from, count: to - from });
           total += to - from;
           t.next.set(p, to);
         }
@@ -783,16 +782,18 @@ export class Simulator {
       // Sample evenly down to maxRate per second; the UI shows the actual rate from metrics.
       const keep = Math.min(1, maxRate / total);
       const batch: RawMessage[] = [];
-      for (const { s, offsets } of fresh) {
-        const n = Math.max(
-          offsets.length && keep * offsets.length >= 0.5 ? 1 : 0,
-          Math.round(offsets.length * keep),
-        );
-        const stride = offsets.length / Math.max(1, n);
+      for (const { s, from, count } of fresh) {
+        const n = Math.max(count && keep * count >= 0.5 ? 1 : 0, Math.round(count * keep));
+        const stride = count / Math.max(1, n);
         const picked = new Set<number>();
-        for (let i = 0; i < n; i++) picked.add(offsets[Math.floor(i * stride + stride - 1)]!);
+        for (let i = 0; i < n; i++) picked.add(from + Math.floor(i * stride + stride - 1));
         // a message the user just produced always shows, however busy the topic (sampling would hide it)
-        for (const o of offsets) if (this.produced.has(`${t.req.topic}:${s.p}:${o}`)) picked.add(o);
+        const prefix = `${t.req.topic}:${s.p}:`;
+        for (const k of this.produced.keys()) {
+          if (!k.startsWith(prefix)) continue;
+          const o = Number(k.slice(prefix.length));
+          if (o >= from && o < from + count) picked.add(o);
+        }
         for (const o of picked) batch.push(this.message(s, o));
       }
       batch.sort((a, b) => a.timestamp.localeCompare(b.timestamp));

@@ -1049,3 +1049,19 @@ test('alert rules list by name, as the agent orders them', async () => {
   const names = h.sim.listAlertRules().map((r) => r.name);
   expect(names).toEqual([...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
 });
+
+test('a live tail after an hour asleep samples the gap without listing every offset', async () => {
+  const h = make();
+  await h.init();
+  const batches: RawMessage[][] = [];
+  const stop = h.sim.tail({ topic: 'orders', partition: 'all', maxRate: 50 }, (b) =>
+    batches.push(b),
+  );
+  h.advance(1);
+  const t0 = performance.now();
+  h.sim.tick(LOAD + 1000 + 3_600_000); // the tab wakes up: one tick covers the hour
+  const ms = performance.now() - t0;
+  stop();
+  expect(batches.at(-1)!.length).toBeLessThanOrEqual(50);
+  expect(ms).toBeLessThan(1500); // ~78M offsets were pushed into arrays before
+}, 20_000);
