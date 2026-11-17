@@ -55,6 +55,8 @@ public class AlertService {
         if (r.name().length() > 200) throw new IllegalArgumentException("Rule names are limited to 200 characters.");
         if (!List.of("info", "warn", "crit").contains(r.severity())) throw new IllegalArgumentException("Severity must be info, warn or crit.");
         if (r.scope() != null && (r.scope().kind() == null || !List.of("any", "specific").contains(r.scope().kind()))) throw new IllegalArgumentException("Scope kind must be any or specific.");
+        // a specific rule with no target matches nothing: saved, listed "ok", and silent forever
+        if (r.scope() != null && "specific".equals(r.scope().kind()) && (r.scope().target() == null || r.scope().target().isBlank())) throw new IllegalArgumentException("Pick the group, topic or broker this rule watches.");
         if (r.channels() != null && String.join(",", r.channels()).length() > 100) throw new IllegalArgumentException("Too many channels.");
         boolean create = r.id() == null || r.id().isBlank();
         String id = create ? "r_" + java.util.UUID.randomUUID().toString().substring(0, 12) : r.id();

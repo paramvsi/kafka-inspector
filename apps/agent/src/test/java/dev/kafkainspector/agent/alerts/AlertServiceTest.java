@@ -66,4 +66,15 @@ class AlertServiceTest {
         // no cluster given (an older web app): every cluster, as before
         assertEquals(2, alerts.events(null, "all", 50).size());
     }
+
+    @Test
+    void aSpecificRuleWithNoTargetIsRefusedNotSavedToNeverFire() {
+        var ds = new DriverManagerDataSource("jdbc:h2:mem:alerts-target;DB_CLOSE_DELAY=-1", "sa", "");
+        Flyway.configure().dataSource(ds).load().migrate();
+        var alerts = new AlertService(new JdbcTemplate(ds));
+        for (String blank : new String[] {null, "", "  "}) {
+            var e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> alerts.save(new AlertService.Rule(null, "lag", "lag", new AlertService.Scope("specific", blank), 100.0, 0, "warn", List.of("in-app"), true, false, null)));
+            assertEquals("Pick the group, topic or broker this rule watches.", e.getMessage());
+        }
+    }
 }

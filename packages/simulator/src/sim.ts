@@ -1800,6 +1800,9 @@ export class Simulator {
       throw new Error('Severity must be info, warn or crit.');
     if (input.scope && !['any', 'specific'].includes(input.scope.kind))
       throw new Error('Scope kind must be any or specific.');
+    // a specific rule with no target matches nothing: saved, listed "ok", and silent forever (as the agent refuses)
+    if (input.scope?.kind === 'specific' && !input.scope.target?.trim())
+      throw new Error('Pick the group, topic or broker this rule watches.');
     if (input.id && !this.rules.some((r) => r.id === input.id))
       throw new Error(`Alert rule ${input.id} doesn't exist.`); // an edit of a deleted rule must not recreate it
     if (

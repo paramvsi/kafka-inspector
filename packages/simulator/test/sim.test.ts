@@ -1316,3 +1316,13 @@ test('deleting a crashed group ends its crash incident (as deleting a topic ends
   await h.sim.deleteGroup('order-service');
   expect(h.sim.listIncidents().filter((i) => i.target === 'order-service')).toEqual([]);
 });
+
+test('a "specific" alert rule with no target is refused, not saved to never fire (as the agent does)', async () => {
+  const h = make();
+  await h.init();
+  const rule = h.sim.listAlertRules()[0]!;
+  for (const target of [undefined, '', '  '])
+    await expect(
+      h.sim.saveAlertRule({ ...rule, id: undefined, scope: { kind: 'specific', target } } as never),
+    ).rejects.toThrow('Pick the group, topic or broker this rule watches.');
+});
