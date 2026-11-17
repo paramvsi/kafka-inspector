@@ -1039,3 +1039,13 @@ test('a compacted topic with retention.ms -1 has no "infinite retention" finding
   const t = h.sim.getTopic('users-latest');
   expect(t.summary.health.map((f) => f.id)).not.toContain('infinite-retention');
 });
+
+test('alert rules list by name, as the agent orders them', async () => {
+  const h = make();
+  await h.init();
+  const rule = { ...h.sim.listAlertRules()[0]!, id: undefined }; // a copy saved as a new rule
+  await h.sim.saveAlertRule({ ...rule, name: 'zz last' });
+  await h.sim.saveAlertRule({ ...rule, name: 'AA first' });
+  const names = h.sim.listAlertRules().map((r) => r.name);
+  expect(names).toEqual([...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+});
