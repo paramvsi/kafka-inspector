@@ -77,12 +77,7 @@ export function TimeSeriesChart({
     return () => clearTimeout(t);
   }, [animate]);
 
-  const rows = useMemo(() => {
-    const byT = new Map<number, Record<string, number>>();
-    for (const s of series)
-      for (const [t, v] of s.points) byT.set(t, { ...(byT.get(t) ?? { t }), [s.key]: v });
-    return [...byT.values()].sort((a, b) => a.t! - b.t!);
-  }, [series]);
+  const rows = useMemo(() => chartRows(series), [series]);
   const duration = tokenMs('--dur-slow');
   const tMin = rows[0]?.t ?? 0,
     tMax = rows.at(-1)?.t ?? 0;
@@ -152,7 +147,7 @@ export function TimeSeriesChart({
                   fill={`url(#fill-${s.key})`}
                   strokeDasharray={s.dashed ? '5 5' : undefined}
                   dot={s.points.length === 1 ? { r: 3, fill: `var(--${s.color})` } : false} // one point has no line to draw
-                  connectNulls
+                  connectNulls={false} // chartRows fills alignment holes and leaves real gaps empty
                   isAnimationActive={animate}
                   animationDuration={duration}
                 />
@@ -165,7 +160,7 @@ export function TimeSeriesChart({
                   strokeWidth={2}
                   strokeDasharray={s.dashed ? '5 5' : undefined}
                   dot={s.points.length === 1 ? { r: 3, fill: `var(--${s.color})` } : false} // one point has no line to draw
-                  connectNulls
+                  connectNulls={false} // chartRows fills alignment holes and leaves real gaps empty
                   isAnimationActive={animate}
                   animationDuration={duration}
                 />
@@ -207,4 +202,54 @@ export function TimeSeriesChart({
       </figcaption>
     </figure>
   );
+}
+
+/**
+ * The chart's rows: one per timestamp, every series' value at it. Time with no samples for far longer than the usual
+ * spacing (the agent was down, the cluster unreachable) gets an empty row, so the line breaks there instead of
+ * joining across data nobody measured (rule 7). A series missing only because another series has a point at that
+ * time takes the straight line between its neighbours — what Recharts' connectNulls drew before, minus the gaps.
+ */
+export function chartRows(
+  series: { key: string; points: Array<[number, number]> }[],
+): Array<Record<string, number | null>> {
+  const byT = new Map<number, Record<string, number | null>>();
+  for (const s of series)
+    for (const [t, v] of s.points) byT.set(t, { ...(byT.get(t) ?? { t }), [s.key]: v });
+  const rows = [...byT.values()].sort((a, b) => a.t! - b.t!);
+  // the usual spacing: the median step of the longest series (a merged timeline of offset series has tiny steps)
+  const longest = series.reduce<[number, number][]>(
+    (m, s) => (s.points.length > m.length ? s.points : m),
+    [],
+  );
+  const steps = longest
+    .slice(1)
+    .map(([t], i) => t - longest[i]![0])
+    .filter((d) => d > 0)
+    .sort((a, b) => a - b);
+  const step = steps[Math.floor(steps.length / 2)];
+  const out: Array<Record<string, number | null>> = [];
+  for (const r of rows) {
+    const prev = out.at(-1);
+    if (step && prev && r.t! - prev.t! > 3 * step)
+      out.push({ t: prev.t! + step, ...Object.fromEntries(series.map((s) => [s.key, null])) });
+    out.push(r);
+  }
+  // alignment holes: between two values of the same series with no gap row in between
+  for (const s of series) {
+    let last = -1;
+    for (let i = 0; i < out.length; i++) {
+      const v = out[i]![s.key];
+      if (v === null) last = -1;
+      else if (typeof v === 'number') {
+        if (last >= 0 && i - last > 1) {
+          const [t0, v0, t1] = [out[last]!.t!, out[last]![s.key] as number, out[i]!.t!];
+          for (let j = last + 1; j < i; j++)
+            out[j]![s.key] = v0 + ((v - v0) * (out[j]!.t! - t0)) / (t1 - t0 || 1);
+        }
+        last = i;
+      }
+    }
+  }
+  return out;
 }
