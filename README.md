@@ -71,6 +71,9 @@ The demo always shows a “Simulated cluster” note: generated data is never pr
 
 ## Self-hosting
 
+> The image is not published yet: the release workflow is ready, and the first image ships once the product
+> name is settled. Until then build it first: `docker build -f deploy/Dockerfile --build-arg VERSION=1.0.0 -t ghcr.io/paramvsi/kafka-inspector:1.0.0 .`
+
 ```bash
 docker run -d --name kafka-inspector -p 8080:8080 \
   --read-only --tmpfs /tmp:exec --security-opt no-new-privileges --cap-drop ALL \
@@ -80,12 +83,11 @@ docker run -d --name kafka-inspector -p 8080:8080 \
   ghcr.io/paramvsi/kafka-inspector:1.0.0
 ```
 
+`broker:9092` must be reachable from inside the container: a broker in another container needs
+`--network <its network>`, and one on your machine is `host.docker.internal:9092` (Docker Desktop).
 Open http://localhost:8080 and sign in as `admin` with `KI_ADMIN_PASSWORD`. The demo’s
 **Run on your own Kafka** page generates a `docker-compose.yml`, a `.env` with variable _names_ (never values)
 and a `docker run` line, entirely in your browser.
-
-> The image is not published yet: the release workflow is ready, and the first image ships once the product
-> name is settled. Until then build it: `docker build -f deploy/Dockerfile --build-arg VERSION=1.0.0 -t ghcr.io/paramvsi/kafka-inspector:1.0.0 .`
 
 | Variable                                                             | Default                                | Meaning                                                                                                                                                 |
 | -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -95,7 +97,7 @@ and a `docker run` line, entirely in your browser.
 | `KI_CLUSTERS_0_SASL_MECHANISM` / `_SASL_USERNAME` / `_SASL_PASSWORD` | —                                      | `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`; required with `SASL_*` security, refused without it                                                          |
 | `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD`                | —                                      | Custom CA (JKS or PKCS12) for the brokers and an HTTPS Schema Registry; without it the JVM's CAs apply. Client certificates (mTLS) aren't supported yet |
 | `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                                      | Schema Registry URL and basic auth. Put credentials in `_USERNAME` / `_PASSWORD`, not the URL; a malformed URL stops startup                            |
-| `KI_DB_URL` / `KI_DB_USER` / `KI_DB_PASSWORD`                        | `jdbc:h2:file:/data/ki` / `sa` / empty | History and alerts. The PostgreSQL driver is included (set user and password too), but only H2 is tested                                                |
+| `KI_DB_URL` / `KI_DB_USER` / `KI_DB_PASSWORD`                        | `jdbc:h2:file:/data/ki` / `sa` / empty | Metric history, alert rules and events, and saved filters. The PostgreSQL driver is included (set user and password too), but only H2 is tested         |
 | `KI_SAMPLE_INTERVAL`                                                 | `10s`                                  | How often the agent samples the cluster (at least `1s`)                                                                                                 |
 | `KI_PORT`                                                            | `8080`                                 | HTTP port                                                                                                                                               |
 
@@ -107,8 +109,10 @@ Use `KI_CLUSTERS_1_…` for more clusters. The same keys work in `/config/kafka-
 - **Confluent Cloud:** `SASL_SSL` + `PLAIN`; API key as username, secret as password. Registry basic auth with a registry API key.
 - **Aiven:** `SASL_SSL` + `SCRAM-SHA-256`; add the project CA via `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` if required.
 
-**Security.** Version 1 is read-only: the agent has no endpoint that creates, deletes, produces, resets or
-edits anything, and its browse consumer has no `group.id` and never commits. Sessions use an HttpOnly,
+**Security.** Version 1 is read-only towards Kafka: the agent has no endpoint that creates, deletes, produces,
+resets or edits anything in your cluster, and its browse consumer has no `group.id` and never commits. It writes
+only its own database (history, alert rules and events, saved filters). Share groups need a Kafka 4.x broker; on
+older brokers the page simply lists none. Sessions use an HttpOnly,
 SameSite=Strict cookie with CSRF double-submit; sign-in is rate-limited; secrets are never logged. The image
 runs as a non-root user with a read-only root filesystem (only `/data` and a `/tmp` tmpfs are writable). Masking rules are a
 display feature, not a security control.
