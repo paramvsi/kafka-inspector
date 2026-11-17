@@ -994,6 +994,20 @@ test('a stored preference of the wrong shape is ignored, not a crash', async ({ 
   expect(errors).toEqual([]);
 });
 
+test('a saved tour step past the end (an older, longer tour) is dropped, not a crash', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => localStorage.setItem('ki-tour-step', '99'));
+  await page.goto('/app/topics/');
+  await expect(page.getByRole('link', { name: 'orders', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  expect(errors).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('ki-tour-step'))).toBeNull();
+});
+
 test('the virtualised messages table numbers its rows for screen readers', async ({ page }) => {
   await page.goto('/app/topics/view/?name=orders&tab=messages');
   const table = page.getByRole('table', { name: 'Messages in orders' });

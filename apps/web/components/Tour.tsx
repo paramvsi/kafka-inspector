@@ -9,6 +9,8 @@ import { createPortal } from 'react-dom';
 import { useKafka, useStream } from '../lib/kafka';
 
 const KEY = 'ki-tour-step';
+/** 0 is closed; 1..STEPS.length is a step */
+const valid = (s: number) => Number.isInteger(s) && s >= 0 && s <= STEPS.length;
 const EVENT = 'ki-tour';
 
 export function startTour(step = 1) {
@@ -71,11 +73,16 @@ export function GuidedTour() {
   useEffect(() => {
     try {
       const s = Number(localStorage.getItem(KEY) ?? 0);
-      if (s > 0) setStep(s);
+      // a step saved by an older, longer tour (or edited by hand) would index past STEPS and crash every page
+      if (valid(s)) setStep(s);
+      else localStorage.removeItem(KEY);
     } catch {
       /* no storage */
     }
-    const on = (e: Event) => setStep((e as CustomEvent<number>).detail);
+    const on = (e: Event) => {
+      const s = (e as CustomEvent<number>).detail;
+      setStep(valid(s) ? s : 0);
+    };
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);
   }, []);
