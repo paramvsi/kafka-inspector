@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, render } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { Dialog } from './Dialog';
+import { Dialog, Drawer } from './Dialog';
 
 afterEach(() => vi.useRealTimers());
 
@@ -24,4 +24,29 @@ test('content stays during the exit transition, then unmounts', () => {
   expect(queryByText('body text')).not.toBeNull(); // still there while it fades
   act(() => vi.advanceTimersByTime(450));
   expect(queryByText('body text')).toBeNull();
+});
+
+test('a dialog and a drawer announce their description on open (aria-describedby)', () => {
+  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  for (const C of [Dialog, Drawer]) {
+    const { container, unmount } = render(
+      <C
+        open
+        onClose={() => {}}
+        title="Broker 1 · all settings"
+        description="Read-only. Editing arrives in v2."
+      >
+        <p>body</p>
+      </C>,
+    );
+    const d = container.querySelector('dialog')!;
+    const ref = d.getAttribute('aria-describedby');
+    expect(ref).toBeTruthy();
+    expect(container.ownerDocument.getElementById(ref!)?.textContent).toBe(
+      'Read-only. Editing arrives in v2.',
+    );
+    unmount();
+  }
 });

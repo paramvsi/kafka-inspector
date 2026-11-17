@@ -96,6 +96,7 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={`${id}-t`}
+      aria-describedby={description ? `${id}-d` : undefined} // read on open, after the title
       className={cx(
         'ki-dialog m-auto max-w-[calc(100vw-32px)] rounded-lg border border-line bg-surface p-0 text-ink',
         // cx only joins classes: a caller's width wouldn't reliably beat a default one, so the default is
@@ -111,7 +112,11 @@ export function Dialog({
               <h2 id={`${id}-t`} className="section-title m-0">
                 {title}
               </h2>
-              {description && <p className="m-0 mt-1 text-[13px] text-ink-muted">{description}</p>}
+              {description && (
+                <p id={`${id}-d`} className="m-0 mt-1 text-[13px] text-ink-muted">
+                  {description}
+                </p>
+              )}
             </div>
             <CloseButton onClose={onClose} />
           </header>
@@ -143,6 +148,7 @@ export function Drawer({
     <dialog
       ref={ref}
       aria-labelledby={`${id}-t`}
+      aria-describedby={description ? `${id}-d` : undefined} // read on open, after the title
       className={cx(
         'ki-drawer m-0 ml-auto h-screen max-h-screen w-[480px] max-w-[100vw] border-0 border-l border-line bg-surface p-0 text-ink',
         className,
@@ -155,7 +161,11 @@ export function Drawer({
               <h2 id={`${id}-t`} className="section-title m-0 truncate">
                 {title}
               </h2>
-              {description && <div className="mt-1 text-[13px] text-ink-muted">{description}</div>}
+              {description && (
+                <div id={`${id}-d`} className="mt-1 text-[13px] text-ink-muted">
+                  {description}
+                </div>
+              )}
             </div>
             <CloseButton onClose={onClose} />
           </header>
