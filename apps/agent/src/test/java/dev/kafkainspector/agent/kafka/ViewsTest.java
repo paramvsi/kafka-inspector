@@ -49,4 +49,16 @@ class ViewsTest {
                 new dev.kafkainspector.agent.api.Dto.Forecast("never", null, null, null), List.of());
         assertEquals("Partition 7 · same offset for 6m 12s", Views.attention(s, List.of(sum), 0, 0).get(0).detail());
     }
+
+    @Test
+    void attentionItemsOfOneSeveritySortNewestFirstEvenWithinOneSecond() {
+        ClusterState s = new ClusterState();
+        s.brokers = List.of(new ClusterState.BrokerSnap(1, "b1", 9092, null, false, null, null));
+        s.ts = 1_000_000; // a whole second: iso() prints no fraction
+        Views.attention(s, List.of(), 0, 0);
+        s.brokers = List.of(new ClusterState.BrokerSnap(1, "b1", 9092, null, false, null, null),
+                new ClusterState.BrokerSnap(2, "b2", 9092, null, false, null, null));
+        s.ts = 1_000_500; // half a second later, broker 2 goes too
+        assertEquals("broker-2", Views.attention(s, List.of(), 0, 0).get(0).id());
+    }
 }

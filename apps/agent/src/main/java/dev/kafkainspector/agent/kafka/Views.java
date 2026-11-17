@@ -205,9 +205,7 @@ public final class Views {
         if (g == null) return now;
         // the onset is when the partitions with that status last moved (another partition may still be moving)
         if (status.equals("stalled") || status.equals("stopped")) {
-            Lag.Status want = Lag.Status.valueOf(status);
-            long frozen = g.partStatus.entrySet().stream().filter(e -> e.getValue() == want)
-                    .mapToLong(e -> s.lastChange.getOrDefault(groupId + "|" + e.getKey(), 0L)).filter(x -> x > 0).min().orElse(0);
+            long frozen = stuckSince(s, g, Lag.Status.valueOf(status));
             if (frozen > 0) return iso(frozen);
         }
         return now;
@@ -224,13 +222,20 @@ public final class Views {
         return (h / 24) + "d " + (h % 24) + "h";
     }
 
-    /** The demo's line for a stalled or stopped group (sim.ts groupDetailLine); null for any other status. */
+    /** When the earliest of a group's partitions in `status` last moved (0 = unknown). */
+    static long stuckSince(ClusterState s, ClusterState.GroupSnap g, Lag.Status status) {
+        return g.partStatus.entrySet().stream().filter(e -> e.getValue() == status)
+                .mapToLong(e -> s.lastChange.getOrDefault(g.groupId + "|" + e.getKey(), 0L)).filter(x -> x > 0).min().orElse(0);
+    }
+
+    /** The demo's line for a stalled or stopped group (sim.ts groupDetailLine); null for any other status.
+     * A stop reads from the last commit of any partition ("no commits at all"), while its "since" is the onset. */
     public static String stuckLine(ClusterState s, ClusterState.GroupSnap g, long lag) {
         if (g.status == Lag.Status.stalled) {
             List<String> stuck = g.partStatus.entrySet().stream().filter(e -> e.getValue() == Lag.Status.stalled).map(Map.Entry::getKey).sorted().toList();
             if (stuck.isEmpty()) return null;
             String where = stuck.size() == 1 ? "Partition " + stuck.get(0).substring(stuck.get(0).lastIndexOf('|') + 1) : stuck.size() + " partitions";
-            long first = stuck.stream().mapToLong(k -> s.lastChange.getOrDefault(g.groupId + "|" + k, 0L)).filter(x -> x > 0).min().orElse(0);
+            long first = stuckSince(s, g, Lag.Status.stalled);
             return first > 0 ? where + " · same offset for " + duration(s.ts - first) : where + " · same offset";
         }
         if (g.status == Lag.Status.stopped && g.lastCommitAt > 0)
@@ -258,7 +263,8 @@ public final class Views {
         }
         // severity, then newest first within it (the demo's order)
         items.sort(Comparator.<Dto.AttentionItem>comparingInt(i -> switch (i.severity()) { case "crit" -> 0; case "warn" -> 1; default -> 2; })
-                .thenComparing(Dto.AttentionItem::since, Comparator.reverseOrder()));
+                // by time, not by the ISO text: a whole second prints without ".000" and would sort after later times
+                .thenComparing((Dto.AttentionItem i) -> Instant.parse(i.since()), Comparator.reverseOrder()));
         // forget items that cleared, so a later recurrence starts its own clock
         s.attentionSince.keySet().removeIf(id -> items.stream().noneMatch(i -> i.id().equals(id)));
         return items;
