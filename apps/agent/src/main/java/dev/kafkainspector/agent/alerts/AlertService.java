@@ -119,10 +119,6 @@ public class AlertService {
         return Instant.ofEpochMilli(t).toString();
     }
 
-    /**
-     * Group ids come from anyone who can join a group on the cluster: values are cut to their columns (an
-     * over-long one must not fail the insert and silence alerting) and names in links are URL-encoded.
-     */
     /** Fewer than two samples in some partition window of the group (or none yet): Lag.evaluate can't judge it. */
     private static boolean warming(ClusterState s, String groupId) {
         boolean any = false;
@@ -134,6 +130,10 @@ public class AlertService {
         return !any;
     }
 
+    /**
+     * Group ids come from anyone who can join a group on the cluster: values are cut to their columns (an
+     * over-long one must not fail the insert and silence alerting) and names in links are URL-encoded.
+     */
     private record Hit(String target, String title, String evidence, String href) {
         Hit {
             target = cut(target, 2000);
