@@ -78,7 +78,9 @@ export function compose(f: SelfHostForm): string {
 export function dotenv(f: SelfHostForm): string {
   return [
     '# Fill these in on your server. Never commit this file.',
-    '# With docker compose, write a $ in a value as $$ (compose reads $ as a variable).',
+    '# With docker compose, write a $ in a value as $$ (compose reads $ as a variable),',
+    '# and quote a value that contains a space or # (KEY="a #b"): unquoted, compose cuts it at the #.',
+    '# docker run --env-file reads quotes and $$ literally: there, write the value as it is.',
     ...secretNames(f).map((n) => `${n}=`),
     '',
   ].join('\n');
@@ -136,6 +138,6 @@ export const PRESETS: Record<string, Partial<SelfHostForm> & { note: string }> =
   Aiven: {
     security: 'SASL_SSL',
     mechanism: 'SCRAM-SHA-256',
-    note: 'Enable SASL on the service; port is shown in the console. A custom CA needs KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION. Not verified against Aiven.',
+    note: 'Enable SASL on the service; port is shown in the console. A custom CA: mount the truststore file into the container, then set KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION to its path inside and KI_CLUSTERS_0_SSL_TRUSTSTORE_PASSWORD. Not verified against Aiven.',
   },
 };

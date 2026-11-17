@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { compose, dockerRun, dotenv, secretNames, warnings, type SelfHostForm } from './selfhost';
+import {
+  compose,
+  dockerRun,
+  dotenv,
+  PRESETS,
+  secretNames,
+  warnings,
+  type SelfHostForm,
+} from './selfhost';
 
 const f: SelfHostForm = {
   name: 'prod-us-2',
@@ -98,5 +106,12 @@ describe('generator edge cases', () => {
   });
   test('the .env says how compose reads a $ in a value', () => {
     expect(dotenv(f)).toContain('$$');
+  });
+  test('the .env says to quote a value containing # (compose cuts it off as a comment)', () => {
+    expect(dotenv(f)).toMatch(/#.*quote|quote.*#/i);
+  });
+  test('the Aiven note names the truststore password and the mount, not just the location', () => {
+    expect(PRESETS.Aiven!.note).toContain('KI_CLUSTERS_0_SSL_TRUSTSTORE_PASSWORD');
+    expect(PRESETS.Aiven!.note).toMatch(/mount/i);
   });
 });
