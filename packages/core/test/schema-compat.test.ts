@@ -267,3 +267,27 @@ test('JSON Schema type changes are judged by direction: widening is backward-com
   expect(ok(['string'], ['string', 'null'], 'FORWARD')).toBe(false);
   expect(ok('string', 'number', 'BACKWARD')).toBe(false);
 });
+
+test('JSON Schema closed content model (additionalProperties: false): a reader rejects properties it does not list', () => {
+  const closed = (props: string[]) =>
+    JSON.stringify({
+      type: 'object',
+      properties: Object.fromEntries(props.map((p) => [p, { type: 'string' }])),
+      additionalProperties: false,
+    });
+  // forward: an old closed reader gets new messages carrying b
+  expect(checkCompatibility('JSON', closed(['a']), closed(['a', 'b']), 'FORWARD').compatible).toBe(
+    false,
+  );
+  // backward: a new closed reader gets old messages still carrying b
+  expect(checkCompatibility('JSON', closed(['a', 'b']), closed(['a']), 'BACKWARD').compatible).toBe(
+    false,
+  );
+  // the other directions stay compatible
+  expect(checkCompatibility('JSON', closed(['a']), closed(['a', 'b']), 'BACKWARD').compatible).toBe(
+    true,
+  );
+  expect(checkCompatibility('JSON', closed(['a', 'b']), closed(['a']), 'FORWARD').compatible).toBe(
+    true,
+  );
+});

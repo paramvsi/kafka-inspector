@@ -223,7 +223,11 @@ function avroCheck(
   return { compatible: ok, messages };
 }
 
-type JsonSchema = { properties?: Record<string, { type?: string }>; required?: string[] };
+type JsonSchema = {
+  properties?: Record<string, { type?: string }>;
+  required?: string[];
+  additionalProperties?: unknown;
+};
 
 function jsonCheck(
   oldSchema: string,
@@ -260,6 +264,19 @@ function jsonCheck(
     if (forward && !accepts(op[k].type, v.type))
       messages.push(`Forward: ${change}, so old consumers reject some new messages.`);
   }
+  // a closed content model (additionalProperties: false) rejects any property it doesn't list
+  if (forward && o.additionalProperties === false)
+    for (const k of Object.keys(np))
+      if (!op[k])
+        messages.push(
+          `Forward: ${k} was added, but old consumers reject properties they don't list.`,
+        );
+  if (backward && n.additionalProperties === false)
+    for (const k of Object.keys(op))
+      if (!np[k])
+        messages.push(
+          `Backward: ${k} was removed, but new consumers reject it in old messages that still carry it.`,
+        );
   if (backward)
     for (const r of n.required ?? [])
       if (!(o.required ?? []).includes(r))
