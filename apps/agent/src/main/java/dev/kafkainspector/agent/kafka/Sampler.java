@@ -104,6 +104,9 @@ public class Sampler {
     private void sample(String cid, ClusterState s) throws Exception {
         Admin admin = kafka.admin(cid);
         long now = System.currentTimeMillis();
+        // events are compared against the published snapshot, so they're added only when this pass publishes:
+        // a pass that fails part-way (e.g. listGroups times out) would otherwise log the same change every tick
+        List<Dto.ClusterEvent> pending = new ArrayList<>();
         long dtMs = s.ts == 0 ? 0 : now - s.ts;
 
         DescribeClusterResult dc = admin.describeCluster();
@@ -209,7 +212,7 @@ public class Sampler {
                 ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? -1 : pp.sizeBytes);
                 if (pp != null && pp.isr.size() != ps.isr.size()) {
                     boolean shrink = ps.isr.size() < pp.isr.size();
-                    event(s, now, shrink ? "isr-shrink" : "isr-expand", shrink ? "warn" : "info", (shrink ? "ISR shrank on " : "ISR expanded on ") + d.name() + "-" + p.partition(), "ISR " + ps.isr);
+                    pending.add(ev(now, shrink ? "isr-shrink" : "isr-expand", shrink ? "warn" : "info", (shrink ? "ISR shrank on " : "ISR expanded on ") + d.name() + "-" + p.partition(), "ISR " + ps.isr));
                 }
                 t.partitions.add(ps);
             }
@@ -230,7 +233,7 @@ public class Sampler {
             long[] disk = disks.get(id);
             brokers.add(new ClusterState.BrokerSnap(id, n != null ? n.host() : prev != null ? prev.host() : "broker-" + id, n != null ? n.port() : prev != null ? prev.port() : 9092, n != null ? n.rack() : prev != null ? prev.rack() : null, online.contains(id),
                     disk != null ? disk[0] : prev != null ? prev.diskUsed() : null, disk != null && disk[1] > 0 ? disk[1] : prev != null ? prev.diskTotal() : null));
-            if (prev != null && prev.online() != online.contains(id)) event(s, now, online.contains(id) ? "broker-up" : "broker-down", online.contains(id) ? "info" : "crit", "Broker " + id + (online.contains(id) ? " is back" : " is down"), null);
+            if (prev != null && prev.online() != online.contains(id)) pending.add(ev(now, online.contains(id) ? "broker-up" : "broker-down", online.contains(id) ? "info" : "crit", "Broker " + id + (online.contains(id) ? " is back" : " is down"), null));
         }
 
         // ── groups ──
@@ -334,7 +337,7 @@ public class Sampler {
         Set<String> live = new HashSet<>();
         for (ClusterState.GroupSnap gs : groups.values()) {
             ClusterState.GroupSnap prev = s.groups.get(gs.groupId);
-            if (prev != null && !Objects.equals(prev.state, gs.state) && gs.state.contains("Rebalance")) event(s, now, "rebalance", "info", gs.groupId + " rebalancing", gs.members.size() + " members");
+            if (prev != null && !Objects.equals(prev.state, gs.state) && gs.state.contains("Rebalance")) pending.add(ev(now, "rebalance", "info", gs.groupId + " rebalancing", gs.members.size() + " members"));
             List<Lag.Status> statuses = new ArrayList<>();
             List<Lag.Part> parts = new ArrayList<>();
             long lastCommit = 0;
@@ -380,7 +383,7 @@ public class Sampler {
             gs.lastCommitAt = lastCommit;
             gs.status = Lag.rollup(statuses);
             gs.forecast = gs.type.equals("share") ? Lag.Forecast.of("unknown") : Lag.combine(parts);
-            if (prev != null && Lag.becameStuck(prev.status, gs.status)) event(s, now, "group-stalled", "crit", gs.groupId + " " + gs.status, null);
+            if (prev != null && Lag.becameStuck(prev.status, gs.status)) pending.add(ev(now, "group-stalled", "crit", gs.groupId + " " + gs.status, null));
         }
 
         // deleted groups/topics/partitions drop their windows
@@ -388,6 +391,7 @@ public class Sampler {
         s.lastChange.keySet().retainAll(live);
         lastGap.keySet().removeIf(k -> k.startsWith(cid + "|") && !live.contains(k.substring(cid.length() + 1)));
         s.ts = now;
+        pending.forEach(e -> add(s, e));
         s.controller = controller == null ? null : controller.id();
         s.brokers = brokers;
         s.topics = topics;
@@ -453,9 +457,13 @@ public class Sampler {
         };
     }
 
-    static void event(ClusterState s, long now, String kind, String severity, String title, String detail) {
+    static Dto.ClusterEvent ev(long now, String kind, String severity, String title, String detail) {
+        return new Dto.ClusterEvent("ev_" + Long.toString(now, 36) + "_" + Integer.toString(Math.abs(title.hashCode()), 36), Instant.ofEpochMilli(now).toString(), kind, severity, title, detail);
+    }
+
+    static void add(ClusterState s, Dto.ClusterEvent e) {
         synchronized (s.events) {
-            s.events.addFirst(new Dto.ClusterEvent("ev_" + Long.toString(now, 36) + "_" + Integer.toString(Math.abs(title.hashCode()), 36), Instant.ofEpochMilli(now).toString(), kind, severity, title, detail));
+            s.events.addFirst(e);
             while (s.events.size() > 200) s.events.removeLast();
         }
     }
