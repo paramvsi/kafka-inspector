@@ -282,6 +282,14 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
 
   // ── virtual table ──
   const scroller = useRef<HTMLDivElement>(null);
+  // the drawer is a native dialog: closing returns focus to the row that opened it, which a live tail or a scroll
+  // may have unmounted (virtualised) — then focus falls to <body>; land on the message list instead
+  const drawerOpen = !!msgRef;
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !drawerOpen) keepFocus(scroller.current);
+    wasOpen.current = drawerOpen;
+  }, [drawerOpen]);
   const v = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,

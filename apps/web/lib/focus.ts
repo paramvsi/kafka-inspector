@@ -3,7 +3,14 @@
 export function keepFocus(fallback?: HTMLElement | null): void {
   requestAnimationFrame(() => {
     const a = document.activeElement;
-    if (a && a !== document.body && a.isConnected && !(a as HTMLButtonElement).disabled) return;
+    // focus left inside a closed <dialog> (still in the DOM) is lost too: the browser drops it to <body> next
+    const lost =
+      !a ||
+      a === document.body ||
+      !a.isConnected ||
+      (a as HTMLButtonElement).disabled ||
+      !!a.closest('dialog:not([open])');
+    if (!lost) return;
     (fallback ?? document.getElementById('main'))?.focus({ preventScroll: true });
   });
 }
