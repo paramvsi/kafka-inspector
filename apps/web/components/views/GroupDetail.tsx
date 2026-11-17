@@ -28,7 +28,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
-import { groupBadge } from '../../lib/status';
+import { groupBadge, totalLagTone } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { useUrl } from '../../lib/url';
 import { PageHeader, useReadOnly, useWrites, WriteButton } from '../Page';
@@ -246,7 +246,7 @@ function Kpis({ d, points }: { d: Detail; points: Array<[number, number]> }) {
                 : 'rising'
               : trend
         }
-        deltaTone={s.totalLag === 0 ? 'ok' : rising ? 'warn' : 'ok'}
+        deltaTone={totalLagTone(s.status, s.totalLag, rising)}
       />
       <KpiCard
         label="Consume rate"

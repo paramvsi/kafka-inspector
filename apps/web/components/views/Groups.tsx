@@ -19,7 +19,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useKafkaQuery, useStream } from '../../lib/kafka';
-import { groupBadge, sparkTone } from '../../lib/status';
+import { groupBadge, healthyGroups, sparkTone } from '../../lib/status';
 import { useUrl, useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
 import { LoadingRows } from '../Shell';
@@ -62,7 +62,7 @@ export function GroupsView() {
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard
           label="Healthy"
-          value={count(['healthy'])}
+          value={healthyGroups(all)}
           delta={<StatusBadge status="healthy" />}
         />
         <KpiCard
