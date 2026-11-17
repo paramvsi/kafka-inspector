@@ -110,7 +110,6 @@ export function toLocalInput(t: number | string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 12.4% */
 /** 42% · 99% (not "100%" while short of full) · <1% (a non-zero share never reads as none) */
 export function formatPct(n: number, digits = 0): string {
   if (!Number.isFinite(n)) return '—';

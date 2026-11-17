@@ -1774,16 +1774,17 @@ export class Simulator {
   }
 
   listAlertRules(): AlertRule[] {
-    // by name in code-point order, as the agent's ORDER BY name
-    const byName = [...this.rules].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-    return byName.map((r) => ({
-      ...r,
-      state: [...this.firing.keys()].some((k) => k.startsWith(`${r.id}|`))
-        ? 'firing'
-        : [...this.pending.keys()].some((k) => k.startsWith(`${r.id}|`))
-          ? 'pending'
-          : 'ok',
-    }));
+    // as the agent's ORDER BY name
+    return [...this.rules]
+      .sort((a, b) => byName(a.name, b.name))
+      .map((r) => ({
+        ...r,
+        state: [...this.firing.keys()].some((k) => k.startsWith(`${r.id}|`))
+          ? 'firing'
+          : [...this.pending.keys()].some((k) => k.startsWith(`${r.id}|`))
+            ? 'pending'
+            : 'ok',
+      }));
   }
 
   async saveAlertRule(input: AlertRuleInput & { id?: string }): Promise<AlertRule> {
