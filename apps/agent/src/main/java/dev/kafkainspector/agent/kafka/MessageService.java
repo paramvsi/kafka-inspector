@@ -190,22 +190,16 @@ public class MessageService {
         for (String t : matched) {
             if (System.currentTimeMillis() > deadline) break;
             try {
-                // sample spreads reads across every partition; otherwise the busiest partition (same as the simulator, F-43)
+                // sample: an equal share from every partition (a newest-across-partitions cut dropped one with older records);
+                // otherwise the busiest partition — both as the simulator (F-43)
                 ClusterState.TopicSnap snap = topics.get(t);
-                String part = sample || snap == null || snap.partitions.isEmpty() ? "all"
-                        : String.valueOf(snap.partitions.stream().max(Comparator.comparingDouble((ClusterState.PartSnap x) -> x.rate).thenComparingLong(x -> x.high)).get().partition);
+                List<String> parts = snap == null || snap.partitions.isEmpty() ? List.of("all")
+                        : sample ? snap.partitions.stream().map(x -> String.valueOf(x.partition)).toList()
+                        : List.of(String.valueOf(snap.partitions.stream().max(Comparator.comparingDouble((ClusterState.PartSnap x) -> x.rate).thenComparingLong(x -> x.high)).get().partition));
                 int perTopic = Math.max(1, (int) Math.ceil((double) max / matched.size())); // ceil, as the simulator: 3 topics × 34 → the full 100 after the cut
-                String dir = "oldest".equals(from) ? "oldest" : "newest";
-                if (sample && snap != null && !snap.partitions.isEmpty()) {
-                    // an equal share from each partition, as the simulator: a newest-across-partitions cut dropped a partition with older records
-                    int perPart = Math.max(1, (int) Math.ceil((double) perTopic / snap.partitions.size()));
-                    for (ClusterState.PartSnap ps : snap.partitions) {
-                        Dto.RawMessagePage page = browse(cid, t, String.valueOf(ps.partition), dir, null, null, Map.of(), perPart, null);
-                        out.addAll(page.messages());
-                        scanned += page.scanned();
-                    }
-                } else {
-                    Dto.RawMessagePage page = browse(cid, t, part, dir, null, null, Map.of(), perTopic, null);
+                int each = Math.max(1, (int) Math.ceil((double) perTopic / parts.size()));
+                for (String part : parts) {
+                    Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), each, null);
                     out.addAll(page.messages());
                     scanned += page.scanned();
                 }

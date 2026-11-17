@@ -1100,12 +1100,10 @@ test('broker settings match the agent: sorted by name, secret-looking names mask
   const cfg = a.sim.getBrokerConfig(1);
   const names = cfg.map((c) => c.name);
   expect(names).toEqual([...names].sort());
-  // the agent masks password|secret|token|key|jaas|credential (not *.type, not *algorithm)
-  for (const c of cfg) {
-    const secret =
-      /password|secret|token|key|jaas|credential/i.test(c.name) &&
-      !c.name.endsWith('.type') &&
-      !c.name.includes('algorithm');
-    expect({ name: c.name, masked: c.value === '******' }).toEqual({ name: c.name, masked: secret });
-  }
+  // expected values written out, not the rule re-implemented (the agent's ApiController masks the same names)
+  const masked = (n: string) => cfg.find((c) => c.name === n)?.value === '******';
+  expect(masked('ssl.keystore.password')).toBe(true);
+  expect(masked('compression.type')).toBe(false); // *.type is exempt
+  expect(masked('num.partitions')).toBe(false);
+  expect(cfg.filter((c) => c.isSensitive).map((c) => c.name)).toEqual(['ssl.keystore.password']);
 });
