@@ -15,6 +15,7 @@ import { useKafka } from '../../lib/kafka';
 import { useSavedClusters, type SavedCluster } from '../../lib/clusters';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
+import { keepFocus } from '../../lib/focus';
 
 type Row = {
   id: string;
@@ -148,7 +149,10 @@ export function ClustersView() {
                     size="sm"
                     variant="ghost"
                     aria-label={`Remove ${r.name}`}
-                    onClick={() => setSaved(saved.filter((x) => x.id !== r.id))}
+                    onClick={() => {
+                      setSaved(saved.filter((x) => x.id !== r.id));
+                      keepFocus();
+                    }}
                   >
                     Remove
                   </Button>
@@ -216,12 +220,12 @@ function AddClusterDialog({
       ]);
       return true;
     }
-    setSteps([{ label: 'Agent reachable', state: 'Running' }]);
+    setSteps([{ label: 'Address reachable', state: 'Running' }]);
     try {
       const ms = await pingAgent(agent);
       if (mine !== runId.current) return false;
       setSteps([
-        { label: 'Agent reachable', state: 'Pass', detail: `${agent} · ${ms} ms` },
+        { label: 'Address reachable', state: 'Pass', detail: `${agent} · ${ms} ms` },
         ...[
           'Brokers reachable',
           'Authentication',
@@ -238,7 +242,7 @@ function AddClusterDialog({
       if (mine !== runId.current) return false;
       setSteps([
         {
-          label: 'Agent reachable',
+          label: 'Address reachable',
           state: 'Fail',
           detail: (
             <>
@@ -302,7 +306,7 @@ function AddClusterDialog({
       toast({
         tone: 'ok',
         title: `Saved ${c.name}`,
-        body: 'The agent is reachable.',
+        body: 'The address answers. Sign in there to confirm it is a Kafka Inspector agent.',
         action: {
           label: 'Open agent',
           onClick: () => window.open(`${agent.replace(/\/$/, '')}/app/`, '_blank', 'noopener'),

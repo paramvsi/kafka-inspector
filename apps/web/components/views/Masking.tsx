@@ -1,7 +1,8 @@
 'use client';
 import { isValidMaskPath, type MaskRule } from '@ki/core';
 import { Button, Dialog, Select, TextField } from '@ki/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { keepFocus } from '../../lib/focus';
 
 /** Masking rules (F-47): per topic pattern, a JSON path and an action. Stored per viewer. */
 export function MaskingDialog({
@@ -15,6 +16,7 @@ export function MaskingDialog({
   rules: MaskRule[];
   onChange: (r: MaskRule[]) => void;
 }) {
+  const listRef = useRef<HTMLUListElement>(null);
   const [draft, setDraft] = useState<MaskRule>({
     id: '',
     name: '',
@@ -36,7 +38,11 @@ export function MaskingDialog({
         </Button>
       }
     >
-      <ul className="m-0 mb-4 flex list-none flex-col gap-2 p-0">
+      <ul
+        ref={listRef}
+        tabIndex={-1}
+        className="m-0 mb-4 flex list-none flex-col gap-2 p-0 outline-none"
+      >
         {rules.length === 0 && (
           <li className="text-[13px] text-ink-muted">No rules. Messages show every field.</li>
         )}
@@ -57,7 +63,10 @@ export function MaskingDialog({
               size="sm"
               variant="ghost"
               aria-label={`Remove ${r.name}`}
-              onClick={() => onChange(rules.filter((x) => x.id !== r.id))}
+              onClick={() => {
+                onChange(rules.filter((x) => x.id !== r.id));
+                keepFocus(listRef.current); // the button is gone: stay in the dialog, not on <body>
+              }}
             >
               Remove
             </Button>

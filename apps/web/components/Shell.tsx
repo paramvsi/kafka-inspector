@@ -274,7 +274,7 @@ function Frame({
           }
           onSearchOpen={onSearchOpen}
         />
-        <main id="main" className="flex min-w-0 flex-col gap-4 p-6">
+        <main id="main" tabIndex={-1} className="flex min-w-0 flex-col gap-4 p-6 outline-none">
           {children}
         </main>
       </div>

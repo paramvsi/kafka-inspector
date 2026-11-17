@@ -17,6 +17,7 @@ import { useAttempt } from '../../lib/attempt';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { startTour } from '../Tour';
 import { PageHeader } from '../Page';
+import { keepFocus } from '../../lib/focus';
 
 const ACTIONS: Array<{
   kind: ChaosActionKind;
@@ -231,7 +232,8 @@ export function ChaosView() {
                   variant="danger"
                   onClick={async () => {
                     await attempt('stop the incident', chaos.stop(i.id));
-                    refresh();
+                    await refresh();
+                    keepFocus(); // the incident (and this button) is gone
                   }}
                 >
                   Stop

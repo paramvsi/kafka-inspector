@@ -36,6 +36,7 @@ import { previewLabel } from '../../lib/preview';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
+import { keepFocus } from '../../lib/focus';
 
 const METRICS: Array<{
   value: AlertMetric;
@@ -195,7 +196,8 @@ export function AlertsView() {
                             )
                           )
                             toast({ tone: 'info', title: 'Muted for 1 hour', body: a.title });
-                          refresh();
+                          await refresh();
+                          keepFocus(); // the button is now disabled
                         }}
                       >
                         Mute 1 h
@@ -209,7 +211,8 @@ export function AlertsView() {
                             client.acknowledgeAlert(a.id),
                             GONE,
                           );
-                          refresh();
+                          await refresh();
+                          keepFocus(); // the row is gone
                         }}
                       >
                         Acknowledge

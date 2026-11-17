@@ -148,6 +148,11 @@ export function TopologyView() {
           </>
         }
       />
+      {q && t.nodes.length > 0 && !t.nodes.some((n) => match(n)) && (
+        <p role="status" className="m-0 text-[13px] text-ink-muted">
+          Nothing matches “{highlight}”.
+        </p>
+      )}
       {t.nodes.length === 0 ? (
         <Card>
           <EmptyState title="Nothing to draw yet">

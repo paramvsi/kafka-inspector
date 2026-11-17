@@ -1704,3 +1704,34 @@ test('Retry now behind a proxy answering 502 stays in the app too', async ({ pag
   await expect(page.getByText(/Still can't reach the agent/)).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1);
 });
+
+test('removing a mask rule or acknowledging an alert from the keyboard keeps focus nearby', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=payments&tab=messages');
+  await page.getByRole('button', { name: /^Masking/ }).click();
+  const dialog = page.getByRole('dialog', { name: /Masking/ });
+  await dialog.getByLabel('Name').fill('tmp');
+  await dialog.getByLabel('Topics').fill('payments');
+  await dialog.getByLabel('JSON path').fill('$.merchantId');
+  await dialog.getByRole('button', { name: 'Add rule' }).click();
+  await dialog.getByRole('button', { name: 'Remove tmp', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByRole('button', { name: 'Remove tmp', exact: true })).toHaveCount(0);
+  // the focus fix runs a frame after the removal
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+
+  await page.goto('/app/alerts/');
+  const ack = page.getByRole('button', { name: 'Acknowledge' }).first();
+  await expect(ack).toBeVisible({ timeout: 15_000 });
+  await ack.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/Acknowledged/).first()).toBeVisible({ timeout: 5000 });
+  // the focus fix runs a frame after the removal
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+});
+
+test('a topology highlight that matches nothing says so', async ({ page }) => {
+  await page.goto('/app/topology/?highlight=zzz');
+  await expect(page.getByText('Nothing matches “zzz”.')).toBeVisible({ timeout: 15_000 });
+});
