@@ -15,6 +15,7 @@ import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField, useToast } 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { csvCell } from '../../lib/csv';
+import { keepFocus } from '../../lib/focus';
 import { runFilter, type FilterResult } from '../../lib/filter';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
@@ -94,6 +95,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       history.back();
     } else url.set({ msg: undefined });
   };
+  const jsRef = useRef<HTMLInputElement>(null);
+  const quickRef = useRef<HTMLDivElement>(null);
   const [draftExpr, setDraftExpr] = useState(expr);
   const [offset, setOffset] = useState(url.get('offset') ?? '');
   const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));
@@ -530,6 +533,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           JS
         </span>
         <input
+          ref={jsRef}
           aria-label="JavaScript filter over key, value, headers, partition, offset, timestamp"
           value={draftExpr}
           onChange={(e) => setDraftExpr(e.target.value)}
@@ -562,6 +566,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             onClick={() => {
               setDraftExpr('');
               url.set({ filter: undefined });
+              jsRef.current?.focus(); // this button goes away once the URL update lands (later than keepFocus's frame)
             }}
           >
             Clear
@@ -584,8 +589,12 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                   e.preventDefault();
                   if (naming.trim()) saveFilter({ name: naming.trim(), expr });
                   setNaming(null);
+                  keepFocus(jsRef.current);
                 }
-                if (e.key === 'Escape') setNaming(null);
+                if (e.key === 'Escape') {
+                  setNaming(null);
+                  keepFocus(jsRef.current);
+                }
               }}
               placeholder="Name, then Enter"
               className="h-control-sm w-[140px] rounded-md border border-line bg-surface px-2 text-[12px] text-ink"
@@ -614,7 +623,12 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         )}
       </form>
 
-      <div className="flex flex-wrap items-end gap-2" role="group" aria-label="Quick filters">
+      <div
+        ref={quickRef}
+        className="flex flex-wrap items-end gap-2"
+        role="group"
+        aria-label="Quick filters"
+      >
         <div className="w-[180px]">
           <TextField
             label="Key contains"
@@ -650,7 +664,10 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => url.set({ fk: undefined, fh: undefined, ft: undefined })}
+              onClick={() => {
+                url.set({ fk: undefined, fh: undefined, ft: undefined });
+                quickRef.current?.querySelector('input')?.focus(); // "Key contains"; this button goes away with the filters
+              }}
             >
               Clear quick filters
             </Button>

@@ -213,12 +213,25 @@ export function SelfHostView() {
             aria-label="Files"
             className="flex gap-5 border-b border-line px-4 pt-3"
           >
-            {TABS.map((t) => (
+            {TABS.map((t, i) => (
               <button
                 key={t}
+                id={`file-tab-${i}`}
                 role="tab"
                 aria-selected={tab === t}
+                aria-controls="file-panel"
+                tabIndex={tab === t ? 0 : -1} // one tab stop; arrows move between files
                 onClick={() => setTab(t)}
+                onKeyDown={(e) => {
+                  const n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[
+                    e.key
+                  ];
+                  if (n === undefined) return;
+                  e.preventDefault();
+                  const next = (n + TABS.length) % TABS.length;
+                  setTab(TABS[next]!);
+                  document.getElementById(`file-tab-${next}`)?.focus();
+                }}
                 className={`-mb-px cursor-pointer border-x-0 border-t-0 border-b-2 bg-transparent pb-2 font-mono text-[12px] ${tab === t ? 'border-copper text-ink' : 'border-transparent text-ink-muted hover:text-ink'}`}
               >
                 {t}
@@ -226,7 +239,9 @@ export function SelfHostView() {
             ))}
           </div>
           <pre
+            id="file-panel"
             role="tabpanel"
+            aria-labelledby={`file-tab-${TABS.indexOf(tab)}`}
             tabIndex={0}
             aria-label={tab}
             className="m-0 min-h-[320px] grow overflow-auto p-4 font-mono text-[12px] leading-[19px]"

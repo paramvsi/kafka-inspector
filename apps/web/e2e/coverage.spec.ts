@@ -985,13 +985,19 @@ test.describe('touch layout', () => {
     const search = page.locator('header input').first();
     expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // iOS Safari zooms the page into any field under 16px when it's focused (the sign-in password, the search)
-    expect(parseFloat(await search.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
+    expect(
+      parseFloat(await search.evaluate((e) => getComputedStyle(e).fontSize)),
+    ).toBeGreaterThanOrEqual(16);
   });
-  test('footer links on the landing page are at least 44px tall on a coarse pointer', async ({ page }) => {
+  test('footer links on the landing page are at least 44px tall on a coarse pointer', async ({
+    page,
+  }) => {
     await page.goto('/');
     const links = page.locator('footer a');
     await expect(links.first()).toBeVisible({ timeout: 15_000 });
-    const heights = await links.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+    const heights = await links.evaluateAll((els) =>
+      els.map((e) => e.getBoundingClientRect().height),
+    );
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
   });
 });
@@ -1845,4 +1851,38 @@ test('removing a mask rule or acknowledging an alert from the keyboard keeps foc
 test('a topology highlight that matches nothing says so', async ({ page }) => {
   await page.goto('/app/topology/?highlight=zzz');
   await expect(page.getByText('Nothing matches “zzz”.')).toBeVisible({ timeout: 15_000 });
+});
+
+test('focus stays in the filter bar when Clear, Clear quick filters or the filter name field goes away', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const js = page.getByLabel(/^JavaScript filter/);
+  await js.fill('value.total > 1');
+  await js.press('Enter');
+  await page.getByRole('button', { name: 'Clear', exact: true }).press('Enter');
+  await expect(js).toBeFocused();
+  await js.fill('value.total > 1');
+  await js.press('Enter');
+  await page.getByRole('button', { name: 'Save filter' }).click();
+  await page.getByLabel('Filter name').press('Escape');
+  await expect(js).toBeFocused();
+  await page.getByLabel('Key contains').fill('ord_');
+  await page.getByRole('button', { name: 'Clear quick filters' }).press('Enter');
+  await expect(page.getByLabel('Key contains')).toBeFocused();
+});
+
+test('self-host file tabs: one tab stop, arrow keys move between files', async ({ page }) => {
+  await page.goto('/app/self-host/');
+  const first = page.getByRole('tab').first();
+  await first.focus();
+  await first.press('ArrowRight');
+  const second = page.getByRole('tab').nth(1);
+  await expect(second).toBeFocused();
+  await expect(second).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tabpanel')).toHaveAttribute(
+    'aria-labelledby',
+    (await second.getAttribute('id'))!,
+  );
+  await expect(first).toHaveAttribute('tabindex', '-1');
 });
