@@ -217,7 +217,7 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                     yield new ArrayList<>(st.events).subList(0, Math.min(30, st.events.size()));
                 }
             }
-            case "alerts" -> alerts.events("firing", 100);
+            case "alerts" -> alerts.events(cid, "firing", 100);
             default -> null;
         };
         if (data != null) send(s, Map.of("id", id, "channel", channel, "ts", Instant.now().toString(), "data", data));

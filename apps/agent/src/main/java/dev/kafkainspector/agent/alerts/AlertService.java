@@ -79,12 +79,13 @@ public class AlertService {
         pending.keySet().removeIf(k -> k.contains("|" + id + "|")); // its timers go with it (evaluate only visits live rules)
     }
 
-    public List<Event> events(String state, int limit) {
-        String where = state == null || "all".equals(state) ? "" : "firing".equals(state) ? " WHERE state = 'firing'" : " WHERE state = 'resolved'";
+    /** One cluster's alerts (as firingCount counts them); a null cluster (an older web app) lists every cluster's. */
+    public List<Event> events(String cid, String state, int limit) {
+        String byState = state == null || "all".equals(state) ? "TRUE" : "firing".equals(state) ? "state = 'firing'" : "state = 'resolved'";
         int n = Math.max(1, Math.min(limit, 500));
         // firing first: a long-running alert must not drop off the list behind newer resolved ones
-        return jdbc.query("SELECT * FROM alert_event" + where + " ORDER BY CASE WHEN state = 'firing' THEN 0 ELSE 1 END, fired_at DESC LIMIT " + n, (rs, i) -> new Event(rs.getString("id"), rs.getString("rule_id"), rs.getString("severity"), rs.getString("title"), rs.getString("evidence"), rs.getString("target"), rs.getString("href"), rs.getString("state"),
-                iso(rs.getLong("fired_at")), rs.getObject("resolved_at") == null ? null : iso(rs.getLong("resolved_at")), rs.getObject("muted_until") == null ? null : iso(rs.getLong("muted_until")), rs.getBoolean("acknowledged")));
+        return jdbc.query("SELECT * FROM alert_event WHERE " + byState + " AND (? IS NULL OR cluster = ?) ORDER BY CASE WHEN state = 'firing' THEN 0 ELSE 1 END, fired_at DESC LIMIT " + n, (rs, i) -> new Event(rs.getString("id"), rs.getString("rule_id"), rs.getString("severity"), rs.getString("title"), rs.getString("evidence"), rs.getString("target"), rs.getString("href"), rs.getString("state"),
+                iso(rs.getLong("fired_at")), rs.getObject("resolved_at") == null ? null : iso(rs.getLong("resolved_at")), rs.getObject("muted_until") == null ? null : iso(rs.getLong("muted_until")), rs.getBoolean("acknowledged")), cid, cid);
     }
 
     public void mute(String id, String until) {

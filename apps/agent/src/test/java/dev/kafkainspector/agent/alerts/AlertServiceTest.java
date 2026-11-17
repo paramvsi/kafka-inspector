@@ -52,4 +52,18 @@ class AlertServiceTest {
         assertEquals("firing", events.get(0).get("STATE"));
         assertEquals(true, events.get(0).get("ACKNOWLEDGED"));
     }
+
+    @Test
+    void eachClustersAlertListShowsOnlyItsOwnAlerts() {
+        var ds = new DriverManagerDataSource("jdbc:h2:mem:alerts-two;DB_CLOSE_DELAY=-1", "sa", "");
+        Flyway.configure().dataSource(ds).load().migrate();
+        var jdbc = new JdbcTemplate(ds);
+        jdbc.update("INSERT INTO alert_event VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", "e-a", "a", "r1", "warn", "On A", "", "billing", "", "firing", 1000L, null, null, false);
+        jdbc.update("INSERT INTO alert_event VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", "e-b", "b", "r1", "warn", "On B", "", "billing", "", "firing", 2000L, null, null, false);
+        var alerts = new AlertService(jdbc);
+        assertEquals(List.of("e-a"), alerts.events("a", "all", 50).stream().map(AlertService.Event::id).toList());
+        assertEquals(List.of("e-b"), alerts.events("b", "firing", 50).stream().map(AlertService.Event::id).toList());
+        // no cluster given (an older web app): every cluster, as before
+        assertEquals(2, alerts.events(null, "all", 50).size());
+    }
 }

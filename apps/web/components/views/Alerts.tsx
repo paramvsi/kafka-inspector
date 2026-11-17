@@ -94,7 +94,7 @@ export function AlertsView() {
   const firingLive = useStream<AlertEvent[]>('alerts');
   const all = useKafkaQuery(
     ['alerts', 'all'],
-    (c) => c.listAlerts({ state: 'all', limit: 200 }),
+    (c) => c.listAlerts({ state: 'all', limit: 200, cluster: clusterId }),
     3000,
   );
   const rules = useKafkaQuery(['alert-rules'], (c) => c.listAlertRules(), 3000);

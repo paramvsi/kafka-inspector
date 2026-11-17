@@ -421,6 +421,8 @@ export interface AlertEvent {
 export interface AlertQuery {
   state?: 'firing' | 'resolved' | 'all';
   limit?: number;
+  /** the cluster whose alerts to list (the agent keeps one list per cluster; the demo has one cluster) */
+  cluster?: string;
 }
 
 export interface SavedFilter {

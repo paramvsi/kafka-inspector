@@ -351,8 +351,8 @@ public class ApiController {
     }
 
     @GetMapping("/alerts/events")
-    public List<AlertService.Event> events(@RequestParam(defaultValue = "all") String state, @RequestParam(defaultValue = "200") int limit) {
-        return alerts.events(state, limit);
+    public List<AlertService.Event> events(@RequestParam(defaultValue = "all") String state, @RequestParam(defaultValue = "200") int limit, @RequestParam(required = false) String cluster) {
+        return alerts.events(cluster, state, limit);
     }
 
     public record Mute(String until) {}
