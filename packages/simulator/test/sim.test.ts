@@ -1241,3 +1241,16 @@ test('deleting a topic ends its chaos experiments; a poison message on a deleted
   expect(() => a.sim.runChaos({ kind: 'poison-message' } as never)).toThrow(/payments/);
   expect(a.sim.listIncidents().some((i) => i.kind === ('poison-message' as never))).toBe(false);
 });
+
+test('broker settings whose name merely contains "id" (connections.max.idle.ms) are defaults, not static', async () => {
+  const a = make();
+  await a.init();
+  const idle = a.sim.getBrokerConfig(1).find((c) => c.name === 'connections.max.idle.ms');
+  expect(idle).toBeDefined();
+  expect({ source: idle!.source, isDefault: idle!.isDefault }).toEqual({
+    source: 'default',
+    isDefault: true,
+  });
+  const id = a.sim.getBrokerConfig(1).find((c) => c.name === 'node.id' || c.name === 'broker.id');
+  if (id) expect(id.source).toBe('static-broker');
+});

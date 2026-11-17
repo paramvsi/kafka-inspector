@@ -1076,14 +1076,14 @@ export class Simulator {
         value: secret(name) ? '******' : value,
         source: overridden
           ? 'static-broker'
-          : name.includes('id') ||
+          : ID_KEYS.has(name) ||
               name.includes('listeners') ||
               name === 'log.dirs' ||
               name.startsWith('controller') ||
               name === 'process.roles'
             ? 'static-broker'
             : 'default',
-        isDefault: !overridden && !name.includes('id') && !name.includes('listeners'),
+        isDefault: !overridden && !ID_KEYS.has(name) && !name.includes('listeners'),
         isSensitive: secret(name),
         readOnly: true,
       }));
@@ -2748,3 +2748,6 @@ export function topicNodeStatus(health: { severity: string }[]): 'healthy' | 'wa
   if (health.some((h) => h.severity === 'crit')) return 'stalled';
   return health.some((h) => h.severity === 'warn') ? 'warn' : 'healthy';
 }
+
+/** A broker's own identity settings (static): not every name containing "id" (connections.max.idle.ms isn't). */
+const ID_KEYS = new Set(['broker.id', 'node.id']);

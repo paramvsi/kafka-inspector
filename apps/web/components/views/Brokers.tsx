@@ -2,7 +2,7 @@
 import { formatBytes, formatInt, formatPct } from '@ki/core';
 import { Card, DataTable, Drawer, EmptyState, SearchInput, StatusBadge } from '@ki/ui';
 import { useState } from 'react';
-import { useKafkaQuery } from '../../lib/kafka';
+import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
@@ -18,6 +18,7 @@ const KEY = [
 
 export function BrokersView() {
   const url = useUrl();
+  const { info } = useKafka();
   const brokers = useKafkaQuery(['brokers'], (c, id) => c.listBrokers(id), 2000);
   const brokersFailed = useStickyError(brokers, 'brokers'); // no flicker to "Loading" on each re-check
   const overview = useKafkaQuery(['overview-static'], (c, id) => c.getOverview(id), 10_000);
@@ -49,7 +50,7 @@ export function BrokersView() {
         title="Brokers"
         subtitle={
           list.length
-            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''} · KRaft · controller on broker ${controller?.id ?? '—'}${overview.data?.cluster.kafkaVersion && overview.data.cluster.kafkaVersion !== 'unknown' ? ` · Kafka ${overview.data.cluster.kafkaVersion}` : ''}`
+            ? `${online} online${online < list.length ? ` · ${list.length - online} offline` : ''}${info.mode === 'demo' ? ' · KRaft' : ''} · controller on broker ${controller?.id ?? '—'}${overview.data?.cluster.kafkaVersion && overview.data.cluster.kafkaVersion !== 'unknown' ? ` · Kafka ${overview.data.cluster.kafkaVersion}` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
       />
@@ -107,7 +108,8 @@ export function BrokersView() {
           },
           {
             key: 'disk',
-            header: 'Disk used',
+            // Kafka's log data over the log dirs' volume size, not the whole disk's use
+            header: 'Kafka data',
             kind: 'num',
             // not reported (agent without DescribeLogDirs) → a dash, never invented numbers
             cell: (b) =>
