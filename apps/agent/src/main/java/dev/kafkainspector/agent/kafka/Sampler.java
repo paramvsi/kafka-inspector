@@ -197,11 +197,15 @@ public class Sampler {
                 p.replicas().forEach(r -> ps.replicas.add(r.id()));
                 p.isr().forEach(r -> ps.isr.add(r.id()));
                 ClusterState.PartSnap pp = prev == null ? null : prev.partitions.stream().filter(x -> x.partition == p.partition()).findFirst().orElse(null);
-                ps.high = hi.containsKey(tp) ? hi.get(tp).offset() : pp != null ? pp.high : 0;
+                ps.read = hi.containsKey(tp);
+                ps.high = ps.read ? hi.get(tp).offset() : pp != null ? pp.high : 0;
                 ps.low = lo.containsKey(tp) ? lo.get(tp).offset() : pp != null ? pp.low : 0;
-                ps.rate = pp != null && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
+                // a rate needs two real reads: after a leaderless stretch (or a start during one) the carried-over end
+                // is stale or 0, and the jump to the real end would read as a huge burst of traffic
+                boolean rateable = ps.read && pp != null && pp.read;
+                ps.rate = rateable && dtMs > 0 ? Math.max(0, (ps.high - pp.high) * 1000.0 / dtMs) : 0;
                 // any change counts as activity: a deleted and re-created topic restarts below the old end
-                ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : ps.high != pp.high ? now : pp.lastMessageAt;
+                ps.lastMessageAt = pp == null ? newestTs.getOrDefault(tp, 0L) : rateable && ps.high != pp.high ? now : pp.lastMessageAt;
                 ps.sizeBytes = sizes.getOrDefault(tp, pp == null ? -1 : pp.sizeBytes);
                 if (pp != null && pp.isr.size() != ps.isr.size()) {
                     boolean shrink = ps.isr.size() < pp.isr.size();
@@ -349,7 +353,7 @@ public class Sampler {
                     // The marker case is an idle one (nothing new, nothing committed), so it's probed once it holds still
                     String gapNow = pe.getValue() + ":" + ps.high;
                     boolean still = gapNow.equals(lastGap.put(cid + "|" + key, gapNow));
-                    if (gap > 0 && gap <= 5 && still && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
+                    if (gap > 0 && gap <= 5 && still && ps.leader != null && onlyMarkers(cid, te.getKey(), pe.getKey(), pe.getValue(), ps.high)) {
                         gs.reportedCommitted.put(te.getKey() + "|" + pe.getKey(), pe.getValue()); // shown as Kafka has it
                         pe.setValue(ps.high); // lag and status: caught up
                     }
@@ -408,7 +412,7 @@ public class Sampler {
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (rated) rows.add(new HistoryRepository.Row(cid, "topic", t.name, "messagesIn", now, t.rate()));
             for (ClusterState.PartSnap p : t.partitions) {
-                rows.add(new HistoryRepository.Row(cid, "partition", t.name + "-" + p.partition, "endOffset", now, p.high));
+                if (p.read) rows.add(new HistoryRepository.Row(cid, "partition", t.name + "-" + p.partition, "endOffset", now, p.high)); // not a carried-over value
                 if (p.isr.size() < p.replicas.size()) urp++;
             }
         }

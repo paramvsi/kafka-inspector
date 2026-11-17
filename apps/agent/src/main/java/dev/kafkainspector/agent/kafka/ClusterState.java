@@ -38,6 +38,8 @@ public class ClusterState {
         public List<Integer> isr = new ArrayList<>();
         public long low, high;
         public double rate;
+        /** high/low were read this sample (false: leaderless, the previous values carried over) */
+        public boolean read;
         public long lastMessageAt;
         /** -1: never reported (DescribeLogDirs refused or failed) — shown as unknown, not 0 B */
         public long sizeBytes = -1;
