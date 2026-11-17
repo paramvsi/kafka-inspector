@@ -40,7 +40,8 @@ flowchart LR
 ```
 
 - **One codebase, two modes.** The hosted demo is a static export: no `/api/info`, so the app starts the
-  simulator. The Docker image serves the same files at `/app` and the API at `/api`, so the app talks to the agent.
+  simulator. The Docker image serves the same files at `/app` and the API at `/api`, and is built for the agent only:
+  if the agent is slow or down it shows "disconnected" and reconnects — it never falls back to simulated data.
 - **The UI only talks to `KafkaClient`.** Components never import the simulator, `fetch` or WebSocket.
 - **Decoding happens in the browser in both modes.** The agent returns raw bytes; the simulator produces real
   Confluent-framed Avro, so the same decoder is exercised everywhere.
@@ -88,12 +89,12 @@ and a `docker run` line, entirely in your browser.
 
 | Variable                                                             | Default                                | Meaning                                                                                                                                                 |
 | -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KI_ADMIN_PASSWORD`                                                  | required                               | Sign-in password; the agent refuses to start without it                                                                                                 |
+| `KI_ADMIN_PASSWORD`                                                  | required                               | Sign-in password, at most 72 bytes (bcrypt's limit); the agent refuses to start without it or with a longer one                                         |
 | `KAFKA_BOOTSTRAP` / `SCHEMA_REGISTRY_URL`                            | —                                      | Shortcut for one PLAINTEXT cluster named `default`; ignored when any `KI_CLUSTERS_0_*` is set                                                           |
 | `KI_CLUSTERS_0_NAME` / `_BOOTSTRAP` / `_SECURITY`                    | — / — / `PLAINTEXT`                    | Cluster name, bootstrap servers, `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`                                                                       |
 | `KI_CLUSTERS_0_SASL_MECHANISM` / `_SASL_USERNAME` / `_SASL_PASSWORD` | —                                      | `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`; required with `SASL_*` security, refused without it                                                          |
 | `KI_CLUSTERS_0_SSL_TRUSTSTORE_LOCATION` / `_PASSWORD`                | —                                      | Custom CA (JKS or PKCS12) for the brokers and an HTTPS Schema Registry; without it the JVM's CAs apply. Client certificates (mTLS) aren't supported yet |
-| `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                                      | Schema Registry URL and basic auth                                                                                                                      |
+| `KI_CLUSTERS_0_SCHEMA_REGISTRY` / `_USERNAME` / `_PASSWORD`          | —                                      | Schema Registry URL and basic auth. Put credentials in `_USERNAME` / `_PASSWORD`, not the URL; a malformed URL stops startup                            |
 | `KI_DB_URL` / `KI_DB_USER` / `KI_DB_PASSWORD`                        | `jdbc:h2:file:/data/ki` / `sa` / empty | History and alerts. The PostgreSQL driver is included (set user and password too), but only H2 is tested                                                |
 | `KI_SAMPLE_INTERVAL`                                                 | `10s`                                  | How often the agent samples the cluster (at least `1s`)                                                                                                 |
 | `KI_PORT`                                                            | `8080`                                 | HTTP port                                                                                                                                               |
