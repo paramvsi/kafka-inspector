@@ -1092,7 +1092,8 @@ class AgentIntegrationTest {
             assertEquals(400, r.statusCode(), () -> v + " → " + r.statusCode() + " " + r.body());
         }
         HttpResponse<String> page = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/app/")).build(), HttpResponse.BodyHandlers.ofString());
-        assertTrue(page.headers().firstValue("cache-control").orElse("").contains("no-cache"), () -> "index.html cache-control: " + page.headers().map());
+        // no-store, not just no-cache: Back after sign-out must not restore a page that still shows cluster data
+        assertTrue(page.headers().firstValue("cache-control").orElse("").contains("no-store"), () -> "index.html cache-control: " + page.headers().map());
     }
 
 }
