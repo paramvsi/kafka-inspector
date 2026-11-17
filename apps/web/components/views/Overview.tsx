@@ -10,6 +10,7 @@ import {
   type Overview as OverviewData,
   type Series,
   shownName,
+  formatCount,
 } from '@ki/core';
 import { AlertItem, Button, Card, DataTable, KpiCard, Sparkline, StatusBadge } from '@ki/ui';
 import { TimeSeriesChart } from '../Chart';
@@ -247,7 +248,7 @@ function Throughput({
         label="Throughput, messages per second"
         height={180}
         xFormat={axisTime(range)}
-        yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
+        yFormat={formatCount}
         peak={peak ? { t: peak[0], v: peak[1] } : undefined}
         markers={markers}
         series={[

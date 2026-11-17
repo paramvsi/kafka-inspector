@@ -10,6 +10,7 @@ import {
   type GroupSummary,
   type Severity,
   shownName,
+  formatCount,
 } from '@ki/core';
 import {
   Button,
@@ -633,7 +634,7 @@ function RuleDialog({
               label="Lag over the last 24 hours with the threshold"
               height={90}
               xFormat={axisTime('24h')}
-              yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
+              yFormat={formatCount}
               series={[
                 { key: 'lag', label: 'worst group lag', points: seriesData!, color: 'chart-1' },
                 {

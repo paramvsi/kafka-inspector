@@ -9,6 +9,7 @@ import {
   type GroupDetail as Detail,
   type GroupPartitionLag,
   shownName,
+  formatCount,
 } from '@ki/core';
 import {
   Button,
@@ -353,13 +354,7 @@ function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> })
         label={`Lag for ${s.groupId}`}
         height={180}
         xFormat={axisTime(range)}
-        yFormat={(v) =>
-          v >= 1e6
-            ? `${(v / 1e6).toFixed(1)}M`
-            : v >= 1000
-              ? `${Math.round(v / 1000)}k`
-              : String(Math.round(v))
-        }
+        yFormat={formatCount}
         markers={forecast.length ? [{ t: now, label: 'now' }] : []}
         series={[
           { key: 'lag', label: 'lag', points, color: lagColor, area: true },

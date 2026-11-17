@@ -10,6 +10,7 @@ import {
   type TopicDetail as Detail,
   shownName,
   schemaTypeLabel,
+  formatCount,
 } from '@ki/core';
 import {
   Button,
@@ -704,7 +705,7 @@ function TopicThroughput({ name }: { name: string }) {
         label={`Messages in per second on ${name}`}
         height={140}
         xFormat={axisTime(range)}
-        yFormat={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))}
+        yFormat={formatCount}
         series={[{ key: 'in', label: 'in', points: h.data ?? [], color: 'chart-1', area: true }]}
       />
     </Card>

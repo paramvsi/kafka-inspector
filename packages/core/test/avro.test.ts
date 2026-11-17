@@ -261,7 +261,9 @@ test('a bare name resolves in the enclosing namespace when two namespaces share 
   const value = { x: { p: 'one' }, y: { i: { q: 7 } }, z: { p: 'two' } };
   const t = new AvroType(schema);
   expect(t.decode(t.encode(value))).toEqual(value);
-  expect(avsc.Type.forSchema(schema as avsc.Schema).fromBuffer(Buffer.from(t.encode(value)))).toEqual(value);
+  expect(
+    avsc.Type.forSchema(schema as avsc.Schema).fromBuffer(Buffer.from(t.encode(value))),
+  ).toEqual(value);
 });
 
 test('logicalDisplay follows the same namespace rule', () => {
