@@ -14,6 +14,9 @@ export interface FilterResult {
   scanned: number;
   timedOut?: boolean;
   error?: string;
+  /** messages the expression threw on (skipped, not matched), and the first one's reason */
+  skipped?: number;
+  skipError?: string;
 }
 
 const WATCHDOG_MS = 1000;

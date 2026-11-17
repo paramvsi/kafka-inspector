@@ -546,6 +546,14 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             <span className="font-mono tabular-nums">{formatInt(filter.scanned)}</span> scanned
             match
             {filter.timedOut && ' · stopped at the 50 ms budget'}
+            {!!filter.skipped && (
+              <span className="text-warn-text" title={filter.skipError}>
+                {' · '}
+                <span className="font-mono tabular-nums">{formatInt(filter.skipped)}</span> skipped
+                (the filter failed on them; first:{' '}
+                <span className="font-mono">{filter.skipError}</span>)
+              </span>
+            )}
           </span>
         ) : (
           <span className="hidden text-[12px] text-ink-muted md:inline">

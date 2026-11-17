@@ -13,6 +13,8 @@ type Msg = {
 };
 type Req = { id: number; expr: string; messages: Msg[] };
 
+import { scan } from './filterScan';
+
 const BUDGET_MS = 50;
 let compiled: { expr: string; fn: (m: Msg) => unknown } | null = null;
 
@@ -37,24 +39,5 @@ self.onmessage = (e: MessageEvent<Req>) => {
     });
     return;
   }
-  const start = performance.now();
-  const matches: number[] = [];
-  let scanned = 0;
-  let error: string | undefined;
-  for (let i = 0; i < messages.length; i++) {
-    if (performance.now() - start > BUDGET_MS) break;
-    scanned++;
-    try {
-      if (fn(messages[i]!)) matches.push(i);
-    } catch (err) {
-      error ??= `Offset ${messages[i]!.offset}: ${(err as Error).message}`;
-    }
-  }
-  (self as unknown as Worker).postMessage({
-    id,
-    matches,
-    scanned,
-    timedOut: scanned < messages.length,
-    error,
-  });
+  (self as unknown as Worker).postMessage({ id, ...scan(fn, messages, BUDGET_MS) });
 };
