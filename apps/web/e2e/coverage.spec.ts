@@ -1934,3 +1934,22 @@ test('a reprocess link names its source topic, and a broken one opens a plain Pr
     )
     .toContain(`payments-${part}@${off}`);
 });
+
+test('Needs attention says how many more there are and shows them, instead of cutting at four', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  for (const t of ['Broker down', 'Crash consumer', 'Slow consumer', 'Poison message']) {
+    const card = page.getByRole('article').filter({ hasText: t });
+    await card.getByRole('button', { name: 'Trigger' }).click({ timeout: 15_000 });
+  }
+  // in the app, not page.goto: a reload ends the demo's chaos incidents
+  await page.getByRole('link', { name: 'Overview', exact: true }).first().click();
+  const card = page.locator('[data-tour="attention"]');
+  const more = card.getByRole('button', { name: /^Show \d+ more$/ });
+  await expect(more).toBeVisible({ timeout: 20_000 });
+  await more.click();
+  expect(await card.getByRole('link').filter({ hasNotText: 'All alerts' }).count()).toBeGreaterThan(
+    4,
+  );
+});

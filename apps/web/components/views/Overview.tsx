@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import {
   formatBytes,
   formatClock,
@@ -262,7 +263,10 @@ function Throughput({
 
 function NeedsAttention({ data }: { data: OverviewData }) {
   const router = useRouter();
-  const items = data.attention.slice(0, 4);
+  // four fit the card; the rest are a click away, never silently dropped (a broker or URP item lives only here)
+  const [all, setAll] = useState(false);
+  const items = all ? data.attention : data.attention.slice(0, 4);
+  const hidden = data.attention.length - items.length;
   const first = items.find((i) => i.action);
   return (
     <Card
@@ -292,6 +296,11 @@ function NeedsAttention({ data }: { data: OverviewData }) {
               linkAs={Link}
             />
           ))}
+          {hidden > 0 && (
+            <Button size="sm" variant="ghost" className="mt-1" onClick={() => setAll(true)}>
+              Show {hidden} more
+            </Button>
+          )}
         </div>
       )}
       {first && (
