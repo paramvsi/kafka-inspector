@@ -11,6 +11,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.env.MockEnvironment;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -45,16 +48,21 @@ class SchemaRegistryTest {
     }
 
     @Test
-    void anUnreachableRegistryErrorNeverCarriesTheUrlCredentials() throws Exception {
+    @ExtendWith(OutputCaptureExtension.class)
+    void anUnreachableRegistryErrorNeverCarriesTheUrlCredentials(CapturedOutput out) throws Exception {
         int port;
         try (var probe = new java.net.ServerSocket(0)) {
             port = probe.getLocalPort(); // closed again: nothing listens there
         }
-        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://admin:s3cret@127.0.0.1:" + port, null, null);
+        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://admin:s3cret@127.0.0.1:" + port, "reg-user", "reg-pw-sentinel");
         var clusters = new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment());
         Exception e = org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
                 () -> new SchemaRegistry(clusters, JsonMapper.builder().build()).compatibility("local", "x-value", "{}", null));
         assertTrue(!e.getMessage().contains("s3cret") && !e.getMessage().contains("admin:"), e.getMessage());
+        // the warning the agent logs (SchemaRegistry: "unreachable at …") is captured and carries no credential
+        assertTrue(out.getAll().contains("unreachable at"), "nothing captured: " + out.getAll());
+        for (String secret : List.of("s3cret", "admin:", "reg-pw-sentinel"))
+            assertTrue(!out.getAll().contains(secret) && !e.getMessage().contains(secret), secret + " leaked: " + out.getAll());
     }
 
     private static SchemaRegistry against(HttpServer reg) {
