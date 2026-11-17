@@ -286,13 +286,12 @@ export class Simulator {
     if (typeof st.seed === 'string') this.settings.seed = st.seed;
     if (Array.isArray(saved.rules))
       this.rules = saved.rules.filter((r): r is AlertRule => obj(r) && typeof r.id === 'string');
-    const actions = Array.isArray(saved.actions)
-      ? saved.actions.filter(
-          (a): a is Action =>
-            obj(a) && typeof a.t === 'number' && Number.isFinite(a.t) && typeof a.kind === 'string',
-        )
-      : [];
-    const dropped = (Array.isArray(saved.actions) ? saved.actions.length : 0) - actions.length;
+    const raw = Array.isArray(saved.actions) ? saved.actions : [];
+    const actions = raw.filter(
+      (a): a is Action =>
+        obj(a) && typeof a.t === 'number' && Number.isFinite(a.t) && typeof a.kind === 'string',
+    );
+    const dropped = raw.length - actions.length;
     if (dropped > 0) console.warn(`Skipped ${dropped} unreadable saved demo change(s).`);
     this.backfill(this.now(), actions);
   }
