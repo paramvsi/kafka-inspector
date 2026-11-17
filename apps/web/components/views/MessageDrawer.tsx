@@ -119,7 +119,10 @@ export function MessageDrawer({
                 </Button>
               </Tooltip>
             ) : (
-              <Button size="sm" onClick={() => url.set({ produce: 1, reprocess: `${p}:${o}` })}>
+              <Button
+                size="sm"
+                onClick={() => url.set({ produce: 1, reprocess: `${topic}:${p}:${o}` })}
+              >
                 Reprocess to topic
               </Button>
             )}

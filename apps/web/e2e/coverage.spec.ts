@@ -1898,3 +1898,33 @@ test('following a link to another page keeps keyboard focus in the page and name
   await expect(page).toHaveTitle(/^orders · /);
   await expect(page.locator('#main')).toBeFocused();
 });
+
+test('a reprocess link names its source topic, and a broken one opens a plain Produce', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&produce=1&reprocess=abc');
+  await expect(page.getByRole('dialog', { name: 'Produce message' })).toBeVisible({
+    timeout: 15_000,
+  });
+  // a real payments message, reprocessed from the orders page (as a multi-topic search row would link it)
+  await page.goto('/app/topics/view/?name=payments&tab=messages');
+  // an older row, not the newest: after the reload the demo resumes from saved state, which may not have the very
+  // newest offset yet
+  const first = page.locator('table tbody button').last();
+  await expect(first).toBeVisible({ timeout: 15_000 });
+  const [off, part] = await first.evaluate((b) => [
+    (b.firstChild?.textContent ?? '').replace(/,/g, ''),
+    /partition (\d+)/.exec(b.textContent ?? '')?.[1] ?? '',
+  ]);
+  await page.goto(
+    `/app/topics/view/?name=orders&tab=messages&produce=1&reprocess=payments:${part}:${off}`,
+  );
+  const d = page.getByRole('dialog', { name: 'Reprocess message' });
+  await expect(d).toBeVisible({ timeout: 15_000 });
+  const header = d.locator('input').filter({ hasNot: page.locator('[type=checkbox]') });
+  await expect
+    .poll(() => header.evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value)), {
+      timeout: 15_000,
+    })
+    .toContain(`payments-${part}@${off}`);
+});

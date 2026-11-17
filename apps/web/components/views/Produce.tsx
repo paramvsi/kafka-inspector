@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { decodeMessage, keyText, useSchemaLookup } from '../../lib/serdes';
 import { useUrl } from '../../lib/url';
+import { parseMsgParam } from '../../lib/msgParam';
 import { useWrites } from '../Page';
 
 type Validation = { ok: true; text: string } | { ok: false; text: string } | null;
@@ -100,7 +101,10 @@ export function ProduceDrawer({
   const qc = useQueryClient();
   const lookup = useSchemaLookup();
   const { clusterId, info } = useKafka();
-  const reprocess = url.get('reprocess');
+  // topic:partition:offset (or partition:offset on this topic); anything else is a plain Produce
+  const rref = parseMsgParam(url.get('reprocess'));
+  const reprocess = rref ? url.get('reprocess') : null;
+  const srcTopic = rref?.topic ?? topic;
   const [target, setTarget] = useState(topic);
   const topics = useKafkaQuery(
     ['topics', 'names'],
@@ -142,12 +146,17 @@ export function ProduceDrawer({
     }
   }, [open, topic]);
   // Prefill from the message being reprocessed
-  const [rp, ro] = (reprocess ?? '').split(':').map(Number);
   const source = useKafkaQuery(
-    ['message', topic, reprocess],
+    ['message', srcTopic, reprocess],
     (c, id) =>
       reprocess
-        ? c.browse(id, { topic, partition: rp!, from: 'offset', offset: ro!, limit: 1 })
+        ? c.browse(id, {
+            topic: srcTopic,
+            partition: rref!.partition,
+            from: 'offset',
+            offset: rref!.offset,
+            limit: 1,
+          })
         : Promise.resolve(undefined),
     false,
   );
@@ -160,10 +169,10 @@ export function ProduceDrawer({
       setKey(d.key.ok && d.key.value !== null ? keyText(d.key) : '');
       setHeaders([
         ...Object.entries(d.headers),
-        ['reprocessed-from', `${topic}-${m.partition}@${m.offset}`],
+        ['reprocessed-from', `${srcTopic}-${m.partition}@${m.offset}`],
       ]);
     });
-  }, [open, source.data, source.isPlaceholderData, lookup, topic, reprocess]);
+  }, [open, source.data, source.isPlaceholderData, lookup, srcTopic, reprocess]);
   // a fresh sample per target schema: switching topic doesn't keep the previous topic's JSON
   const [sampledFor, setSampledFor] = useState<string>();
   // only once the target's own detail (and schema) loaded — placeholder data is the previous topic's
