@@ -254,3 +254,16 @@ test('a bare name resolves in its own namespace: reordering fields stays compati
   expect(checkCompatibility('AVRO', writer, reader, 'FULL').compatible).toBe(true);
   expect(diffFields('AVRO', writer, reader).filter((c) => c.change !== 'same')).toEqual([]);
 });
+
+test('JSON Schema type changes are judged by direction: widening is backward-compatible, narrowing forward', () => {
+  const s = (type: unknown) => JSON.stringify({ properties: { a: { type } } });
+  const ok = (o: unknown, n: unknown, mode: 'BACKWARD' | 'FORWARD') =>
+    checkCompatibility('JSON', s(o), s(n), mode).compatible;
+  expect(ok('integer', 'number', 'BACKWARD')).toBe(true); // new consumers accept every old integer
+  expect(ok('integer', 'number', 'FORWARD')).toBe(false); // old consumers reject a new 1.5
+  expect(ok('number', 'integer', 'BACKWARD')).toBe(false);
+  expect(ok('number', 'integer', 'FORWARD')).toBe(true);
+  expect(ok(['string'], ['string', 'null'], 'BACKWARD')).toBe(true);
+  expect(ok(['string'], ['string', 'null'], 'FORWARD')).toBe(false);
+  expect(ok('string', 'number', 'BACKWARD')).toBe(false);
+});

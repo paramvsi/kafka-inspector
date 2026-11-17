@@ -166,6 +166,16 @@ function check(
 const jtype = (t: unknown): string =>
   t === undefined ? 'any' : Array.isArray(t) ? [...t].sort().join(' | ') : String(t);
 
+/** Does a reader with JSON Schema `type` r accept every value a writer with `type` w allows? (no type = any) */
+function accepts(r: unknown, w: unknown): boolean {
+  if (r === undefined) return true;
+  if (w === undefined) return false;
+  const rs = new Set((Array.isArray(r) ? r : [r]).map(String));
+  return (Array.isArray(w) ? w : [w]).every(
+    (t) => rs.has(String(t)) || (t === 'integer' && rs.has('number')),
+  );
+}
+
 const NOT_JSON = 'The candidate schema is not valid JSON.';
 
 function avroCheck(
@@ -241,9 +251,14 @@ function jsonCheck(
   const forward = mode.startsWith('FORWARD') || mode.startsWith('FULL');
   const op = o.properties ?? {},
     np = n.properties ?? {};
+  // by direction, as Confluent: widening (integer → number, adding a type) breaks only forward, narrowing only backward
   for (const [k, v] of Object.entries(np)) {
-    if (op[k] && jtype(op[k].type) !== jtype(v.type))
-      messages.push(`${k} changed type from ${jtype(op[k].type)} to ${jtype(v.type)}.`);
+    if (!op[k] || jtype(op[k].type) === jtype(v.type)) continue;
+    const change = `${k} changed type from ${jtype(op[k].type)} to ${jtype(v.type)}`;
+    if (backward && !accepts(v.type, op[k].type))
+      messages.push(`Backward: ${change}, so new consumers reject some old messages.`);
+    if (forward && !accepts(op[k].type, v.type))
+      messages.push(`Forward: ${change}, so old consumers reject some new messages.`);
   }
   if (backward)
     for (const r of n.required ?? [])
