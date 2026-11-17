@@ -32,8 +32,9 @@ public class Clusters {
             throw new IllegalStateException("KI_SAMPLE_INTERVAL must be at least 1s (it is " + props.sampleInterval() + "). Set it to 10s, the default, or more.");
         if (props.lagWindow() < 2)
             throw new IllegalStateException("KI_LAG_WINDOW must be at least 2 samples (it is " + props.lagWindow() + "). Remove it to use 30.");
-        if (props.historyRetention().isNegative() || props.historyRetention().isZero())
-            throw new IllegalStateException("KI_HISTORY_RETENTION must be longer than 0 (it is " + props.historyRetention() + "). Remove it to keep 7d.");
+        // a bare number is milliseconds to Spring (KI_HISTORY_RETENTION=7 is 7 ms): every prune would delete all history
+        if (props.historyRetention().compareTo(java.time.Duration.ofHours(1)) < 0)
+            throw new IllegalStateException("KI_HISTORY_RETENTION must be at least 1h (it is " + props.historyRetention() + "). Give a unit, like 7d or 48h, or remove it to keep 7d.");
         List<KiProperties.Cluster> list = new ArrayList<>(props.clusters() == null ? List.of() : props.clusters());
         String shortcut = env.getProperty("KAFKA_BOOTSTRAP");
         if (list.isEmpty() && shortcut != null && !shortcut.isBlank()) {
@@ -53,6 +54,8 @@ public class Clusters {
                     throw new IllegalStateException("Cluster " + c.name() + ": the Schema Registry URL isn't a valid http(s) URL (KI_CLUSTERS_n_SCHEMA_REGISTRY). Put credentials in KI_CLUSTERS_n_SCHEMA_REGISTRY_USERNAME and _PASSWORD, not in the URL.");
                 }
             }
+            if (c.name() != null && c.name().length() > 100) // the id is stored in VARCHAR(100) history and alert columns
+                throw new IllegalStateException("A cluster name is " + c.name().length() + " characters; at most 100 fit (KI_CLUSTERS_n_NAME).");
             String id = c.name() == null || c.name().isBlank() ? "default" : c.name().toLowerCase().replaceAll("[^a-z0-9._-]", "-");
             // fail fast on settings that would otherwise fail every request (or silently replace a cluster)
             if (byId.containsKey(id))

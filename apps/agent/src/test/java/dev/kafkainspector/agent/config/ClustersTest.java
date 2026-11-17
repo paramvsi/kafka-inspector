@@ -77,4 +77,13 @@ class ClustersTest {
         String msg = assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("p".repeat(80), true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage();
         assertTrue(msg.contains("KI_ADMIN_PASSWORD"), msg);
     }
+
+    @Test
+    void aBareNumberRetentionAndAnOverlongNameFailAtStartup() {
+        KiProperties.Cluster c = c("prod", "PLAINTEXT", null);
+        // KI_HISTORY_RETENTION=7 binds as 7 ms: it passed "> 0" and every prune deleted all history
+        assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ofMillis(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage().contains("KI_HISTORY_RETENTION"));
+        // the id lands in VARCHAR(100) columns: a longer name started fine, then every history write failed
+        assertTrue(assertThrows(IllegalStateException.class, () -> of(c("x".repeat(101), "PLAINTEXT", null))).getMessage().contains("KI_CLUSTERS_n_NAME"));
+    }
 }
