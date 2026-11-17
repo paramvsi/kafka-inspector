@@ -15,6 +15,7 @@ import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField, useToast } 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { csvCell } from '../../lib/csv';
+import { findMsg, parseMsgParam } from '../../lib/msgParam';
 import { keepFocus } from '../../lib/focus';
 import { runFilter, type FilterResult } from '../../lib/filter';
 import { useApp } from '../../lib/app';
@@ -80,7 +81,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const expr = url.get('filter') ?? '';
   const cols = (url.get('cols') ?? '').split(',').filter(Boolean);
   const regex = url.get('search');
-  const msgParam = /^\d+:\d+$/.test(url.get('msg') ?? '') ? url.get('msg')! : undefined;
+  const msgRef = parseMsgParam(url.get('msg'));
   // opening adds one history entry (Back closes the drawer); closing undoes that entry instead of leaving a
   // second copy of the page behind it. A drawer opened from a link has no entry of ours to undo.
   const pushedMsg = useRef(false);
@@ -298,10 +299,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     return [...keys];
   }, [decodedList]);
 
-  const selected = msgParam
-    ? (rows.find((m) => `${m.partition}:${m.offset}` === msgParam) ??
-      raws.find((m) => `${m.partition}:${m.offset}` === msgParam))
-    : undefined;
+  const selected = findMsg(rows, msgRef) ?? findMsg(raws, msgRef);
   const [savedFilters, saveFilter] = useSavedFilters();
   const [maskOpen, setMaskOpen] = useState(false);
   const [naming, setNaming] = useState<string | null>(null);
@@ -757,7 +755,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                     key={msgId(m)}
                     aria-rowindex={vi.index + 2}
                     style={{ height: ROW_H }}
-                    onClick={() => openMsg(`${m.partition}:${m.offset}`)}
+                    onClick={() => openMsg(regex != null ? msgId(m) : `${m.partition}:${m.offset}`)}
                     className={`cursor-pointer ${animateRows ? 'ki-fade-in' : ''} ${isSel ? '[&>td]:bg-copper-soft' : '[&>td]:hover:bg-surface-hover'}`}
                   >
                     {regex !== undefined && <Td mono>{m.topic}</Td>}
@@ -768,7 +766,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                         className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] tabular-nums text-ink hover:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openMsg(`${m.partition}:${m.offset}`);
+                          openMsg(regex != null ? msgId(m) : `${m.partition}:${m.offset}`);
                         }}
                       >
                         {formatInt(m.offset)}
@@ -891,9 +889,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         )}
       </Card>
       <MessageDrawer
-        topic={topic}
+        topic={msgRef?.topic ?? topic}
         raw={selected}
-        msgParam={msgParam}
+        msgRef={msgRef}
         valueAs={valueAs}
         keyAs={keyAs}
         onClose={closeMsg}

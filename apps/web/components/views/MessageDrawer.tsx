@@ -1,4 +1,5 @@
 'use client';
+import type { MsgRef } from '../../lib/msgParam';
 import { formatInt, formatTimestamp, hexDump, type DecodeAs, type RawMessage } from '@ki/core';
 import { Button, CopyButton, Drawer, HexDump, JsonTree, Tooltip } from '@ki/ui';
 import { useEffect, useState } from 'react';
@@ -17,14 +18,14 @@ import { applyMasks, decode as decodeBytes } from '@ki/core';
 export function MessageDrawer({
   topic,
   raw,
-  msgParam,
+  msgRef,
   valueAs,
   keyAs,
   onClose,
 }: {
   topic: string;
   raw?: RawMessage;
-  msgParam?: string;
+  msgRef?: MsgRef;
   valueAs: DecodeAs;
   keyAs: DecodeAs;
   onClose: () => void;
@@ -34,12 +35,13 @@ export function MessageDrawer({
   const lookup = useSchemaLookup();
   const [rules] = useMaskRules();
   const readOnly = useReadOnly();
-  const [p, o] = (msgParam ?? '').split(':').map(Number);
+  const p = msgRef?.partition,
+    o = msgRef?.offset;
   const fetched = useKafkaQuery(
-    ['message', topic, msgParam],
+    ['message', topic, p, o],
     (c, id) => c.browse(id, { topic, partition: p!, from: 'offset', offset: o!, limit: 1 }),
     false,
-    !!msgParam && !raw, // nothing selected (or already in hand): no request with NaN offsets
+    !!msgRef && !raw, // nothing selected (or already in hand): no request with NaN offsets
   );
   const m = raw ?? fetched.data?.messages.find((x) => x.offset === o && x.partition === p);
   const [d, setD] = useState<DecodedMessage>();
@@ -90,7 +92,7 @@ export function MessageDrawer({
   const json = d?.value.ok ? (asText ? (d.shown as string) : JSON.stringify(d.shown, null, 2)) : '';
   return (
     <Drawer
-      open={!!msgParam}
+      open={!!msgRef}
       onClose={onClose}
       title="Message"
       description={
@@ -117,7 +119,7 @@ export function MessageDrawer({
                 </Button>
               </Tooltip>
             ) : (
-              <Button size="sm" onClick={() => url.set({ produce: 1, reprocess: msgParam })}>
+              <Button size="sm" onClick={() => url.set({ produce: 1, reprocess: `${p}:${o}` })}>
                 Reprocess to topic
               </Button>
             )}
