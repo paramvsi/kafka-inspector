@@ -1,7 +1,7 @@
 // Message decoding (ARCHITECTURE "Serdes"). Runs in the browser in both modes. Never throws into the UI:
 // failures come back as values with an annotated hex dump (F-46).
 import type { SchemaVersion } from '../types';
-import { AvroType, collectNamed, qualify } from './avro';
+import { AvroType, namedTypes } from './avro';
 
 export type DecodeAs =
   | 'auto'
@@ -135,11 +135,7 @@ type AnySchema = any;
 /** Exported for tests. */
 export function logicalDisplay(schema: AnySchema, v: unknown): unknown {
   // the decoder's own name rules: a bare reference resolves in its enclosing namespace first
-  const seen = new Map<string, AnySchema>();
-  collectNamed(schema, seen);
-  const root = qualify(schema, seen);
-  const named = new Map<string, AnySchema>();
-  collectNamed(root, named);
+  const { root, named } = namedTypes(schema);
   const resolve = (s: AnySchema): AnySchema =>
     typeof s === 'string' && named.has(s) ? named.get(s) : s;
   // the union branch the decoder took, recovered from the value's runtime type

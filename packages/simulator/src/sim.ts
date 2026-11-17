@@ -1315,10 +1315,9 @@ export class Simulator {
         const gp = g?.parts.find((x) => x.topic === s.def.name && x.p === s.p);
         startAt = gp ? Math.floor(gp.committed) : hw;
       }
-      const per = req.partition === 'all' ? limit : limit;
       const offsets: number[] = [];
-      if (descending) for (let o = startAt; o >= lo && offsets.length < per; o--) offsets.push(o);
-      else for (let o = startAt; o < hw && offsets.length < per; o++) offsets.push(o);
+      if (descending) for (let o = startAt; o >= lo && offsets.length < limit; o--) offsets.push(o);
+      else for (let o = startAt; o < hw && offsets.length < limit; o++) offsets.push(o);
       scanned += offsets.length;
       for (const o of offsets) candidates.push({ s, o, t: this.timestampOf(s, o) });
     }

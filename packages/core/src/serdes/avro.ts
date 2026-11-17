@@ -67,14 +67,24 @@ export function qualify(s: AvroSchema, named: Map<string, AvroSchema>, ns?: stri
   return out;
 }
 
+/** The schema with bare references qualified, and its name table built from that copy. */
+export function namedTypes(schema: AvroSchema): {
+  root: AvroSchema;
+  named: Map<string, AvroSchema>;
+} {
+  const seen = new Map<string, AvroSchema>();
+  collectNamed(schema, seen);
+  const root = qualify(schema, seen);
+  const named = new Map<string, AvroSchema>();
+  collectNamed(root, named); // names point at the qualified copies
+  return { root, named };
+}
+
 export class AvroType {
-  private named = new Map<string, AvroSchema>();
+  private named: Map<string, AvroSchema>;
   private root: AvroSchema;
   constructor(readonly schema: AvroSchema) {
-    const seen = new Map<string, AvroSchema>();
-    collectNamed(schema, seen);
-    this.root = qualify(schema, seen);
-    collectNamed(this.root, this.named); // names now point at the qualified copies
+    ({ root: this.root, named: this.named } = namedTypes(schema));
   }
 
   static parse(json: string): AvroType {
