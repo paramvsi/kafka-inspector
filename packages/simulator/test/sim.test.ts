@@ -1278,3 +1278,13 @@ test('a reset skips a partition with no leader (its brokers are down), in the pr
     g.partitions?.find((p) => p.topic === 'orders' && p.partition === 0)?.committedOffset;
   expect(committed(a.sim.getGroup('payments-sink'))).toBe(committed(before));
 });
+
+test('topics sort by name in code-point order like the agent; a page size below 1 reads as 1', async () => {
+  const a = make();
+  await a.init();
+  for (const name of ['zz-b', 'zz.b', 'zz_b', 'ZZ'])
+    await a.sim.createTopic({ name, partitions: 1, replicationFactor: 3 } as never);
+  const names = a.sim.listTopics({ query: 'zz', sort: 'name' } as never).items.map((t) => t.name);
+  expect(names).toEqual(['ZZ', 'zz-b', 'zz.b', 'zz_b']); // Java's String.compareTo order
+  expect(a.sim.listTopics({ size: 0 } as never).items.length).toBe(1);
+});

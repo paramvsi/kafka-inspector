@@ -1224,15 +1224,15 @@ export class Simulator {
             : 0;
     items.sort((a, b) =>
       sort === 'name'
-        ? a.name.localeCompare(b.name)
+        ? byName(a.name, b.name)
         : sort === 'size'
-          ? (b.sizeBytes ?? -1) - (a.sizeBytes ?? -1) || a.name.localeCompare(b.name) // unknown last
+          ? (b.sizeBytes ?? -1) - (a.sizeBytes ?? -1) || byName(a.name, b.name) // unknown last
           : sort === 'rate'
-            ? b.messagesInPerSec - a.messagesInPerSec || a.name.localeCompare(b.name)
+            ? b.messagesInPerSec - a.messagesInPerSec || byName(a.name, b.name)
             : // ties by name, not the live rate, so rows don't swap places on every refresh
-              score(b) - score(a) || a.name.localeCompare(b.name),
+              score(b) - score(a) || byName(a.name, b.name),
     );
-    const size = Math.min(q.size ?? 50, 500);
+    const size = Math.max(1, Math.min(q.size ?? 50, 500)); // as the agent: at least 1, at most 500
     const page = Math.max(1, q.page ?? 1);
     return { items: items.slice((page - 1) * size, page * size), total: items.length, page, size };
   }
@@ -1435,12 +1435,20 @@ export class Simulator {
       unknown: 3,
       healthy: 4,
     };
-    return [...this.groups.values()]
-      .filter((g) => !g.deleted)
-      .filter((g) => !q.type || g.def.type === q.type)
-      .filter((g) => !q.query || g.def.groupId.includes(q.query))
-      .map((g) => this.groupSummary(g))
-      .sort((a, b) => rank[a.status] - rank[b.status] || b.totalLag - a.totalLag);
+    return (
+      [...this.groups.values()]
+        .filter((g) => !g.deleted)
+        .filter((g) => !q.type || g.def.type === q.type)
+        .filter((g) => !q.query || g.def.groupId.includes(q.query))
+        .map((g) => this.groupSummary(g))
+        // worst first, then by name on ties as the agent (its snapshot is a TreeMap), not definition order
+        .sort(
+          (a, b) =>
+            rank[a.status] - rank[b.status] ||
+            b.totalLag - a.totalLag ||
+            byName(a.groupId, b.groupId),
+        )
+    );
   }
 
   getGroup(id: string): GroupDetail {
@@ -2761,3 +2769,6 @@ export function topicNodeStatus(health: { severity: string }[]): 'healthy' | 'wa
 
 /** A broker's own identity settings (static): not every name containing "id" (connections.max.idle.ms isn't). */
 const ID_KEYS = new Set(['broker.id', 'node.id']);
+
+/** Code-point order, as the agent's String.compareTo: the same topic names list in the same order in both modes. */
+const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
