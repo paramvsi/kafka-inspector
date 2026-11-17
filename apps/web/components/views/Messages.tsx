@@ -14,7 +14,7 @@ import {
 import { Button, Card, Checkbox, EmptyState, Kbd, Select, TextField, useToast } from '@ki/ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { csvCell } from '../../lib/csv';
+import { exportBody } from '../../lib/csv';
 import { findMsg, parseMsgParam } from '../../lib/msgParam';
 import { keepFocus } from '../../lib/focus';
 import { runFilter, type FilterResult } from '../../lib/filter';
@@ -66,6 +66,7 @@ function preview(
 }
 
 export function MessagesTab({ topic, partitions }: { topic: string; partitions: number }) {
+  const toast = useToast();
   const url = useUrl();
   const { client, clusterId, info } = useKafka();
   const lookup = useSchemaLookup();
@@ -342,27 +343,13 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   };
 
   const exportAs = (kind: 'json' | 'csv') => {
-    const items = rows.map((m) => {
-      const d = cache.current.get(msgId(m));
-      return {
-        topic: m.topic,
-        partition: m.partition,
-        offset: m.offset,
-        timestamp: m.timestamp,
-        key: d?.key.ok ? d.key.value : null,
-        value: d?.value.ok ? d.shown : { decodeError: d && !d.value.ok ? d.value.reason : null },
-        headers: d?.headers ?? {},
-      };
-    });
-    const body =
-      kind === 'json'
-        ? JSON.stringify(items, null, 2)
-        : [
-            'topic,partition,offset,timestamp,key,value',
-            ...items.map((i) =>
-              [i.topic, i.partition, i.offset, i.timestamp, i.key, i.value].map(csvCell).join(','),
-            ),
-          ].join('\n');
+    const { body, skipped } = exportBody(rows, (m) => cache.current.get(msgId(m)), kind);
+    if (skipped)
+      toast({
+        tone: 'warn',
+        title: `${skipped} ${skipped === 1 ? 'message was' : 'messages were'} left out of the export`,
+        body: 'They were still decoding. Export again in a moment to include them.',
+      });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(
       // a BOM tells Excel the CSV is UTF-8 (otherwise é, €, 日本 open garbled)
