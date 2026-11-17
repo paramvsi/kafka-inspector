@@ -9,6 +9,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -21,6 +22,7 @@ import { AppStateProvider, useApp } from '../lib/app';
 import { KafkaProvider, useBoot, useKafkaMaybe, useStream, type Boot } from '../lib/kafka';
 import { locate, navFor, type Mode } from '../lib/nav';
 import { DisconnectedBanner } from './Disconnected';
+import { keepFocus } from '../lib/focus';
 import { SettingsMenu } from './SettingsMenu';
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -233,11 +235,24 @@ function Frame({
   onSearchOpen?: (initial?: string) => void;
   clusterMenu?: ReactNode;
 }) {
-  const loc = locate(usePathname());
+  const pathname = usePathname();
+  const loc = locate(pathname);
   const params = useSearchParams();
   // Detail pages show the item itself as the last crumb: Topics / orders
   const item = params.get('name') ?? params.get('id') ?? params.get('subject');
   const crumb = loc.parent && item ? item : loc.crumb;
+  // after a page change: the item leads the title (the route announcer reads it; "Topic" alone repeats for every
+  // topic), and focus that fell with the link that was followed lands on the page's main content
+  const titled = useRef('');
+  const first = useRef(true);
+  useEffect(() => {
+    let t = document.title;
+    if (titled.current && t.startsWith(titled.current)) t = t.slice(titled.current.length);
+    titled.current = loc.parent && item ? `${item} · ` : '';
+    document.title = titled.current + t;
+    if (first.current) first.current = false;
+    else keepFocus(document.getElementById('main'));
+  }, [pathname, item, loc.parent]);
   const { range, setRange, live, setLive, preview } = useApp();
   return (
     <div className="flex min-h-screen bg-bg">

@@ -1886,3 +1886,15 @@ test('self-host file tabs: one tab stop, arrow keys move between files', async (
   );
   await expect(first).toHaveAttribute('tabindex', '-1');
 });
+
+test('following a link to another page keeps keyboard focus in the page and names the item in the title', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  const link = page.getByRole('link', { name: 'orders', exact: true });
+  await link.focus();
+  await link.press('Enter');
+  await expect(page).toHaveURL(/topics\/view\/\?name=orders/);
+  await expect(page).toHaveTitle(/^orders · /);
+  await expect(page.locator('#main')).toBeFocused();
+});
