@@ -330,3 +330,14 @@ test('an omitted nullable field with no default is still written as null', () =>
   });
   expect(t.decode(t.encode({ orderId: 'a' }))).toEqual({ orderId: 'a', email: null });
 });
+
+test('Avro int refuses values outside int32 (a real writer does); long still takes them', () => {
+  const t = new AvroType('int');
+  expect(() => t.encode(3_000_000_000)).toThrow(AvroError);
+  expect(() => t.encode(-2_147_483_649)).toThrow(AvroError);
+  expect(() => t.encode(2_147_483_647)).not.toThrow();
+  expect(() => new AvroType('long').encode(3_000_000_000)).not.toThrow();
+  // a union picks long, not int, for a value past int32
+  const u = new AvroType(['null', 'int']);
+  expect(() => u.encode(3_000_000_000)).toThrow(AvroError);
+});

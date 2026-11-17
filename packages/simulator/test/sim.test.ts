@@ -1288,3 +1288,22 @@ test('topics sort by name in code-point order like the agent; a page size below 
   expect(names).toEqual(['ZZ', 'zz-b', 'zz.b', 'zz_b']); // Java's String.compareTo order
   expect(a.sim.listTopics({ size: 0 } as never).items.length).toBe(1);
 });
+
+test('a message produced to a JSON Schema topic is framed with the subject id, like the generated ones', async () => {
+  const h = make();
+  await h.init();
+  const res = await h.sim.produce({
+    topic: 'clickstream',
+    value: '{"sessionId":"s1","event":"view"}',
+    valueFormat: 'json',
+  } as never);
+  const page = h.sim.browse({
+    topic: 'clickstream',
+    partition: res.partition,
+    from: 'newest',
+    limit: 50,
+  });
+  const m = page.messages.find((x) => x.offset === res.offset)!;
+  expect(m.value![0]).toBe(0); // magic byte
+  expect(new DataView(m.value!.buffer, m.value!.byteOffset).getInt32(1)).toBeGreaterThan(0);
+});

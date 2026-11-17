@@ -2143,6 +2143,10 @@ export class Simulator {
         const schema = registry.getSchema(s.def.subject, 'latest')!;
         const type = AvroType.parse(schema.schema);
         value = frame(schema.id, type.encode(fromDisplay(type.schema, JSON.parse(text))));
+      } else if (s.def.subject && req.valueFormat === 'json') {
+        // JSON Schema topics: the serializer frames the JSON too (magic byte + id), as the generated messages are
+        const schema = registry.getSchema(s.def.subject, 'latest');
+        if (schema?.type === 'JSON') value = frame(schema.id, value);
       }
       const key = req.key ? enc.encode(req.key) : null;
       const headers = (req.headers ?? []).map((h) => ({ key: h.key, value: enc.encode(h.value) }));
