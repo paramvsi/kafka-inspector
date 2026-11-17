@@ -21,8 +21,14 @@ function validate(schema: SchemaVersion | undefined, text: string): Validation {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch (e) {
-    return schema ? { ok: false, text: `Not valid JSON: ${(e as Error).message}` } : null;
+  } catch {
+    // the engine's own text ("Unexpected token } in JSON at position 12", or the whole payload quoted) isn't for users
+    return schema
+      ? {
+          ok: false,
+          text: "The value isn't valid JSON. Check for a missing quote, comma or bracket.",
+        }
+      : null;
   }
   if (!schema) return null;
   if (schema.type === 'AVRO') {

@@ -300,3 +300,19 @@ test('logicalDisplay follows the same namespace rule', () => {
   };
   expect(shown.z.t).toBe('1970-01-01T00:00:00Z');
 });
+
+test('a missing record field or a null record says which, not "undefined" or a TypeError', () => {
+  const t = new AvroType({
+    type: 'record',
+    name: 'Order',
+    fields: [
+      { name: 'orderId', type: 'string' },
+      { name: 'note', type: 'string', default: '' },
+    ],
+  });
+  expect(() => t.encode({})).toThrow(
+    'Field "orderId" is missing. Add it, or give it a default in the schema.',
+  );
+  expect(() => t.encode(null)).toThrow('Expected an object with the fields of Order, not null.');
+  expect(() => t.encode({ orderId: 'a' })).not.toThrow(); // a field with a default may be left out
+});

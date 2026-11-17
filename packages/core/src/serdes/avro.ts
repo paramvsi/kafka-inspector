@@ -164,6 +164,17 @@ export class AvroType {
     switch (s.type) {
       case 'record':
       case 'error':
+        // say which field: otherwise the user reads "invalid string: undefined" or a TypeError on null
+        if (v === null || typeof v !== 'object' || Array.isArray(v))
+          throw new AvroError(
+            `Expected an object with the fields of ${s.name}, not ${v === null ? 'null' : Array.isArray(v) ? 'an array' : typeof v}.`,
+          );
+        for (const f of s.fields) {
+          if (v[f.name] === undefined && !('default' in f))
+            throw new AvroError(
+              `Field "${f.name}" is missing. Add it, or give it a default in the schema.`,
+            );
+        }
         for (const f of s.fields)
           this.write(
             f.type,
