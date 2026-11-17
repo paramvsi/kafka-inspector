@@ -59,9 +59,10 @@ export class History {
     const start = lowerBound(this.times, from);
     const last = this.times.length - 1;
     if (start > last) return [];
-    const t0 = this.times[start]!,
-      t1 = this.times[last]!;
-    const width = Math.max(1, (t1 - t0) / maxPoints);
+    // as the agent's HistoryRepository: a width from the span rounded to whole seconds, and buckets anchored
+    // at the epoch, so a sliding window doesn't regroup the samples and old points keep their values
+    const span = Math.round((this.times[last]! - from) / 1000) * 1000;
+    const width = Math.max(1000, Math.floor(span / maxPoints));
     const out: Array<[number, number]> = [];
     let bucket = -1,
       sum = 0,
@@ -73,7 +74,7 @@ export class History {
     for (let i = start; i <= last; i++) {
       const v = arr[i]!;
       if (Number.isNaN(v)) continue;
-      const b = Math.floor((this.times[i]! - t0) / width);
+      const b = Math.floor(this.times[i]! / width);
       if (b !== bucket) {
         flush();
         bucket = b;
