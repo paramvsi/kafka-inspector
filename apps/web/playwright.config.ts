@@ -32,8 +32,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // ponytail: python's static server — swap for `serve` if CI images ever lack python3.
-    command: 'python3 -m http.server 3100 --directory out',
+    // python's threaded static server with a real listen backlog and keep-alive (scripts/serve-out.py): the stock
+    // `python3 -m http.server` reset connections under parallel workers (10 of 300 in a burst test)
+    command: 'python3 scripts/serve-out.py 3100 out',
     url: 'http://localhost:3100/app/',
     reuseExistingServer: !process.env.CI,
   },

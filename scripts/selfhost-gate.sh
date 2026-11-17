@@ -4,7 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=$(mktemp -d)
-node apps/web/scripts/gen-selfhost.ts "$OUT" host.docker.internal:29093 8090
+PORT=${GATE_PORT:-8090} # GATE_PORT=… when 8090 is taken
+node apps/web/scripts/gen-selfhost.ts "$OUT" host.docker.internal:29093 "$PORT"
 # the user's step 2: fill in the secrets on the server
 sed -i.bak 's/^KI_ADMIN_PASSWORD=$/KI_ADMIN_PASSWORD=gate-password/' "$OUT/.env" && rm "$OUT/.env.bak"
 grep -q '^KI_ADMIN_PASSWORD=gate-password$' "$OUT/.env"
@@ -20,16 +21,18 @@ YML
 # cleanup armed first: a failed `up` still tears down what it started
 trap 'docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" down -v >/dev/null 2>&1; rm -rf "$OUT"' EXIT
 docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" up -d
-for i in $(seq 1 60); do curl -fs http://localhost:8090/api/health >/dev/null && break; sleep 2; done
+ok=0
+for i in $(seq 1 60); do curl -fs http://localhost:$PORT/api/health >/dev/null && { ok=1; break; }; sleep 2; done
+[ $ok = 1 ] || { echo "FAIL: the generated compose never became healthy on port $PORT"; exit 1; }
 J="$OUT/cookies" # inside $OUT, so the EXIT cleanup removes the session cookie too
-curl -fs -c "$J" -b "$J" http://localhost:8090/api/info >/dev/null
+curl -fs -c "$J" -b "$J" http://localhost:$PORT/api/info >/dev/null
 T=$(grep KI_CSRF "$J" | awk '{print $7}')
-curl -fs -c "$J" -b "$J" -H "X-KI-CSRF: $T" -H 'Content-Type: application/json' -d '{"username":"admin","password":"gate-password"}' http://localhost:8090/api/auth/login
+curl -fs -c "$J" -b "$J" -H "X-KI-CSRF: $T" -H 'Content-Type: application/json' -d '{"username":"admin","password":"gate-password"}' http://localhost:$PORT/api/auth/login
 for i in $(seq 1 30); do
-  BODY=$(curl -s -b "$J" 'http://localhost:8090/api/clusters/gate/topics?size=50' || true)
+  BODY=$(curl -s -b "$J" "http://localhost:$PORT/api/clusters/gate/topics?size=50" || true)
   echo "$BODY" | grep -q '"name":"orders"' && break
   sleep 2
 done
 echo "$BODY" | grep -q '"name":"orders"' || { echo "FAIL: topics not visible: $BODY"; exit 1; }
-curl -fs -b "$J" 'http://localhost:8090/api/clusters/gate/topics/orders/messages?limit=5' | grep -q '"offset"' || { echo "FAIL: no messages"; exit 1; }
+curl -fs -b "$J" "http://localhost:$PORT/api/clusters/gate/topics/orders/messages?limit=5" | grep -q '"offset"' || { echo "FAIL: no messages"; exit 1; }
 echo "PASS: generated compose → agent read gate cluster topics and messages (read-only)"
