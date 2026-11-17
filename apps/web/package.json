@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "npx serve out -l 3000",
+    "start": "python3 scripts/serve-out.py 3000 out",
     "typecheck": "tsc -p tsconfig.json",
     "e2e": "playwright test --project=chromium --project=reduced-motion",
     "test": "vitest run lib",
