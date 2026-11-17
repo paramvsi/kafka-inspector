@@ -694,7 +694,11 @@ function RuleDialog({
               </p>
             )}
           <Checkbox
-            label="Slack or webhook · arrives in v2 with the agent"
+            label={
+              info.mode === 'demo'
+                ? 'Slack or webhook · arrives in v2 with the agent'
+                : 'Slack or webhook · planned for v2'
+            }
             disabled
             checked={false}
             onChange={() => {}}

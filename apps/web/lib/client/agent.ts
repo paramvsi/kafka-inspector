@@ -30,9 +30,11 @@ function csrf(): string | undefined {
     ?.slice('KI_CSRF='.length);
 }
 
-/** The session ended: go to sign-in and come back here afterwards. */
+/** The session ended (expiry, sign-out elsewhere, agent restart): go to sign-in, say why, come back afterwards. */
 const toSignIn = () =>
-  location.assign(`/app/sign-in/?next=${encodeURIComponent(location.pathname + location.search)}`);
+  location.assign(
+    `/app/sign-in/?next=${encodeURIComponent(location.pathname + location.search)}&reason=expired`,
+  );
 
 export class ApiError extends Error {
   constructor(

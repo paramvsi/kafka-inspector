@@ -18,8 +18,10 @@ export function SignInView() {
   const [meta, setMeta] = useState<{ version: string; clusters?: number } | null>(null);
   const [demo, setDemo] = useState(false);
   const [host, setHost] = useState('');
+  const [expired, setExpired] = useState(false);
   useEffect(() => {
     setHost(location.host); // after mount: the static HTML can't know the host (hydration)
+    setExpired(new URLSearchParams(location.search).get('reason') === 'expired');
     if (process.env.NEXT_PUBLIC_KI_MODE === 'demo') return setDemo(true);
     agentInfo()
       .then(setMeta)
@@ -61,6 +63,11 @@ export function SignInView() {
             className="hidden light:block"
           />
           <h1 className="m-0 mt-4 text-[22px] font-semibold">Sign in to Kafka Inspector</h1>
+          {expired && !demo && (
+            <p role="status" className="m-0 mt-2 text-[13px] font-semibold text-ink">
+              Your session ended. Sign in again.
+            </p>
+          )}
           <p className="m-0 mt-2 text-[13px] text-ink-muted">
             {demo ? (
               <>

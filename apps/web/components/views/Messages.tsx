@@ -814,7 +814,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                   : needs
                     ? needs
                     : page.error
-                      ? `${(page.error as Error).message} Try another start position, or try again.`
+                      ? regex !== undefined
+                        ? `${(page.error as Error).message} Fix the pattern and search again.`
+                        : `${(page.error as Error).message} Try another start position, or try again.`
                       : from === 'offset'
                         ? `No messages at or after offset ${formatInt(Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0))} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier offset or Newest.`
                         : regex !== undefined

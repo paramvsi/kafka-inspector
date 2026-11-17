@@ -1676,3 +1676,20 @@ test('a lag rule on a group with no members says it is skipped until the group h
   await d.getByLabel('Scope').selectOption('search-indexer');
   await expect(d.getByText(/has no members/)).toBeVisible();
 });
+
+test('after a session ends, the sign-in page says why', async ({ page }) => {
+  await page.route('**/api/info', (r) =>
+    r.fulfill({ json: { mode: 'agent', version: '1', auth: true, signedIn: false, clusters: [] } }),
+  );
+  await page.goto('/app/sign-in/?next=%2Fapp%2F&reason=expired');
+  await expect(page.getByText('Your session ended. Sign in again.')).toBeVisible({
+    timeout: 10_000,
+  });
+});
+
+test('a bad search pattern says to fix the pattern, not to pick a start position', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&search=(a');
+  await expect(page.getByText(/Fix the pattern and search again/)).toBeVisible({ timeout: 15_000 });
+});
