@@ -97,3 +97,12 @@ test('schemaTypeLabel names all three registry types', () => {
   expect(schemaTypeLabel('JSON')).toBe('JSON Schema');
   expect(schemaTypeLabel('PROTOBUF')).toBe('Protobuf');
 });
+
+test('unknown values read "—", never "0 B", "NaN%" or "~NaN h"', async () => {
+  const { formatBytes, formatPct, formatEta } = await import('../src');
+  for (const v of [NaN, Infinity, -Infinity]) {
+    expect(formatBytes(v)).toBe('—');
+    expect(formatPct(v)).toBe('—');
+    expect(formatEta(v)).toBe('—');
+  }
+});

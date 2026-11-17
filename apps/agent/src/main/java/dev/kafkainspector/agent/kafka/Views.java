@@ -217,6 +217,7 @@ public final class Views {
 
     /** Port of core's formatEta (ARCHITECTURE "Forecast" format, rule 9): "under a minute" · "~14 min" · "~3 h". */
     static String eta(double seconds) {
+        if (!Double.isFinite(seconds)) return "—"; // unknown, as packages/core formatEta
         if (seconds < 60) return "under a minute";
         long min = Math.round(seconds / 60);
         if (min < 120) return "~" + min + " min";

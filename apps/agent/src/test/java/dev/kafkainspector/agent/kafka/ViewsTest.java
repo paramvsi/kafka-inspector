@@ -66,6 +66,9 @@ class ViewsTest {
     void etaMatchesCoreFormatEta() {
         // the vectors of packages/core/test/lag.test.ts (ARCHITECTURE "Forecast" format, rule 9)
         org.junit.jupiter.api.Assertions.assertEquals("under a minute", Views.eta(59));
+        // unknown reads "—" as packages/core formatEta (was "~0 min" for NaN)
+        org.junit.jupiter.api.Assertions.assertEquals("—", Views.eta(Double.NaN));
+        org.junit.jupiter.api.Assertions.assertEquals("—", Views.eta(Double.POSITIVE_INFINITY));
         org.junit.jupiter.api.Assertions.assertEquals("~14 min", Views.eta(14 * 60 + 10));
         org.junit.jupiter.api.Assertions.assertEquals("~119 min", Views.eta(119 * 60));
         org.junit.jupiter.api.Assertions.assertEquals("~3 h", Views.eta(3 * 3600));

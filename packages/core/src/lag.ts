@@ -151,6 +151,7 @@ export function combineForecasts(parts: Array<{ lag: number; forecast: Forecast 
 
 /** "under a minute" · "~14 min" · "~3 h" (ARCHITECTURE "Forecast" format). */
 export function formatEta(seconds: number): string {
+  if (!Number.isFinite(seconds)) return '—'; // unknown (agent Views.eta matches)
   if (seconds < 60) return 'under a minute';
   const min = Math.round(seconds / 60);
   if (min < 120) return `~${min} min`;

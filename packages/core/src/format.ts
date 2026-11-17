@@ -24,6 +24,7 @@ const trim = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1).re
 
 /** 61.4 MB (decimal units, like Kafka tooling). */
 export function formatBytes(n: number): string {
+  if (!Number.isFinite(n)) return '—'; // unknown, not "0 B" (rule 7)
   const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
   let v = n;
   let i = 0;
@@ -107,7 +108,8 @@ export function toLocalInput(t: number | string): string {
 }
 
 /** 12.4% */
-export const formatPct = (n: number, digits = 0) => `${n.toFixed(digits)}%`;
+export const formatPct = (n: number, digits = 0) =>
+  Number.isFinite(n) ? `${n.toFixed(digits)}%` : '—';
 
 /** +4.2% / −3.1% (true minus sign) */
 export function formatDelta(pct: number): string {
