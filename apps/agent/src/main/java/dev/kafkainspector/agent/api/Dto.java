@@ -19,7 +19,7 @@ public final class Dto {
     public record HealthFinding(String id, String severity, String message, String fix) {}
     public record TopicSummary(String name, boolean internal, int partitions, int replicationFactor, Long sizeBytes, double messagesInPerSec, int consumerGroups, String lastMessageAt, int underReplicated, List<HealthFinding> health, List<Double> trend) {}
     public record PartitionInfo(int partition, Integer leader, List<Integer> replicas, List<Integer> isr, long lowWatermark, long highWatermark, Double sharePct, String lastMessageAt) {}
-    public record TopicConsumer(String groupId, String type, long lag, String status, String state) {}
+    public record TopicConsumer(String groupId, String type, Long lag, String status, String state) {} // lag null: assigned, nothing committed
     public record SchemaLink(String keySubject, String valueSubject) {}
     public record TopicDetail(TopicSummary summary, List<PartitionInfo> partitions, List<TopicConsumer> consumers, SchemaLink schema) {}
     public record Page<T>(List<T> items, int total, int page, int size) {}

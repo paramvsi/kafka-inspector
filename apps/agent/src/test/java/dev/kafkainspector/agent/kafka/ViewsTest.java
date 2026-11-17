@@ -123,4 +123,23 @@ class ViewsTest {
         org.junit.jupiter.api.Assertions.assertEquals("warn", Views.topicNodeStatus(java.util.List.of(warn)));
         org.junit.jupiter.api.Assertions.assertEquals("healthy", Views.topicNodeStatus(java.util.List.of()));
     }
+
+    @Test
+    void aGroupAssignedToATopicButWithNoCommitsHasUnknownLagNotZero() {
+        ClusterState s = new ClusterState();
+        ClusterState.TopicSnap t = new ClusterState.TopicSnap();
+        t.name = "orders";
+        ClusterState.PartSnap p = part(0, 1024);
+        p.high = 500;
+        t.partitions.add(p);
+        s.topics = java.util.Map.of("orders", t);
+        ClusterState.GroupSnap g = new ClusterState.GroupSnap();
+        g.groupId = "billing";
+        ClusterState.MemberSnap m = new ClusterState.MemberSnap();
+        m.assignments.add(new String[] {"orders", "0"});
+        g.members.add(m);
+        s.groups = java.util.Map.of("billing", g);
+        var c = Views.topicDetail(s, t, List.of(), java.util.Set.of()).consumers().get(0);
+        assertNull(c.lag(), "no committed offset: lag unknown (the UI showed 0, which reads as caught up)");
+    }
 }

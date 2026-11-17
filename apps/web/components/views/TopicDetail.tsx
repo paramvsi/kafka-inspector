@@ -281,7 +281,9 @@ function OverviewTab({ d, hourAgo }: { d: Detail; hourAgo?: number }) {
                         {shownName(c.groupId)}
                       </Link>
                       <StatusBadge status={b.status}>
-                        <span className="font-mono tabular-nums">{formatInt(c.lag)}</span>
+                        <span className="font-mono tabular-nums">
+                          {c.lag == null ? '—' : formatInt(c.lag)}
+                        </span>
                         <span className="sr-only"> behind, {b.label}</span>
                       </StatusBadge>
                     </li>
@@ -433,7 +435,12 @@ function ConsumersTab({ d }: { d: Detail }) {
         },
         { key: 't', header: 'Type', kind: 'dim', cell: (c) => c.type },
         { key: 's', header: 'State', kind: 'dim', cell: (c) => c.state },
-        { key: 'l', header: 'Lag on this topic', kind: 'num', cell: (c) => formatInt(c.lag) },
+        {
+          key: 'l',
+          header: 'Lag on this topic',
+          kind: 'num',
+          cell: (c) => (c.lag == null ? '—' : formatInt(c.lag)),
+        },
         {
           key: 'h',
           header: 'Status',

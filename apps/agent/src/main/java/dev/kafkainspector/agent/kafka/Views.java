@@ -111,7 +111,7 @@ public final class Views {
             if (c == null) {
                 // assigned but no commits (or a share group): listed like consumersOf counts it, lag unknown
                 boolean assigned = g.members.stream().anyMatch(m -> m.assignments.stream().anyMatch(a -> a[0].equals(t.name)));
-                if (assigned) consumers.add(new Dto.TopicConsumer(g.groupId, g.type, 0, Lag.Status.unknown.name(), g.state));
+                if (assigned) consumers.add(new Dto.TopicConsumer(g.groupId, g.type, null, Lag.Status.unknown.name(), g.state));
                 continue;
             }
             long lag = 0;

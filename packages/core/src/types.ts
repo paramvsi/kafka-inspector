@@ -134,7 +134,8 @@ export interface PartitionInfo {
 export interface TopicConsumer {
   groupId: string;
   type: GroupType;
-  lag: number;
+  /** null: assigned to the topic but nothing committed yet (e.g. a share group) — lag unknown, not 0 */
+  lag: number | null;
   status: LagStatus;
   state: GroupState;
 }
