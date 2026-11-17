@@ -280,8 +280,15 @@ public class Sampler {
                 try {
                     described.put(id, f.get(left(describeBy), TimeUnit.NANOSECONDS));
                 } catch (Exception e) {
-                    groups.remove(id); // one odd group must not fail the whole sample
                     log.debug("describe {} failed: {}", id, e.getMessage());
+                    // one odd group must not fail the whole sample, nor vanish for a pass: dropping it pruned its lag
+                    // windows, so a stalled group came back reading healthy. Keep its last snapshot instead.
+                    ClusterState.GroupSnap prev = s.groups.get(id);
+                    if (prev == null) groups.remove(id);
+                    else {
+                        carryOver(groups.get(id), prev);
+                        carried.add(id);
+                    }
                 }
             });
             consumerIds.retainAll(described.keySet());
@@ -512,5 +519,14 @@ public class Sampler {
         if (markerOnly.size() > 10_000) markerOnly.clear();
         markerOnly.put(k, only);
         return only;
+    }
+
+    /** The previous snapshot's state, members and offsets, copied (published snapshots are never mutated). */
+    static void carryOver(ClusterState.GroupSnap into, ClusterState.GroupSnap prev) {
+        into.state = prev.state;
+        into.type = prev.type;
+        into.members = new java.util.ArrayList<>(prev.members);
+        into.committed = new java.util.HashMap<>();
+        prev.committed.forEach((topic, m) -> into.committed.put(topic, new java.util.TreeMap<>(m)));
     }
 }
