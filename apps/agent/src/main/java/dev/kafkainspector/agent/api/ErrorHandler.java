@@ -26,7 +26,10 @@ public class ErrorHandler {
     ResponseEntity<Dto.ApiError> malformed(Exception e) {
         String msg = switch (e) {
             case MissingServletRequestParameterException m -> "Missing parameter " + m.getParameterName() + ".";
-            case MethodArgumentTypeMismatchException m -> "Parameter " + m.getName() + " has an invalid value.";
+            // say what's expected, not just that it's wrong (copy rule: what failed and what to do)
+            case MethodArgumentTypeMismatchException m -> m.getRequiredType() != null && Number.class.isAssignableFrom(org.springframework.util.ClassUtils.resolvePrimitiveIfNecessary(m.getRequiredType()))
+                    ? m.getName() + " must be a whole number, like 0 or 42."
+                    : "Parameter " + m.getName() + " has an invalid value.";
             case HttpMessageNotReadableException m -> "The request body is missing or not valid JSON.";
             case DateTimeParseException m -> "That date and time can't be read. Use ISO 8601, e.g. 2026-11-16T10:00:00Z.";
             default -> "The request is missing a value or has one that can't be read.";

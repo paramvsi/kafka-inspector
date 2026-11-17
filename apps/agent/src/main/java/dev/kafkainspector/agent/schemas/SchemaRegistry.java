@@ -58,9 +58,7 @@ public class SchemaRegistry {
             if (r.statusCode() >= 400) {
                 // the body can be a proxy page or a stack trace with internal names: log it, don't send it
                 log.warn("Schema Registry for cluster {} answered {} to {} {}: {}", cid, r.statusCode(), method, path, r.body().length() > 500 ? r.body().substring(0, 500) + "…" : r.body());
-                throw new IllegalStateException(r.statusCode() == 401 || r.statusCode() == 403
-                        ? "The Schema Registry refused the agent's credentials (" + r.statusCode() + "). Check the registry username and password in the agent config."
-                        : "The Schema Registry answered " + r.statusCode() + ". Try again; the agent log has the detail.");
+                throw failure(r.statusCode());
             }
             try {
                 return json.readTree(r.body());
@@ -204,5 +202,14 @@ public class SchemaRegistry {
         if (!x.matches()) return m;
         String info = x.group(2);
         return x.group(1) + (info == null || info.isBlank() ? "." : " (" + info + ").");
+    }
+
+    /** A registry error the user can act on: a rejected schema is theirs to fix (400), anything else a retry (503). */
+    static RuntimeException failure(int status) {
+        if (status == 422)
+            return new IllegalArgumentException("The Schema Registry rejected that schema as invalid. Check the schema text and its type (Avro, JSON or Protobuf).");
+        return new IllegalStateException(status == 401 || status == 403
+                ? "The Schema Registry refused the agent's credentials (" + status + "). Check the registry username and password in the agent config."
+                : "The Schema Registry answered " + status + ". Try again; the agent log has the detail.");
     }
 }
