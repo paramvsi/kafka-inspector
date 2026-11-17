@@ -105,7 +105,9 @@ export function SchemasView() {
           // no registry configured (NO_SCHEMA_REGISTRY): its message says which variable to set
           <EmptyState title="No Schema Registry">{(subjects.error as Error).message}</EmptyState>
         ) : subjects.error ? (
-          <EmptyState title="Couldn't load schemas">{(subjects.error as Error).message}</EmptyState>
+          <EmptyState title="Couldn't load schemas">
+            {(subjects.error as Error).message} Reload the page to try again.
+          </EmptyState>
         ) : !subjects.data ? (
           <LoadingRows label="Loading subjects…" />
         ) : !s && subject && subjects.data?.length ? (

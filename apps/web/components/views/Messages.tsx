@@ -324,7 +324,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
       setExtraScanned((n) => n + next.scanned);
       setCursor(next.nextCursor);
     } catch (e) {
-      setLoadError(`Couldn't load more messages: ${(e as Error).message}`);
+      setLoadError(
+        `Couldn't load more messages: ${(e as Error).message} Choose Load more to try again.`,
+      );
     } finally {
       setLoading(false);
     }

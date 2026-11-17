@@ -80,7 +80,7 @@ export function MessageDrawer({
     } catch (e) {
       setAlt({
         label: `Decoded with latest ${subject}`,
-        value: `Couldn't fetch the schema: ${(e as Error).message}`,
+        value: `Couldn't fetch the schema: ${(e as Error).message} Close and reopen the message to try again.`,
       });
     }
   };

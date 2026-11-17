@@ -235,7 +235,7 @@ export function AlertsView() {
             empty={
               alertsFailed ? (
                 <EmptyState title="Couldn't load alert history">
-                  {(alertsFailed as Error).message}
+                  {(alertsFailed as Error).message} It retries every few seconds.
                 </EmptyState>
               ) : (
                 <EmptyState title="No alerts in the last 24 hours" />
@@ -291,7 +291,8 @@ export function AlertsView() {
         >
           {!!rulesFailed && !rules.data && (
             <p className="m-0 text-[13px] text-crit-text" role="alert">
-              Couldn&apos;t load the rules: {(rulesFailed as Error).message}
+              Couldn&apos;t load the rules: {(rulesFailed as Error).message} It retries every few
+              seconds.
             </p>
           )}
           <ul className="m-0 flex list-none flex-col p-0">
