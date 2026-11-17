@@ -424,6 +424,12 @@ html.theme-switching * {
   input:not([type='checkbox'], [type='radio']) {
     min-height: 44px;
   }
+  /* footer links (landing, sign-in) are their own targets, not inline text: inline-flex so the height applies */
+  footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 .ki-spinner {

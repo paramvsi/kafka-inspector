@@ -987,6 +987,13 @@ test.describe('touch layout', () => {
     // iOS Safari zooms the page into any field under 16px when it's focused (the sign-in password, the search)
     expect(parseFloat(await search.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
   });
+  test('footer links on the landing page are at least 44px tall on a coarse pointer', async ({ page }) => {
+    await page.goto('/');
+    const links = page.locator('footer a');
+    await expect(links.first()).toBeVisible({ timeout: 15_000 });
+    const heights = await links.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  });
 });
 
 test('a ?reset=1 deep link does not open Reset offsets on a read-only cluster (rule 5)', async ({
