@@ -54,6 +54,8 @@ public class HistoryRepository {
 
     public record Row(String cluster, String scope, String key, String metric, long ts, double value) {}
 
+    // one transaction: a sample spans several 500-row batches, and a failure part-way left half a tick in the charts
+    @org.springframework.transaction.annotation.Transactional
     public void insert(List<Row> rows) {
         jdbc.batchUpdate("INSERT INTO metric_sample (cluster, scope, skey, metric, ts, val) VALUES (?, ?, ?, ?, ?, ?)", rows, 500, (ps, r) -> {
             ps.setString(1, r.cluster());

@@ -24,6 +24,8 @@ public class Trends {
         List<Double>[] hit = cache.get(k);
         if (hit != null && hit[1] != null && !hit[1].isEmpty() && now - hit[1].get(0).longValue() < 30_000) return hit[0];
         List<Double> pts = history.series(cid, scope, key, metric, now - 3_600_000L, 24).stream().map(p -> p[1]).toList();
+        // keys include group ids, and short-lived ones (console-consumer-N) would otherwise pile up for the process lifetime
+        if (cache.size() > 5_000) cache.values().removeIf(v -> now - v[1].get(0).longValue() >= 30_000);
         cache.put(k, new List[] {pts, List.of((double) now)});
         return pts;
     }

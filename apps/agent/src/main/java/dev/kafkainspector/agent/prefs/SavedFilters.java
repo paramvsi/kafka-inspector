@@ -26,6 +26,11 @@ public class SavedFilters {
         // control characters (NUL, newlines in a name…) would break the list and the URL the name travels in
         if (n.chars().anyMatch(Character::isISOControl) || expr.chars().anyMatch(ch -> Character.isISOControl(ch) && ch != '\n' && ch != '\t'))
             throw new IllegalArgumentException("Filter names and expressions can't contain control characters.");
-        if (jdbc.update("UPDATE saved_filter SET expr = ? WHERE name = ?", expr, n) == 0) jdbc.update("INSERT INTO saved_filter (name, expr) VALUES (?, ?)", n, expr);
+        if (jdbc.update("UPDATE saved_filter SET expr = ? WHERE name = ?", expr, n) > 0) return;
+        try {
+            jdbc.update("INSERT INTO saved_filter (name, expr) VALUES (?, ?)", n, expr);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            jdbc.update("UPDATE saved_filter SET expr = ? WHERE name = ?", expr, n); // a concurrent save of the same new name
+        }
     }
 }
