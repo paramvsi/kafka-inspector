@@ -214,21 +214,26 @@ public final class Views {
     }
 
     static List<Dto.AttentionItem> attention(ClusterState s, List<Dto.GroupSummary> groups, int urp, int offline) {
-        String now = iso(s.ts);
+        // first-seen per item, like the demo: an offline broker reads "since 03:12", not "just now" every sample
+        java.util.function.Function<String, String> firstSeen = id -> iso(s.attentionSince.computeIfAbsent(id, k -> s.ts));
         List<Dto.AttentionItem> items = new ArrayList<>();
-        s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port(), now, "/app/brokers/", "Investigate broker " + b.id())));
-        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), offline == 1 ? "No in-sync replica can lead it" : "No in-sync replica can lead them", now, "/app/topics/?view=attention", null));
-        if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + (urp == 1 ? " partition" : " partitions") + " under-replicated", "ISR is smaller than the replica set", now, "/app/topics/?view=attention", null));
+        s.brokers.stream().filter(b -> !b.online()).forEach(b -> items.add(new Dto.AttentionItem("broker-" + b.id(), "crit", "Broker " + b.id() + " is offline", b.host() + ":" + b.port(), firstSeen.apply("broker-" + b.id()), "/app/brokers/", "Investigate broker " + b.id())));
+        if (offline > 0) items.add(new Dto.AttentionItem("offline", "crit", offlineLabel(offline), offline == 1 ? "No in-sync replica can lead it" : "No in-sync replica can lead them", firstSeen.apply("offline"), "/app/topics/?view=attention", null));
+        if (urp > 0) items.add(new Dto.AttentionItem("urp", "warn", urp + (urp == 1 ? " partition" : " partitions") + " under-replicated", "ISR is smaller than the replica set", firstSeen.apply("urp"), "/app/topics/?view=attention", null));
         for (Dto.GroupSummary g : groups) {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
             String detail = String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
-            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), now), "/app/groups/view/?id=" + java.net.URLEncoder.encode(g.groupId(), java.nio.charset.StandardCharsets.UTF_8), "Investigate " + g.groupId()));
+            items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), firstSeen.apply("group-" + g.groupId())), "/app/groups/view/?id=" + java.net.URLEncoder.encode(g.groupId(), java.nio.charset.StandardCharsets.UTF_8), "Investigate " + g.groupId()));
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (t.internal) continue;
-            health(s, t).stream().filter(h -> h.id().equals("skew")).findFirst().ifPresent(h -> items.add(new Dto.AttentionItem("skew-" + t.name, "info", t.name + " is skewed", h.fix(), now, "/app/topics/view/?name=" + t.name + "&tab=partitions", "Open " + t.name)));
+            health(s, t).stream().filter(h -> h.id().equals("skew")).findFirst().ifPresent(h -> items.add(new Dto.AttentionItem("skew-" + t.name, "info", t.name + " is skewed", h.fix(), firstSeen.apply("skew-" + t.name), "/app/topics/view/?name=" + t.name + "&tab=partitions", "Open " + t.name)));
         }
-        items.sort(Comparator.comparingInt(i -> switch (i.severity()) { case "crit" -> 0; case "warn" -> 1; default -> 2; }));
+        // severity, then newest first within it (the demo's order)
+        items.sort(Comparator.<Dto.AttentionItem>comparingInt(i -> switch (i.severity()) { case "crit" -> 0; case "warn" -> 1; default -> 2; })
+                .thenComparing(Dto.AttentionItem::since, Comparator.reverseOrder()));
+        // forget items that cleared, so a later recurrence starts its own clock
+        s.attentionSince.keySet().removeIf(id -> items.stream().noneMatch(i -> i.id().equals(id)));
         return items;
     }
 

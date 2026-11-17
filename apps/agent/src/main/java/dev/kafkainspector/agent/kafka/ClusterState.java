@@ -21,6 +21,8 @@ public class ClusterState {
     /** group|topic|partition → samples (bounded). Written by the sampler, read by REST/WS threads: concurrent types. */
     public final Map<String, Deque<Lag.Sample>> windows = new java.util.concurrent.ConcurrentHashMap<>();
     public final Map<String, Long> lastChange = new java.util.concurrent.ConcurrentHashMap<>();
+    /** attention item id → when it first appeared (sample time): "since" mustn't move forward every sample */
+    public final Map<String, Long> attentionSince = new java.util.concurrent.ConcurrentHashMap<>();
     public final Deque<dev.kafkainspector.agent.api.Dto.ClusterEvent> events = new ArrayDeque<>();
     public volatile double messagesIn, messagesOut, bytesIn;
     /** total lag of the previous sample (the overview's trend word compares against it) */

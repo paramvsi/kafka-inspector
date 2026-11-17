@@ -24,4 +24,14 @@ class ViewsTest {
         t.partitions.set(1, part(1, 2048));
         assertEquals(2048L, Views.topic(s, t, List.of()).sizeBytes());
     }
+
+    @Test
+    void anAttentionItemKeepsTheTimeItFirstAppeared() {
+        ClusterState s = new ClusterState();
+        s.brokers = List.of(new ClusterState.BrokerSnap(2, "b2", 9092, null, false, null, null));
+        s.ts = 1_000_000;
+        String first = Views.attention(s, List.of(), 0, 0).get(0).since();
+        s.ts = 1_030_000; // a later sample: the broker is still offline
+        assertEquals(first, Views.attention(s, List.of(), 0, 0).get(0).since());
+    }
 }
