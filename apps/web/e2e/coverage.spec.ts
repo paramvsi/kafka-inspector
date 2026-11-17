@@ -196,6 +196,18 @@ test('F-48/F-49: export JSON downloads the shown rows; the column picker adds a 
   await expect(table.getByRole('columnheader', { name: 'total' })).toBeVisible();
 });
 
+test('the reset dry run is announced to screen readers when it changes', async ({ page }) => {
+  await page.goto('/app/groups/view/?id=search-indexer');
+  await page.getByRole('button', { name: 'Reset offsets' }).click();
+  const dialog = page.getByRole('dialog', { name: /Reset offsets/ });
+  await dialog.getByRole('radio', { name: 'Earliest' }).check();
+  await expect(
+    dialog.getByRole('status').filter({ hasText: /^Dry run: \d+ partitions? will change\.$/ }),
+  ).toBeAttached({
+    timeout: 10_000,
+  });
+});
+
 test('F-62: earliest and latest dry runs, then apply latest; F-63: delete an empty group', async ({
   page,
 }) => {

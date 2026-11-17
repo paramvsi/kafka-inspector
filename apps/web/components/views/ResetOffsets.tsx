@@ -255,6 +255,12 @@ export function ResetOffsetsDialog({
           </div>
         )}
         <div>
+          {/* the table and Apply's count change after each choice without moving focus: say so */}
+          <p role="status" className="sr-only">
+            {fresh && preview
+              ? `Dry run: ${changed.length} partition${changed.length === 1 ? '' : 's'} will change.`
+              : ''}
+          </p>
           <div className="mb-2 text-[12px] font-medium text-ink-muted">Dry run</div>
           <DataTable
             caption="Dry run: current and new offsets"
