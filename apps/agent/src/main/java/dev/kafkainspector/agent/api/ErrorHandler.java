@@ -89,7 +89,11 @@ public class ErrorHandler {
     ResponseEntity<Dto.ApiError> kafka(Exception e) {
         Throwable t = e;
         while (t.getCause() != null) t = t.getCause();
-        return ResponseEntity.status(502).body(Dto.ApiError.of("KAFKA_UNAVAILABLE", "Kafka didn't answer: " + java.util.Objects.toString(t.getMessage(), t.getClass().getSimpleName()) + ". Check that the brokers are reachable from the agent."));
+        // a local .get(timeout) ends in a TimeoutException with no message: "Kafka didn't answer: TimeoutException" says nothing
+        String why = t.getMessage() == null || t.getMessage().isBlank()
+                ? (t instanceof TimeoutException || t instanceof org.apache.kafka.common.errors.TimeoutException ? " in time" : ": " + t.getClass().getSimpleName())
+                : ": " + t.getMessage();
+        return ResponseEntity.status(502).body(Dto.ApiError.of("KAFKA_UNAVAILABLE", "Kafka didn't answer" + why + ". Check that the brokers are reachable from the agent."));
     }
 
     @ExceptionHandler(IllegalStateException.class)
