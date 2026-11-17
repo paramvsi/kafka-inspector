@@ -1089,7 +1089,7 @@ test('a simulator worker that fails to load shows an error, not an endless spinn
 test('a stored preference of the wrong shape is ignored, not a crash', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.addInitScript(() => localStorage.setItem('ki-starred-topics', '5'));
+  await page.addInitScript(() => localStorage.setItem('ki-starred-topics:prod-eu-1', '5'));
   await page.goto('/app/topics/');
   await expect(page.getByRole('link', { name: 'orders', exact: true })).toBeVisible({
     timeout: 15_000,

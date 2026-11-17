@@ -34,7 +34,7 @@ import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { hourAgoValue } from '../../lib/baseline';
-import { useUrl, pick } from '../../lib/url';
+import { useUrl, pick, shareUrl } from '../../lib/url';
 import { sourceLabel } from '../../lib/configSource';
 import { isNoRegistry, isNotFound } from '../../lib/poll';
 import { useStickyError } from '../../lib/stickyError';
@@ -48,6 +48,7 @@ type Tab = (typeof TABS)[number];
 
 export function TopicDetailView() {
   const url = useUrl();
+  const { clusterId } = useKafka();
   const canWrite = useWrites();
   const name = url.get('name') ?? '';
   const tab: Tab = pick(url.get('tab'), TABS, 'overview');
@@ -129,7 +130,7 @@ export function TopicDetailView() {
         }
         actions={
           <>
-            <CopyButton text={() => location.href} label="Copy link" />
+            <CopyButton text={() => shareUrl(location.href, clusterId)} label="Copy link" />
             <WriteButton variant="ghost" onClick={() => url.set({ tab: 'config' })}>
               Edit config
             </WriteButton>

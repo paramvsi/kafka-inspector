@@ -15,7 +15,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useKafkaQuery } from '../../lib/kafka';
+import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrl, useUrlText, pick } from '../../lib/url';
@@ -44,6 +44,7 @@ export function healthBadge(t: TopicSummary) {
 
 export function TopicsView() {
   const url = useUrl();
+  const { clusterId } = useKafka();
   const router = useRouter();
   const readOnly = useReadOnly();
   const [q, setQ] = useUrlText('q', { page: undefined });
@@ -51,7 +52,7 @@ export function TopicsView() {
   const internal = url.get('internal') === '1';
   const sort = pick(url.get('sort'), ['issues', 'name', 'size', 'rate'] as const, 'issues');
   const page = Math.max(1, Math.floor(Number(url.get('page') ?? 1)) || 1);
-  const [starred, setStarred] = useLocal<string[]>('ki-starred-topics', []);
+  const [starred, setStarred] = useLocal<string[]>(`ki-starred-topics:${clusterId}`, []) // topic names are per cluster;
 
   const all = useKafkaQuery(
     ['topics', 'all-internal'],

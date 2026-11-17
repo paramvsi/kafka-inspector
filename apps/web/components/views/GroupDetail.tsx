@@ -30,7 +30,7 @@ import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { groupBadge, totalLagTone } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
-import { useUrl } from '../../lib/url';
+import { shareUrl, useUrl } from '../../lib/url';
 import { PageHeader, useReadOnly, useWrites, WriteButton } from '../Page';
 import { isNotFound } from '../../lib/poll';
 import { useStickyError } from '../../lib/stickyError';
@@ -176,7 +176,7 @@ function Actions({ d }: { d: Detail }) {
   const readOnly = useReadOnly(); // read-only wins: its hint, not "only an empty group"
   return (
     <>
-      <CopyButton text={() => location.href} label="Copy link" />
+      <CopyButton text={() => shareUrl(location.href, clusterId)} label="Copy link" />
       {empty || readOnly ? (
         <WriteButton
           variant="danger"

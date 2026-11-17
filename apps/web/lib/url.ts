@@ -77,3 +77,10 @@ export const pick = <T extends string>(
   allowed: readonly T[],
   fallback: T,
 ): T => (allowed.includes(v as T) ? (v as T) : fallback);
+
+/** A link to this page that opens on the same cluster in another tab or for a teammate (the tab's cluster lives in sessionStorage). */
+export function shareUrl(href: string, clusterId: string): string {
+  const u = new URL(href);
+  u.searchParams.set('c', clusterId);
+  return u.toString();
+}
