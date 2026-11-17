@@ -78,9 +78,13 @@ public class Sampler {
                 s.connected = true;
                 s.error = null;
             } catch (Exception e) {
-                if (s.connected || s.error == null) log.warn("Cluster {} unreachable: {}", cid, rootMessage(e));
+                if (s.connected || s.error == null) log.warn("Cluster {} unreachable: {}", cid, reason(e));
                 s.connected = false;
-                s.error = rootMessage(e);
+                s.error = reason(e);
+                // pre-outage samples would judge the first sample after it: a group whose members haven't rejoined
+                // yet reads "stopped" (commit age = the outage) and logs a crit event; start the windows again instead
+                s.windows.clear();
+                s.lastChange.clear();
                 kafka.reset(cid);
                 alerts.forgetPending(cid); // a condition must hold through samples we actually saw, not across an outage
             }
@@ -93,6 +97,20 @@ public class Sampler {
                 }
             }
         }
+    }
+
+    /** Why a sample failed, as the user should read it: what failed and what to do (not "TimeoutException"). */
+    static String reason(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof java.util.concurrent.TimeoutException || t instanceof org.apache.kafka.common.errors.TimeoutException)
+                return "No broker answered within 20 s. Check the bootstrap address and the network.";
+            if (t instanceof org.apache.kafka.common.errors.AuthenticationException)
+            {
+                String m = t.getMessage() == null ? "the broker refused the credentials" : t.getMessage().strip();
+                return "Authentication failed: " + m + (m.endsWith(".") ? "" : ".") + " Check the cluster's SASL credentials.";
+            }
+        }
+        return rootMessage(e);
     }
 
     static String rootMessage(Throwable e) {
