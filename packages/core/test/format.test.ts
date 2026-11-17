@@ -49,7 +49,7 @@ test('rounding never shows 1000 of a unit, -0 or NaN', () => {
   expect(formatBytes(999_999)).toBe('1 MB');
   expect(formatBytes(999_400)).toBe('999 kB');
   expect(formatInt(-0.4)).toBe('0');
-  expect(formatInt(Number.NaN)).toBe('0');
+  expect(formatInt(Number.NaN)).toBe('—'); // never "NaN", and not a zero either (rule 7)
 });
 
 test('invalid durations and times show a dash, not NaN', () => {
@@ -105,4 +105,19 @@ test('unknown values read "—", never "0 B", "NaN%" or "~NaN h"', async () => {
     expect(formatPct(v)).toBe('—');
     expect(formatEta(v)).toBe('—');
   }
+});
+
+test('rounding never reports full, empty or "-0" when it isn\'t; counts go to T; an unknown integer is "—"', async () => {
+  const { formatPct, formatCount, formatInt, formatRate } = await import('../src');
+  expect(formatPct(99.95)).toBe('99%'); // a disk that isn't full doesn't read "100%"
+  expect(formatPct(99.95, 1)).toBe('99.9%');
+  expect(formatPct(100)).toBe('100%');
+  expect(formatPct(0.04)).toBe('<1%'); // non-zero isn't "0%"
+  expect(formatPct(0.04, 1)).toBe('<0.1%');
+  expect(formatPct(0)).toBe('0%');
+  expect(formatPct(-0.04)).toBe('0%');
+  expect(formatCount(1e12)).toBe('1T');
+  expect(formatCount(999_999_999_999)).toBe('1T');
+  expect(formatInt(NaN)).toBe('—');
+  expect(formatRate(-0.04)).toBe('0/s');
 });

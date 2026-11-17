@@ -2,7 +2,7 @@
 const int = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /** 48,213 */
-export const formatInt = (n: number) => int.format(Math.round(n) || 0); // || 0: never "-0" or "NaN"
+export const formatInt = (n: number) => (Number.isFinite(n) ? int.format(Math.round(n) || 0) : '—'); // || 0: never "-0"; an unknown isn't a zero (rule 7)
 
 /** 1.2M · 950 · 12.4k */
 export function formatCount(n: number): string {
@@ -13,6 +13,7 @@ export function formatCount(n: number): string {
     [1e3, 'k'],
     [1e6, 'M'],
     [1e9, 'B'],
+    [1e12, 'T'],
   ];
   let k = 0;
   while (k < steps.length - 1 && a >= steps[k + 1]![0]) k++;
@@ -46,7 +47,9 @@ export const formatRate = (perSec: number) =>
     ? '—'
     : perSec > 0 && perSec < 0.05
       ? '<0.1/s'
-      : `${perSec >= 100 ? formatInt(perSec) : perSec.toFixed(1).replace(/\.0$/, '')}/s`;
+      : perSec <= 0
+        ? '0/s' // never "-0/s"
+        : `${perSec >= 100 ? formatInt(perSec) : perSec.toFixed(1).replace(/\.0$/, '')}/s`;
 
 /** 6m 12s · 45s · 2h 5m · 3d 4h */
 export function formatDuration(ms: number): string {
@@ -108,8 +111,14 @@ export function toLocalInput(t: number | string): string {
 }
 
 /** 12.4% */
-export const formatPct = (n: number, digits = 0) =>
-  Number.isFinite(n) ? `${n.toFixed(digits)}%` : '—';
+/** 42% · 99% (not "100%" while short of full) · <1% (a non-zero share never reads as none) */
+export function formatPct(n: number, digits = 0): string {
+  if (!Number.isFinite(n)) return '—';
+  const step = 10 ** -digits;
+  if (n > 0 && n < step / 2) return `<${step.toFixed(digits)}%`;
+  if (n < 100 && Number(n.toFixed(digits)) >= 100) return `${(100 - step).toFixed(digits)}%`;
+  return `${(n <= 0 ? 0 : n).toFixed(digits)}%`;
+}
 
 /** +4.2% / −3.1% (true minus sign) */
 export function formatDelta(pct: number): string {
