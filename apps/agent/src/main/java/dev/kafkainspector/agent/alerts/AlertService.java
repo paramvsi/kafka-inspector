@@ -123,6 +123,17 @@ public class AlertService {
      * Group ids come from anyone who can join a group on the cluster: values are cut to their columns (an
      * over-long one must not fail the insert and silence alerting) and names in links are URL-encoded.
      */
+    /** Fewer than two samples in some partition window of the group (or none yet): Lag.evaluate can't judge it. */
+    private static boolean warming(ClusterState s, String groupId) {
+        boolean any = false;
+        for (var e : s.windows.entrySet()) {
+            if (!e.getKey().startsWith(groupId + "|")) continue;
+            any = true;
+            if (e.getValue().size() < 2) return true;
+        }
+        return !any;
+    }
+
     private record Hit(String target, String title, String evidence, String href) {
         Hit {
             target = cut(target, 2000);
@@ -220,6 +231,11 @@ public class AlertService {
                 } catch (RuntimeException e) {
                     log.warn("Alert rule {}: couldn't record {}: {}", r.id(), h.target(), e.getMessage());
                 }
+            }
+            if ("group-status".equals(r.metric())) {
+                // after a restart or a failed sample the lag window starts empty and can't say "stalled" yet: hold the
+                // group's alert as it is, so an acknowledged or muted incident isn't resolved and re-fired as new
+                for (ClusterState.GroupSnap g : s.groups.values()) if (warming(s, g.groupId)) active.add(cid + "|" + r.id() + "|" + g.groupId);
             }
             for (String target : jdbc.queryForList("SELECT target FROM alert_event WHERE cluster = ? AND rule_id = ? AND state = 'firing'", String.class, cid, r.id())) {
                 if (!active.contains(cid + "|" + r.id() + "|" + target)) {
