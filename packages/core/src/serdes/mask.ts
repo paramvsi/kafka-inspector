@@ -62,9 +62,15 @@ export function applyMasks(value: unknown, topic: string, rules: MaskRule[]): Ma
     }
     if (parsed !== null && typeof parsed === 'object') {
       const r = applyMasks(parsed, topic, rules);
-      return r.applied.length
-        ? { value: JSON.stringify(r.value), applied: r.applied }
-        : { value, applied };
+      if (r.applied.length) return { value: JSON.stringify(r.value), applied: r.applied };
+      // nothing masked: the original text, unless it names a masked field — JSON.parse keeps only the last of a
+      // repeated key, so {"email":"a@b","email":null} parsed as null and the text still holds a@b
+      const named = rules.some((rule) => {
+        if (!topicMatches(rule.topics, topic)) return false;
+        const last = segments(rule.path)?.at(-1);
+        return last === undefined || last === '*' || value.includes(JSON.stringify(last));
+      });
+      return { value: named ? JSON.stringify(r.value) : value, applied };
     }
   }
   if (value === null || typeof value !== 'object') return { value, applied };

@@ -442,3 +442,16 @@ test('Avro decimal (bytes or fixed) shows the exact number, not base64', async (
   // not a decimal: plain bytes stay base64
   expect(logicalDisplay('bytes', Uint8Array.of(0x04, 0xd2))).toBe('BNI=');
 });
+
+test('a masked field repeated in the JSON text never shows its hidden copy (JSON.parse keeps only the last)', () => {
+  const rules = [
+    { name: 'email', topics: 'orders', path: '$.email', action: 'mask', enabled: true },
+  ];
+  const out = applyMasks('{"email":"a@b.c","email":null}', 'orders', rules as never)
+    .value as string;
+  expect(out).not.toContain('a@b.c');
+  // text that doesn't mention a masked field comes back exactly as it was
+  expect(applyMasks('{ "orderId": "o1" }', 'orders', rules as never).value).toBe(
+    '{ "orderId": "o1" }',
+  );
+});
