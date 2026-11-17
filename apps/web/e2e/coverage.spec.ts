@@ -832,6 +832,9 @@ test('Add cluster refuses credentials in the URL, bad URLs, blank seeds and dupl
   await d.getByLabel('Agent URL').fill('http://admin:hunter2@localhost:9999');
   await expect(d.getByText('Leave the user name and password out of the URL')).toBeVisible();
   await expect(save).toBeDisabled();
+  await d.getByLabel('Agent URL').fill('http://localhost:9999/?token=abc');
+  await expect(d.getByText('Leave the query and # part out of the URL')).toBeVisible();
+  await expect(save).toBeDisabled();
   await d.getByLabel('Agent URL').fill('not a url');
   await expect(save).toBeDisabled();
   await d.getByLabel('Agent URL').fill('http://localhost:9999');

@@ -282,6 +282,9 @@ function AddClusterDialog({
     // rule 6: a password typed into the URL would be stored in this browser
     if (u.username || u.password)
       return 'Leave the user name and password out of the URL: you sign in on the agent itself.';
+    // a token in ?… or #… would be stored too, and /api/health would be appended after it
+    if (u.search || u.hash)
+      return 'Leave the query and # part out of the URL, like http://localhost:8080.';
     return undefined;
   })();
   const seedError = mode === 'simulated' && !seed.trim() ? 'Enter a seed.' : undefined;
