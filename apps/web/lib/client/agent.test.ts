@@ -120,3 +120,28 @@ test('the last unsubscribe closes the idle socket', () => {
   off();
   expect(FakeSocket.all[0]!.closed).toBe(true);
 });
+
+test('a deliberate sign-out is not reported as an expired session', async () => {
+  const assign = vi.fn();
+  vi.stubGlobal('location', {
+    assign,
+    pathname: '/app/topics/',
+    search: '',
+    host: 'x',
+    origin: 'http://x',
+  });
+  vi.stubGlobal('document', { cookie: '' });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) =>
+      String(url).includes('/api/auth/logout')
+        ? new Response(null, { status: 204 })
+        : new Response('{}', { status: 401, headers: { 'content-type': 'application/json' } }),
+    ),
+  );
+  const client = createAgentClient();
+  await client.signOut!();
+  // a poll that was already in flight comes back 401 after the logout
+  await client.listTopics('c', {}).catch(() => undefined);
+  expect(assign.mock.calls.some(([u]) => String(u).includes('reason=expired'))).toBe(false);
+});

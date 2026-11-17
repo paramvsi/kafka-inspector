@@ -30,8 +30,12 @@ function csrf(): string | undefined {
     ?.slice('KI_CSRF='.length);
 }
 
+/** Set by a deliberate sign-out: the 401s and the socket's 1008 that follow it aren't an expired session. */
+let signingOut = false;
+
 /** The session ended (expiry, sign-out elsewhere, agent restart): go to sign-in, say why, come back afterwards. */
 const toSignIn = () =>
+  signingOut ||
   location.assign(
     `/app/sign-in/?next=${encodeURIComponent(location.pathname + location.search)}&reason=expired`,
   );
@@ -288,7 +292,10 @@ export function createAgentClient(): KafkaClient {
       conn.add(cb);
       return () => conn.delete(cb);
     },
-    signOut: () => api('POST', '/api/auth/logout'),
+    signOut: () => {
+      signingOut = true; // Shell sends the user to sign-in itself, with no "session ended" note
+      return api('POST', '/api/auth/logout');
+    },
     savedFilters: {
       list: () => api('GET', '/api/filters'),
       save: (f) => api('PUT', `/api/filters/${encodeURIComponent(f.name)}`, { expr: f.expr }),
