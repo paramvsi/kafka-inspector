@@ -35,6 +35,14 @@ export function BrokersView() {
   // with 1–2 online brokers someone always leads more than 40%: the check only means something from 3 up
   const flagged = online >= 3 ? list.filter((b) => b.leaders / totalLeaders > 0.4) : [];
   const all = config.data ?? [];
+  // a broker that can't be asked (offline, refused) must not read as one with no settings
+  const configError =
+    !config.data && config.error ? (
+      <p role="status" className="m-0 text-[13px] text-ink-muted">
+        Couldn&apos;t read broker {selected}&apos;s settings: {(config.error as Error).message} Try
+        again once it&apos;s back online.
+      </p>
+    ) : null;
   return (
     <>
       <PageHeader
@@ -164,26 +172,28 @@ export function BrokersView() {
               onClick={() => url.set({ settings: 1 })}
               className="cursor-pointer border-none bg-transparent p-0 text-[13px] text-copper underline"
             >
-              All {all.length} settings
+              {config.data ? `All ${all.length} settings` : 'All settings'}
             </button>
           }
         >
-          <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-[13px]">
-            {KEY.map((k) => {
-              const e = all.find((x) => x.name === k);
-              return (
-                <div key={k} className="contents">
-                  <dt className="font-mono text-[12px] text-ink-muted">{k}</dt>
-                  <dd className="m-0 text-right font-mono text-[12px]">
-                    {e?.value ?? '—'}
-                    {k === 'auto.create.topics.enable' && e?.value === 'true' && (
-                      <span className="font-sans text-warn-text"> · review</span>
-                    )}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
+          {configError ?? (
+            <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-[13px]">
+              {KEY.map((k) => {
+                const e = all.find((x) => x.name === k);
+                return (
+                  <div key={k} className="contents">
+                    <dt className="font-mono text-[12px] text-ink-muted">{k}</dt>
+                    <dd className="m-0 text-right font-mono text-[12px]">
+                      {e?.value ?? '—'}
+                      {k === 'auto.create.topics.enable' && e?.value === 'true' && (
+                        <span className="font-sans text-warn-text"> · review</span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          )}
         </Card>
       </div>
       <Drawer
@@ -200,7 +210,8 @@ export function BrokersView() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <table className="w-full text-[12px]">
+        {configError}
+        <table className="w-full text-[12px]" hidden={!!configError}>
           <caption className="sr-only">Broker settings</caption>
           <thead>
             <tr className="text-left text-ink-muted">
