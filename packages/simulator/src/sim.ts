@@ -2052,6 +2052,9 @@ export class Simulator {
         const g = this.groups.get(a.payload as string);
         if (g) g.deleted = true;
         if (this.poison?.group === a.payload) this.endPoison();
+        // its experiments end too, as a deleted topic's do (a crash left "Running" on a group that's gone)
+        for (const [id, inc] of [...this.incidents])
+          if (inc.target === a.payload) this.stopChaos(id);
         break;
       }
     }

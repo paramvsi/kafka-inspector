@@ -2005,3 +2005,19 @@ test('the cluster switcher shows each cluster’s current status, not the one at
     timeout: 15_000,
   });
 });
+
+test('a chaos target that left the dropdown (its group crashed) isn’t sent: Trigger acts on what is shown', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const crash = page.getByRole('article').filter({ hasText: 'Crash consumer' });
+  await crash.getByRole('combobox').selectOption('payments-sink', { timeout: 15_000 });
+  await crash.getByRole('button', { name: 'Trigger' }).click();
+  const slow = page.getByRole('article').filter({ hasText: 'Slow consumer' });
+  // payments-sink has no members now, so the Slow consumer list drops it (its default)
+  await expect(slow.getByRole('option', { name: 'payments-sink' })).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await slow.getByRole('button', { name: 'Trigger' }).click();
+  await expect(slow.getByText('Running')).toBeVisible({ timeout: 10_000 });
+});

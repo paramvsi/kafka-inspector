@@ -248,7 +248,12 @@ export function ChaosView() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {ACTIONS.map((a) => {
             const inc = running.find((i) => i.kind === a.kind);
-            const target = targets[a.kind] ?? a.default;
+            const options = optionsFor(a.target, a.kind);
+            const wanted = targets[a.kind] ?? a.default;
+            // a target that left the list (its group crashed, its topic was deleted): act on what the select shows
+            const target = options.some((o) => o.value === wanted)
+              ? wanted
+              : (options[0]?.value ?? wanted);
             const dur = inc?.endsAt
               ? Date.parse(inc.endsAt) - Date.parse(inc.startedAt)
               : undefined;
@@ -281,7 +286,7 @@ export function ChaosView() {
                       hideLabel
                       value={target}
                       onChange={(e) => setTargets({ ...targets, [a.kind]: e.target.value })}
-                      options={optionsFor(a.target, a.kind)}
+                      options={options}
                       className="h-control-sm font-mono text-[12px]"
                     />
                   </div>

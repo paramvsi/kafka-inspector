@@ -1307,3 +1307,12 @@ test('a message produced to a JSON Schema topic is framed with the subject id, l
   expect(m.value![0]).toBe(0); // magic byte
   expect(new DataView(m.value!.buffer, m.value!.byteOffset).getInt32(1)).toBeGreaterThan(0);
 });
+
+test('deleting a crashed group ends its crash incident (as deleting a topic ends that topic’s)', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' });
+  h.advance(5);
+  await h.sim.deleteGroup('order-service');
+  expect(h.sim.listIncidents().filter((i) => i.target === 'order-service')).toEqual([]);
+});
