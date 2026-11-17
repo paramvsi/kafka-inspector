@@ -330,7 +330,11 @@ export class Simulator {
       );
       // a broker that is down (chaos) is not in sync and can't lead
       const isr = replicas.filter((b) => this.brokersOnline.get(b) !== false);
-      const end = Math.floor(def.endAtLoad * (1 + (r() - 0.5) * 0.002));
+      // anchored to the calendar: a later load starts later in the topic's life, by the traffic since then, so a
+      // reload doesn't put offsets back to where they were at the first load (a message the user had open is gone)
+      const since =
+        def.rate > 0 && !def.silentForMs ? def.rate * this.shares(def)[p]! * waveSeconds(start) : 0;
+      const end = Math.floor(def.endAtLoad * (1 + (r() - 0.5) * 0.002) + since);
       const retained = def.sizeBytes
         ? Math.min(end, Math.floor(def.sizeBytes / def.avgBytes / def.partitions))
         : Number.MAX_SAFE_INTEGER;
@@ -432,13 +436,16 @@ export class Simulator {
     this.emit();
   }
 
-  private rateOf(def: TopicDef, t: number): number {
+  private rateOf(def: TopicDef, t: number, coarse = false): number {
     if (def.silentForMs || def.rate === 0) return def.name === 'payments.dlq' ? this.dlqExtra : 0;
     const wave = this.settings.dailyWave
       ? 1 + 0.12 * Math.sin((2 * Math.PI * (t % DAY)) / DAY - 2.2)
       : 1;
-    const noise =
-      1 + 0.08 * ((hash(this.seed, def.name, Math.floor(t / 1000)) % 1000) / 1000 - 0.5);
+    // a coarse (60 s) back-fill step takes the noise's mean: one second's draw stood for a whole minute, so two loads
+    // minutes apart disagreed by seconds of traffic (waveSeconds, which anchors the offsets, has no noise)
+    const noise = coarse
+      ? 1
+      : 1 + 0.08 * ((hash(this.seed, def.name, Math.floor(t / 1000)) % 1000) / 1000 - 0.5);
     const spike = this.spike.get(def.name) ?? this.spike.get('*') ?? 1;
     const base = def.name === 'payments.dlq' ? 0.03 + this.dlqExtra : def.rate;
     return base * this.settings.baseTraffic * wave * noise * spike;
@@ -466,7 +473,7 @@ export class Simulator {
       bytesIn = 0;
     for (const [, ps] of this.parts) {
       const def = ps[0]!.def;
-      const rate = this.rateOf(def, t);
+      const rate = this.rateOf(def, t, dt > 1);
       const shares = this.shares(def);
       let produced = 0; // what the partitions actually take: a leaderless one takes nothing (as the topic rows show)
       for (const s of ps) {
@@ -2661,3 +2668,13 @@ const BROKER_DEFAULTS = [
   '3',
   '500',
 ];
+
+/** Offsets at a load this long after it equal def.endAtLoad; later loads add the traffic in between. */
+const OFFSET_REF = Date.parse('2026-11-14T14:27:31Z');
+/** Seconds of daily-mean traffic between OFFSET_REF and t: the integral of rateOf's wave (1 + 0.12 sin(…)), at the
+ * defaults (traffic 1, wave on) so a changed setting doesn't rewrite months of history. 0 before OFFSET_REF. */
+function waveSeconds(t: number): number {
+  const w = (x: number) =>
+    x - ((0.12 * DAY) / (2 * Math.PI)) * Math.cos((2 * Math.PI * x) / DAY - 2.2);
+  return Math.max(0, (w(t) - w(OFFSET_REF)) / 1000);
+}

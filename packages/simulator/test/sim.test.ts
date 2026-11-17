@@ -1123,3 +1123,21 @@ test('browsing a new topic from a time before it existed starts at its oldest me
   });
   expect(page.messages.length).toBe(2);
 });
+
+test('a reload later in the session never moves offsets backwards (a message the user had open still exists)', async () => {
+  let now = LOAD;
+  const store = new MemoryStore();
+  const a = new Simulator({ store, now: () => now });
+  await a.init();
+  for (let i = 0; i < 600; i++) {
+    now += 1000;
+    a.tick(now);
+  }
+  const before = (await a.getTopic('orders')).partitions.map((p) => p.highWatermark);
+  const b = new Simulator({ store, now: () => now }); // the page reloads ten minutes in
+  await b.init();
+  const after = (await b.getTopic('orders')).partitions.map((p) => p.highWatermark);
+  // within ~2 s of traffic (the last 15 min of the back-fill keeps per-second noise), not the 10 minutes it lost
+  // before (~620,000 messages on partition 0)
+  after.forEach((h, i) => expect(h).toBeGreaterThanOrEqual(before[i]! - 2000));
+});
