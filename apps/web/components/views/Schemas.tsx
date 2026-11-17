@@ -408,6 +408,7 @@ function CheckDialog({
       <div className="flex flex-col gap-3">
         <TextArea
           label="Candidate schema"
+          data-autofocus
           value={text}
           onChange={(e) => {
             setText(e.target.value);

@@ -254,6 +254,25 @@ test('opening then closing a message leaves no extra Back step', async ({ page }
   await expect(page).toHaveURL(/\/app\/$/);
 });
 
+test('form dialogs open on their first field, not the Close button', async ({ page }) => {
+  await page.goto('/app/groups/view/?id=search-indexer&reset=1');
+  await expect(page.getByRole('dialog', { name: /Reset offsets/ }).getByLabel('Topic')).toBeFocused(
+    {
+      timeout: 15_000,
+    },
+  );
+  await page.goto('/app/schemas/?subject=orders-value&check=1');
+  await expect(page.getByRole('dialog').getByLabel('Candidate schema')).toBeFocused({
+    timeout: 15_000,
+  });
+  await page.goto('/app/topics/view/?name=orders&produce=1');
+  await expect(page.getByRole('dialog', { name: 'Produce message' }).getByLabel('Key')).toBeFocused(
+    {
+      timeout: 15_000,
+    },
+  );
+});
+
 test('F-80: mute 1 h and acknowledge a firing alert', async ({ page }) => {
   await page.goto('/app/alerts/');
   const mute = page.getByRole('button', { name: 'Mute 1 h' }).first();

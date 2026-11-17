@@ -308,6 +308,7 @@ export function ProduceDrawer({
           <TextField
             label="Key"
             mono
+            data-autofocus
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="ord_test_001"

@@ -171,6 +171,7 @@ export function ResetOffsetsDialog({
         <div className="grid grid-cols-2 gap-4">
           <Select
             label="Topic"
+            data-autofocus
             value={topic}
             onChange={(e) => {
               setTopic(e.target.value);
