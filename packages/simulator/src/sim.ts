@@ -1828,12 +1828,23 @@ export class Simulator {
     if (t <= this.lastTick) throw new Error('"until" must be in the future.');
     if (t > this.lastTick + 365 * DAY) throw new Error('Mute for a year at most.');
     a.mutedUntil = until;
+    this.saveAck(a, { mutedUntil: until });
   }
 
   acknowledgeAlert(id: string): void {
     const a = this.alertEvents.find((x) => x.id === id);
     if (!a) throw new Error(`No alert event ${id}. It may have been pruned; the list refreshes.`);
     a.acknowledged = true;
+    this.saveAck(a, { acknowledged: true });
+  }
+
+  /** Saved by rule and target, not id: the replay fires alerts on back-fill steps, so ids (from firedAt) differ. */
+  private saveAck(a: AlertEvent, change: { acknowledged?: true; mutedUntil?: string }): void {
+    void this.store.append({
+      t: this.lastTick,
+      kind: 'alert-ack',
+      payload: { ruleId: a.ruleId, target: a.target, ...change },
+    });
   }
 
   /** "Would have fired N times in the last 24 h" — replays the rule over recorded history. */
@@ -1944,6 +1955,23 @@ export class Simulator {
           title: `Topic ${spec.name} created`,
           detail: `${spec.partitions} partitions · RF ${spec.replicationFactor}`,
         });
+        break;
+      }
+      case 'alert-ack': {
+        const p = a.payload as {
+          ruleId: string;
+          target: string;
+          acknowledged?: true;
+          mutedUntil?: string;
+        };
+        // the latest firing of that rule and target at or before the ack: the same incident, as replayed
+        const e = this.alertEvents
+          .filter(
+            (x) => x.ruleId === p.ruleId && x.target === p.target && Date.parse(x.firedAt) <= a.t,
+          )
+          .at(-1);
+        if (e && p.acknowledged) e.acknowledged = true;
+        if (e && p.mutedUntil) e.mutedUntil = p.mutedUntil;
         break;
       }
       case 'delete-topic': {

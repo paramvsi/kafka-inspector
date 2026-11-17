@@ -11,7 +11,8 @@ export interface Action {
     | 'produce'
     | 'reset-offsets'
     | 'delete-group'
-    | 'poison-fixed';
+    | 'poison-fixed'
+    | 'alert-ack';
   payload: unknown;
 }
 

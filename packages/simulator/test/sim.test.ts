@@ -1141,3 +1141,29 @@ test('a reload later in the session never moves offsets backwards (a message the
   // before (~620,000 messages on partition 0)
   after.forEach((h, i) => expect(h).toBeGreaterThanOrEqual(before[i]! - 2000));
 });
+
+test('an acknowledged or muted alert stays so after a reload (it was re-raised as new)', async () => {
+  let now = LOAD;
+  const store = new MemoryStore();
+  const a = new Simulator({ store, now: () => now });
+  await a.init();
+  for (let i = 0; i < 30; i++) {
+    now += 1000;
+    a.tick(now);
+  }
+  const firing = a.listAlerts({ state: 'firing' } as never);
+  expect(firing.length).toBeGreaterThan(1);
+  const [acked, muted] = [firing[0]!, firing[1]!];
+  a.acknowledgeAlert(acked.id);
+  const until = new Date(now + 3_600_000).toISOString();
+  a.muteAlert(muted.id, until);
+  await new Promise((r) => setTimeout(r, 0)); // the saves are fire-and-forget
+  now += 60_000;
+  const b = new Simulator({ store, now: () => now }); // reload a minute later
+  await b.init();
+  const again = b.listAlerts({ state: 'firing' } as never);
+  const find = (e: typeof acked) =>
+    again.find((x) => x.ruleId === e.ruleId && x.target === e.target);
+  expect(find(acked)?.acknowledged).toBe(true);
+  expect(find(muted)?.mutedUntil).toBe(until);
+});
