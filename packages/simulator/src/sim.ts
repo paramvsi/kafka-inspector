@@ -1039,22 +1039,29 @@ export class Simulator {
       n,
       BROKER_DEFAULTS[i % BROKER_DEFAULTS.length]!,
     ]);
-    return [...key, ...generic].map(([name, value, overridden]) => ({
-      name,
-      value: name.includes('password') ? '******' : value,
-      source: overridden
-        ? 'static-broker'
-        : name.includes('id') ||
-            name.includes('listeners') ||
-            name === 'log.dirs' ||
-            name.startsWith('controller') ||
-            name === 'process.roles'
+    // same masking rule and name order as the agent (ApiController.configs)
+    const secret = (n: string) =>
+      /password|secret|token|key|jaas|credential/i.test(n) &&
+      !n.endsWith('.type') &&
+      !n.includes('algorithm');
+    return [...key, ...generic]
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      .map(([name, value, overridden]) => ({
+        name,
+        value: secret(name) ? '******' : value,
+        source: overridden
           ? 'static-broker'
-          : 'default',
-      isDefault: !overridden && !name.includes('id') && !name.includes('listeners'),
-      isSensitive: name.includes('password'),
-      readOnly: true,
-    }));
+          : name.includes('id') ||
+              name.includes('listeners') ||
+              name === 'log.dirs' ||
+              name.startsWith('controller') ||
+              name === 'process.roles'
+            ? 'static-broker'
+            : 'default',
+        isDefault: !overridden && !name.includes('id') && !name.includes('listeners'),
+        isSensitive: secret(name),
+        readOnly: true,
+      }));
   }
 
   // ───────────────────────────── topics ─────────────────────────────

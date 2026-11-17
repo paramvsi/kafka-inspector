@@ -1093,3 +1093,19 @@ test('chaos does what its card says: a traffic spike builds lag, a slow consumer
   expect(ratio).toBeGreaterThan(0.5); // "consume rate cut to 60%"
   expect(ratio).toBeLessThan(0.7);
 });
+
+test('broker settings match the agent: sorted by name, secret-looking names masked', async () => {
+  const a = make();
+  await a.init();
+  const cfg = a.sim.getBrokerConfig(1);
+  const names = cfg.map((c) => c.name);
+  expect(names).toEqual([...names].sort());
+  // the agent masks password|secret|token|key|jaas|credential (not *.type, not *algorithm)
+  for (const c of cfg) {
+    const secret =
+      /password|secret|token|key|jaas|credential/i.test(c.name) &&
+      !c.name.endsWith('.type') &&
+      !c.name.includes('algorithm');
+    expect({ name: c.name, masked: c.value === '******' }).toEqual({ name: c.name, masked: secret });
+  }
+});
