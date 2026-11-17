@@ -1,5 +1,12 @@
 'use client';
-import { formatClock, formatCount, shownName, type Topology, type TopologyNode } from '@ki/core';
+import {
+  formatClock,
+  formatCount,
+  formatInt,
+  shownName,
+  type Topology,
+  type TopologyNode,
+} from '@ki/core';
 import { Button, Card, EmptyState, SearchInput } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -199,6 +206,18 @@ export function TopologyView() {
                     {k === 'producer' ? 'Producers' : k === 'topic' ? 'Topics' : 'Consumer groups'}
                   </div>
                 ))}
+              {/* the lines are drawn for the eye only: this is who feeds whom, and how fast, for everyone else */}
+              <ul aria-label="Connections" className="sr-only">
+                {t.edges.map((e) => {
+                  const name = (id: string) => t.nodes.find((n) => n.id === id)?.label ?? id;
+                  return (
+                    <li key={`${e.from}>${e.to}`}>
+                      {name(e.from)} → {name(e.to)} · {formatInt(e.rate)} messages / s
+                      {e.kind === 'dlq' ? ' (dead letters)' : ''}
+                    </li>
+                  );
+                })}
+              </ul>
               <svg width={w} height={height} className="absolute inset-0" aria-hidden="true">
                 {t.edges.map((e) => {
                   const a = pos.get(e.from),

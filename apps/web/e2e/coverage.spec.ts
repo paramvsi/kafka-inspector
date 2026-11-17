@@ -1963,3 +1963,16 @@ test('the topology map stops its flow and says it shows last known values while 
   await expect(page.getByText(/Showing last known values/)).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('path.ki-flow')).toHaveCount(0);
 });
+
+test('the topology map lists who feeds whom, with rates, for screen readers and keyboard users', async ({
+  page,
+}) => {
+  await page.goto('/app/topology/');
+  const list = page.getByRole('list', { name: 'Connections' });
+  await expect(list).toBeAttached({ timeout: 15_000 });
+  await expect(
+    list
+      .getByRole('listitem')
+      .filter({ hasText: /^web-checkout → orders · [\d,]+ messages \/ s$/ }),
+  ).toHaveCount(1);
+});
