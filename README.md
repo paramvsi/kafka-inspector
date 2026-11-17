@@ -113,7 +113,8 @@ Use `KI_CLUSTERS_1_…` for more clusters. The same keys work in `/config/kafka-
 resets or edits anything in your cluster, and its browse consumer has no `group.id` and never commits. It writes
 only its own database (history, alert rules and events, saved filters). Share groups need a Kafka 4.x broker; on
 older brokers the page simply lists none. Sessions use an HttpOnly,
-SameSite=Strict cookie with CSRF double-submit; sign-in is rate-limited; secrets are never logged. The image
+SameSite=Strict cookie with CSRF double-submit; sign-in is rate-limited; secrets are never logged. Behind an
+HTTPS reverse proxy on a private network, send `X-Forwarded-Proto: https` so the cookies are marked `Secure`. The image
 runs as a non-root user with a read-only root filesystem (only `/data` and a `/tmp` tmpfs are writable). Masking rules are a
 display feature, not a security control.
 
