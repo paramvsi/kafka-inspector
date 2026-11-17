@@ -1560,9 +1560,7 @@ export class Simulator {
         kind: 'topic',
         label: def.name,
         note: finding?.message.replace(/^Skew/, 'skew'),
-        status: health.some((h) => h.severity === 'warn' || h.severity === 'crit')
-          ? 'warn'
-          : 'healthy',
+        status: topicNodeStatus(health),
         rate,
       });
       const isDlq = def.name.endsWith('.dlq');
@@ -2720,4 +2718,11 @@ function waveSeconds(t: number): number {
   const w = (x: number) =>
     x - ((0.12 * DAY) / (2 * Math.PI)) * Math.cos((2 * Math.PI * x) / DAY - 2.2);
   return Math.max(0, (w(t) - w(OFFSET_REF)) / 1000);
+}
+
+/** A topic node's colour on the map (as the agent's Views.topicNodeStatus): a crit finding (offline partitions) is
+ * the map's critical colour ('stalled'), a warn finding amber — not amber for both. */
+export function topicNodeStatus(health: { severity: string }[]): 'healthy' | 'warn' | 'stalled' {
+  if (health.some((h) => h.severity === 'crit')) return 'stalled';
+  return health.some((h) => h.severity === 'warn') ? 'warn' : 'healthy';
 }

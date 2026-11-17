@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import type { RawMessage } from '@ki/core';
 import { MemoryStore, Simulator } from '../src';
 import { getSchemaById } from '../src/registry';
+import { topicNodeStatus } from '../src/sim';
 
 const LOAD = Date.parse('2026-11-15T14:27:31Z');
 
@@ -1181,4 +1182,10 @@ test('a corrupt saved state starts the demo fresh instead of never becoming read
     expect(s.listAlerts().every((a) => typeof a.id === 'string')).toBe(true);
     expect(Number.isFinite((await s.getTopic('orders')).partitions[0]!.highWatermark)).toBe(true);
   }
+});
+
+test('a topic with a critical finding is drawn in the critical colour on the map, not amber', () => {
+  expect(topicNodeStatus([{ severity: 'crit' }, { severity: 'warn' }] as never)).toBe('stalled');
+  expect(topicNodeStatus([{ severity: 'warn' }] as never)).toBe('warn');
+  expect(topicNodeStatus([{ severity: 'info' }] as never)).toBe('healthy');
 });

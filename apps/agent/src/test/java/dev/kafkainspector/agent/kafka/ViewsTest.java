@@ -93,4 +93,13 @@ class ViewsTest {
         assertEquals(List.of("orders|0"), d.partitions().stream().map(x -> x.topic() + "|" + x.partition()).toList());
         assertEquals(List.of("orders"), d.summary().topics());
     }
+
+    @org.junit.jupiter.api.Test
+    void aTopicWithACriticalFindingIsDrawnInTheCriticalColourNotAmber() {
+        var crit = new dev.kafkainspector.agent.api.Dto.HealthFinding("offline", "crit", "1 partition offline", "x");
+        var warn = new dev.kafkainspector.agent.api.Dto.HealthFinding("skew", "warn", "Skew", "x");
+        org.junit.jupiter.api.Assertions.assertEquals("stalled", Views.topicNodeStatus(java.util.List.of(warn, crit)));
+        org.junit.jupiter.api.Assertions.assertEquals("warn", Views.topicNodeStatus(java.util.List.of(warn)));
+        org.junit.jupiter.api.Assertions.assertEquals("healthy", Views.topicNodeStatus(java.util.List.of()));
+    }
 }

@@ -303,6 +303,12 @@ public final class Views {
         return rate;
     }
 
+    /** A topic node's colour (as the simulator's topicNodeStatus): a crit finding (offline partitions) gets the map's critical colour, warn amber. */
+    static String topicNodeStatus(List<Dto.HealthFinding> h) {
+        if (h.stream().anyMatch(x -> x.severity().equals("crit"))) return "stalled";
+        return h.stream().anyMatch(x -> x.severity().equals("warn")) ? "warn" : "healthy";
+    }
+
     public static Dto.Topology topology(ClusterState s) {
         List<Dto.TopologyNode> nodes = new ArrayList<>();
         List<Dto.TopologyEdge> edges = new ArrayList<>();
@@ -312,7 +318,7 @@ public final class Views {
             if (t.internal || (!used.contains(t.name) && t.rate() == 0)) continue;
             List<Dto.HealthFinding> h = health(s, t);
             Dto.HealthFinding f = h.stream().filter(x -> !x.severity().equals("info")).findFirst().orElse(null);
-            nodes.add(new Dto.TopologyNode("topic:" + t.name, "topic", t.name, f == null ? "healthy" : "warn", t.rate(), f == null ? null : f.message().replace("Skew", "skew")));
+            nodes.add(new Dto.TopologyNode("topic:" + t.name, "topic", t.name, topicNodeStatus(h), t.rate(), f == null ? null : f.message().replace("Skew", "skew")));
         }
         for (ClusterState.GroupSnap g : s.groups.values()) {
             long lag = groupLag(s, g);
