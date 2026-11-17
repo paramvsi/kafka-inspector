@@ -38,7 +38,7 @@ export function BrokersView() {
   // a broker that can't be asked (offline, refused) must not read as one with no settings
   const configError =
     !config.data && config.error ? (
-      <p role="status" className="m-0 text-[13px] text-ink-muted">
+      <p role="alert" className="m-0 text-[13px] text-ink-muted">
         Couldn&apos;t read broker {selected}&apos;s settings: {(config.error as Error).message} Try
         again once it&apos;s back online.
       </p>
