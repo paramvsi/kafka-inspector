@@ -1107,7 +1107,8 @@ export class Simulator {
         message: 'No consumers',
         fix: 'Nothing reads this topic. Delete it or lower its retention to save disk.',
       });
-    if (retentionMs === -1)
+    // as the agent's Views.health: a compacted topic is bounded by its keys, not its retention
+    if (retentionMs === -1 && cfg['cleanup.policy'] !== 'compact')
       out.push({
         id: 'infinite-retention',
         severity: 'info',

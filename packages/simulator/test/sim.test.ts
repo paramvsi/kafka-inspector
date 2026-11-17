@@ -1024,3 +1024,18 @@ test('browse refuses what the agent refuses instead of showing an empty topic', 
   expect(b({ from: 'timestamp', timestamp: 'garbage' })).toThrow(/timestamp/);
   expect(b({ cursor: '{oops' })).toThrow("The cursor isn't valid. Start again without it.");
 });
+
+test('a compacted topic with retention.ms -1 has no "infinite retention" finding, as on the agent', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.createTopic({
+    name: 'users-latest',
+    partitions: 3,
+    replicationFactor: 3,
+    cleanupPolicy: 'compact',
+    retentionMs: -1,
+  });
+  h.advance(2);
+  const t = h.sim.getTopic('users-latest');
+  expect(t.summary.health.map((f) => f.id)).not.toContain('infinite-retention');
+});
