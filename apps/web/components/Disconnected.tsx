@@ -3,7 +3,7 @@ import type { ConnectionState } from '@ki/core';
 import { Button } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { pingAgent } from '../lib/client/agent';
+import { agentHealthy } from '../lib/client/agent';
 
 /** Retry that reloads only once the agent answers: a self-hosted app is served by the agent, so a reload while
  * it's down lands on the browser's own error page and strands the user there. */
@@ -11,9 +11,10 @@ export function useRetryWhenReachable(): [() => void, string | undefined] {
   const [note, setNote] = useState<string>();
   const retry = () => {
     setNote(undefined);
-    pingAgent(location.origin).then(
-      () => location.reload(),
-      () => setNote("Still can't reach the agent. The app keeps trying to reconnect."),
+    void agentHealthy().then((up) =>
+      up
+        ? location.reload()
+        : setNote("Still can't reach the agent. The app keeps trying to reconnect."),
     );
   };
   return [retry, note];

@@ -107,6 +107,20 @@ export async function pingAgent(url: string, timeoutMs = 3000): Promise<number> 
   return Math.round(performance.now() - t0);
 }
 
+/** This page's own agent is up: a same-origin check that reads the status (a proxy's 502 isn't "up"; a
+ * no-cors ping like pingAgent can't tell). 401 counts as up — the agent answered, the session just ended. */
+export async function agentHealthy(timeoutMs = 3000): Promise<boolean> {
+  try {
+    const r = await fetch('/api/health', {
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: 'no-store',
+    });
+    return r.ok || r.status === 401;
+  } catch {
+    return false;
+  }
+}
+
 export async function agentInfo(): Promise<{ version: string; clusters?: number }> {
   const i = await api<{ version: string; clusters?: unknown[] }>('GET', '/api/info');
   return { version: i.version, clusters: i.clusters?.length };

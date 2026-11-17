@@ -1693,3 +1693,14 @@ test('a bad search pattern says to fix the pattern, not to pick a start position
   await page.goto('/app/topics/view/?name=orders&tab=messages&search=(a');
   await expect(page.getByText(/Fix the pattern and search again/)).toBeVisible({ timeout: 15_000 });
 });
+
+test('Retry now behind a proxy answering 502 stays in the app too', async ({ page }) => {
+  await page.route('**/api/health', (r) => r.fulfill({ status: 502, body: 'Bad gateway' }));
+  await page.goto('/app/?preview=disconnected');
+  const retry = page.getByRole('button', { name: 'Retry now' }).first();
+  await expect(retry).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => ((window as unknown as { kiAlive: number }).kiAlive = 1));
+  await retry.click();
+  await expect(page.getByText(/Still can't reach the agent/)).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1);
+});
