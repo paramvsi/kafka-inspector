@@ -80,6 +80,20 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const cols = (url.get('cols') ?? '').split(',').filter(Boolean);
   const regex = url.get('search');
   const msgParam = /^\d+:\d+$/.test(url.get('msg') ?? '') ? url.get('msg')! : undefined;
+  // opening adds one history entry (Back closes the drawer); closing undoes that entry instead of leaving a
+  // second copy of the page behind it. A drawer opened from a link has no entry of ours to undo.
+  const pushedMsg = useRef(false);
+  const openMsg = (id: string) => {
+    const first = !url.get('msg');
+    url.set({ msg: id }, first ? 'push' : 'replace');
+    if (first) pushedMsg.current = true;
+  };
+  const closeMsg = () => {
+    if (pushedMsg.current) {
+      pushedMsg.current = false;
+      history.back();
+    } else url.set({ msg: undefined });
+  };
   const [draftExpr, setDraftExpr] = useState(expr);
   const [offset, setOffset] = useState(url.get('offset') ?? '');
   const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));
@@ -719,7 +733,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                     key={msgId(m)}
                     aria-rowindex={vi.index + 2}
                     style={{ height: ROW_H }}
-                    onClick={() => url.set({ msg: `${m.partition}:${m.offset}` }, 'push')}
+                    onClick={() => openMsg(`${m.partition}:${m.offset}`)}
                     className={`cursor-pointer ${animateRows ? 'ki-fade-in' : ''} ${isSel ? '[&>td]:bg-copper-soft' : '[&>td]:hover:bg-surface-hover'}`}
                   >
                     {regex !== undefined && <Td mono>{m.topic}</Td>}
@@ -730,7 +744,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                         className="cursor-pointer border-none bg-transparent p-0 font-mono text-[12px] tabular-nums text-ink hover:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          url.set({ msg: `${m.partition}:${m.offset}` }, 'push');
+                          openMsg(`${m.partition}:${m.offset}`);
                         }}
                       >
                         {formatInt(m.offset)}
@@ -858,7 +872,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         msgParam={msgParam}
         valueAs={valueAs}
         keyAs={keyAs}
-        onClose={() => url.set({ msg: undefined })}
+        onClose={closeMsg}
       />
       <MaskingDialog
         open={maskOpen}

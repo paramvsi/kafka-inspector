@@ -252,8 +252,7 @@ test('poison message: decode error with annotated hex, then reset offsets shift 
   });
   await expect(drawer.getByText('magic byte')).toBeVisible();
   await drawer.getByRole('button', { name: 'Close' }).click();
-  await page.goBack();
-  await page.goBack();
+  await page.goBack(); // closing the drawer undid its history entry, so one Back reaches the group
   await page.getByRole('button', { name: 'Reset offsets' }).click();
   const dialog = page.getByRole('dialog', { name: /Reset offsets/ });
   await expect(

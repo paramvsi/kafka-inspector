@@ -227,6 +227,18 @@ test('a group deleted while its page is cached says it no longer exists, not its
   });
 });
 
+test('opening then closing a message leaves no extra Back step', async ({ page }) => {
+  await page.goto('/app/');
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await page.getByRole('row').nth(1).click({ timeout: 15_000 });
+  const drawer = page.getByRole('dialog', { name: 'Message', exact: true });
+  await drawer.getByRole('button', { name: 'Close' }).click();
+  await expect(drawer).toBeHidden();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/app\/$/);
+});
+
 test('F-80: mute 1 h and acknowledge a firing alert', async ({ page }) => {
   await page.goto('/app/alerts/');
   const mute = page.getByRole('button', { name: 'Mute 1 h' }).first();
