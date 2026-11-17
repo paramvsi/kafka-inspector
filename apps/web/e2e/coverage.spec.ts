@@ -2021,3 +2021,15 @@ test('a chaos target that left the dropdown (its group crashed) isn’t sent: Tr
   await slow.getByRole('button', { name: 'Trigger' }).click();
   await expect(slow.getByText('Running')).toBeVisible({ timeout: 10_000 });
 });
+
+test('the Overview chart draws a line, not isolated dots (a gap rule once broke every 60 s step)', async ({
+  page,
+}) => {
+  await page.goto('/app/');
+  await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
+  const curve = page.locator('.recharts-line-curve, .recharts-area-curve').first();
+  await expect(curve).toHaveAttribute('d', /[LC]/, { timeout: 15_000 });
+  const d = (await curve.getAttribute('d')) ?? '';
+  // each "M" starts a separate piece of line: a few for real gaps, never one per point
+  expect((d.match(/M/g) ?? []).length).toBeLessThanOrEqual(3);
+});
