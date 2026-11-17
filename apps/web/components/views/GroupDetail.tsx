@@ -28,7 +28,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
-import { groupBadge, totalLagTone } from '../../lib/status';
+import { groupBadge, partitionLagText, totalLagTone } from '../../lib/status';
 import { axisTime } from '../../lib/axis';
 import { shareUrl, useUrl } from '../../lib/url';
 import { PageHeader, useReadOnly, useWrites, WriteButton } from '../Page';
@@ -429,7 +429,7 @@ function Partitions({ rows, groupId }: { rows: GroupPartitionLag[]; groupId: str
           cell: (r) => (r.committedOffset == null ? '—' : formatInt(r.committedOffset)),
         },
         { key: 'e', header: 'End offset', kind: 'num', cell: (r) => formatInt(r.endOffset) },
-        { key: 'l', header: 'Lag', kind: 'num', cell: (r) => formatInt(r.lag) },
+        { key: 'l', header: 'Lag', kind: 'num', cell: (r) => partitionLagText(r) },
         {
           key: 's',
           header: 'Status',

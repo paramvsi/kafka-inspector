@@ -1,5 +1,5 @@
 // Lag status / group state → badge (status word always shown; neutral states use the neutral badge).
-import type { GroupState, LagStatus } from '@ki/core';
+import { formatInt, type GroupState, type LagStatus } from '@ki/core';
 import type { BadgeStatus, SparkTone } from '@ki/ui';
 
 export function groupBadge(
@@ -51,4 +51,9 @@ export function healthyGroups(gs: { status: LagStatus; state: GroupState }[]): n
 export function totalLagTone(status: string, totalLag: number, rising: boolean): 'ok' | 'warn' {
   if (totalLag === 0) return 'ok';
   return rising || status === 'stalled' || status === 'stopped' ? 'warn' : 'ok';
+}
+
+/** A partition's lag cell: with no committed offset the lag is unknown (the agent sends 0), so "—" as Committed shows. */
+export function partitionLagText(r: { committedOffset: number | null; lag: number }): string {
+  return r.committedOffset == null ? '—' : formatInt(r.lag);
 }
