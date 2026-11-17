@@ -210,7 +210,23 @@ public class MessageService {
         // by time (not the ISO string: "…:00Z" sorts after "…:00.500Z"), then a stable tie-break
         out.sort(Comparator.comparing((Dto.RawMessage r) -> Instant.parse(r.timestamp())).reversed()
                 .thenComparing(Dto.RawMessage::topic).thenComparingInt(Dto.RawMessage::partition).thenComparingLong(Dto.RawMessage::offset));
-        return new Dto.RawMessagePage(out.subList(0, Math.min(max, out.size())), null, scanned);
+        return new Dto.RawMessagePage(firstFitting(out, max, PAGE_BYTES), null, scanned);
+    }
+
+    /**
+     * The newest messages, at most `max` and at most `bytes` in all, as one browse page is: a search merges up to 20
+     * topics' pages, so without this its response could carry 20 × 16 MB. A first message larger than the budget still
+     * comes back on its own.
+     */
+    static List<Dto.RawMessage> firstFitting(List<Dto.RawMessage> newestFirst, int max, long bytes) {
+        long total = 0;
+        int n = 0;
+        for (Dto.RawMessage m : newestFirst) {
+            if (n == max || (n > 0 && total + m.sizeBytes() > bytes)) break;
+            total += m.sizeBytes();
+            n++;
+        }
+        return newestFirst.subList(0, n);
     }
 
     /** Live tail: polls from the end on a virtual thread, samples to maxRate per second; errors go to onError. */
