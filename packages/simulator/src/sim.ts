@@ -530,13 +530,17 @@ export class Simulator {
               const inFlight = ps.rate * 0.14 * (1 + 0.3 * Math.sin(t / 7000 + gp.p));
               gp.committed = Math.max(gp.committed, ps.end - inFlight);
               cap = 0;
-            } else if (g.def.groupId === 'payments-sink') {
-              const w = sinkWeight(gp.topic, gp.p);
-              cap = ps.rate + w * (inDip ? -SINK_CYCLE.dipDeficit : SINK_CYCLE.drainSurplus);
             } else {
-              cap = ps.rate * g.def.capacity * (g.slow ? 0.6 : 1) + 2;
+              // consumers keep their usual speed through a traffic spike, so a 10× burst builds lag ("lag spikes",
+              // then drains); "Slow consumer" reads at 60 % of what arrives, whatever the group's spare capacity
+              const spiked = this.spike.get(gp.topic) ?? this.spike.get('*') ?? 1;
+              const usual = ps.rate / spiked;
+              if (g.slow) cap = ps.rate * 0.6;
+              else if (g.def.groupId === 'payments-sink') {
+                const w = sinkWeight(gp.topic, gp.p);
+                cap = usual + w * (inDip ? -SINK_CYCLE.dipDeficit : SINK_CYCLE.drainSurplus);
+              } else cap = usual * g.def.capacity + 2;
             }
-            if (g.slow && g.def.groupId === 'payments-sink') cap *= 0.6;
             gp.committed = Math.min(ps.end, gp.committed + Math.max(0, cap) * dt);
             gp.lastCommitAt = t;
           }

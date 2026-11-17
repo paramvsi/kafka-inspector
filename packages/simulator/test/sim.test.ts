@@ -1065,3 +1065,31 @@ test('a live tail after an hour asleep samples the gap without listing every off
   expect(batches.at(-1)!.length).toBeLessThanOrEqual(50);
   expect(ms).toBeLessThan(1500); // ~78M offsets were pushed into arrays before
 }, 20_000);
+
+test('chaos does what its card says: a traffic spike builds lag, a slow consumer reads at 60 % of input', async () => {
+  const lagOf = (h: ReturnType<typeof make>, id: string) =>
+    h.sim.listGroups().find((x) => x.groupId === id)!.totalLag;
+  const a = make();
+  await a.init();
+  const before = lagOf(a, 'order-service');
+  a.sim.runChaos({ kind: 'traffic-spike', target: '*' });
+  a.advance(30);
+  expect(lagOf(a, 'order-service')).toBeGreaterThan(before + 50_000); // "lag spikes"
+  const b = make();
+  await b.init();
+  b.sim.runChaos({ kind: 'slow-consumer', target: 'order-service' });
+  b.advance(2);
+  const sums = () => {
+    const ps = b.sim.getGroup('order-service').partitions.filter((p) => p.topic === 'orders');
+    return {
+      c: ps.reduce((x, p) => x + (p.committedOffset ?? 0), 0),
+      e: ps.reduce((x, p) => x + p.endOffset, 0),
+    };
+  };
+  const t0 = sums();
+  b.advance(10);
+  const t1 = sums();
+  const ratio = (t1.c - t0.c) / (t1.e - t0.e);
+  expect(ratio).toBeGreaterThan(0.5); // "consume rate cut to 60%"
+  expect(ratio).toBeLessThan(0.7);
+});
