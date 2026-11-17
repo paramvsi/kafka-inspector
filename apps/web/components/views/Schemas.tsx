@@ -1,7 +1,8 @@
 'use client';
 import { isNoRegistry } from '../../lib/poll';
-import { fieldsOf, type Field } from '../../lib/schemaFields';
+import { fieldsOf } from '../../lib/schemaFields';
 import { pickVersions } from '../../lib/versions';
+import { align } from '../../lib/schemaDiff';
 import {
   checkCompatibility,
   diffFields,
@@ -16,28 +17,6 @@ import { useState } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { LoadingRows } from '../Shell';
-
-function align(a: Field[], b: Field[], changes: FieldChange[]) {
-  const kind = (n: string) => changes.find((c) => c.field === n)?.change ?? 'same';
-  const rows: Array<{ left?: Field; right?: Field; kind: FieldChange['change'] }> = [];
-  let j = 0;
-  for (const f of a) {
-    if (kind(f.name) === 'removed') {
-      rows.push({ left: f, kind: 'removed' });
-      continue;
-    }
-    const at = b.findIndex((x) => x.name === f.name);
-    while (j < at) {
-      if (kind(b[j]!.name) === 'added') rows.push({ right: b[j], kind: 'added' });
-      j++;
-    }
-    rows.push({ left: f, right: b[at], kind: kind(f.name) });
-    j = at + 1;
-  }
-  for (; j < b.length; j++)
-    if (kind(b[j]!.name) === 'added') rows.push({ right: b[j], kind: 'added' });
-  return rows;
-}
 
 const TONE: Record<string, string> = {
   removed: 'bg-crit-soft',
@@ -129,7 +108,7 @@ export function SchemasView() {
               <div className="grow" />
               <Button onClick={() => url.set({ check: 1 })}>Check a new version</Button>
             </header>
-            {latest > 1 ? (
+            {(s?.versions.length ?? 0) > 1 ? ( // two versions to compare (latest > 1 isn't: v1 and v2 may be deleted)
               <>
                 <div className="flex flex-wrap items-center gap-3 text-[13px]">
                   <span className="text-ink-muted">Compare</span>
