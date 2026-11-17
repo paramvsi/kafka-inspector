@@ -63,3 +63,11 @@ test('one series’ outage breaks its line even while another series has samples
   expect(inside.some((r) => r.a === null)).toBe(true); // a's line breaks across its 33 unmeasured minutes
   expect(inside.every((r) => typeof r.b === 'number')).toBe(true); // b's doesn't
 });
+
+test('a series whose spacing changes (the demo: 1 min points, then 15 s for the last 15 min) stays one line', () => {
+  const pts: Array<[number, number]> = [];
+  for (let t = 0; t < 45 * 60_000; t += 60_000) pts.push([t, 5]);
+  for (let t = 45 * 60_000; t <= 60 * 60_000; t += 15_000) pts.push([t, 5]);
+  const rows = chartRows([{ key: 'lag', points: pts }]);
+  expect(rows.some((r) => r.lag === null)).toBe(false);
+});

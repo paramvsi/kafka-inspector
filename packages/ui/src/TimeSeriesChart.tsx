@@ -221,15 +221,14 @@ export function chartRows(
   for (const s of series) for (const [t, v] of s.points) put(t, s.key, v);
   for (const s of series) {
     const pts = [...s.points].sort((a, b) => a[0] - b[0]);
-    const steps = pts
-      .slice(1)
-      .map(([t], i) => t - pts[i]![0])
-      .filter((d) => d > 0)
-      .sort((a, b) => a - b);
-    if (steps.length < 2) continue; // too few points to know a usual spacing
-    const step = steps[Math.floor(steps.length / 2)]!;
-    for (let i = 1; i < pts.length; i++)
-      if (pts[i]![0] - pts[i - 1]![0] > 3 * step) put(pts[i - 1]![0] + step, s.key, null);
+    // the spacing of each step; a gap is a step far wider than the ones beside it, so a series whose spacing
+    // changes (stored history thins to 1/min, then 1/10 min) stays one line, and an outage still breaks it
+    const d = pts.slice(1).map(([t], i) => t - pts[i]![0]);
+    if (d.filter((x) => x > 0).length < 2) continue; // too few points to know a usual spacing
+    for (let i = 0; i < d.length; i++) {
+      const near = Math.max(d[i - 1] ?? 0, d[i + 1] ?? 0);
+      if (near > 0 && d[i]! > 3 * near) put(pts[i]![0] + near, s.key, null);
+    }
   }
   const out = [...byT.values()].sort((a, b) => a.t! - b.t!);
   // alignment holes: between two values of the same series with no gap row in between
