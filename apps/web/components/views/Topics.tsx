@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useLocal } from '../../lib/local';
+import { totalSizeText } from '../../lib/status';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrl, useUrlText, pick } from '../../lib/url';
 import { PageHeader, useReadOnly, WriteButton } from '../Page';
@@ -52,7 +53,7 @@ export function TopicsView() {
   const internal = url.get('internal') === '1';
   const sort = pick(url.get('sort'), ['issues', 'name', 'size', 'rate'] as const, 'issues');
   const page = Math.max(1, Math.floor(Number(url.get('page') ?? 1)) || 1);
-  const [starred, setStarred] = useLocal<string[]>(`ki-starred-topics:${clusterId}`, []) // topic names are per cluster;
+  const [starred, setStarred] = useLocal<string[]>(`ki-starred-topics:${clusterId}`, []); // topic names are per cluster;
 
   const all = useKafkaQuery(
     ['topics', 'all-internal'],
@@ -87,7 +88,6 @@ export function TopicsView() {
       t.underReplicated > 0 ||
       t.health.some((h) => h.severity !== 'info' || h.id === 'no-consumers'),
   ).length;
-  const total = everything.reduce((a, t) => a + (t.sizeBytes ?? 0), 0);
   const parts = everything.reduce((a, t) => a + t.partitions, 0);
   const data = list.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE)) : 1;
@@ -104,7 +104,7 @@ export function TopicsView() {
         title="Topics"
         subtitle={
           all.data
-            ? `${formatInt(all.data.total)} topic${all.data.total === 1 ? '' : 's'} · ${formatInt(parts)} partitions · ${formatBytes(total)} · ${attention} need attention${all.data.total > everything.length ? ` (totals cover the first ${formatInt(everything.length)})` : ''}`
+            ? `${formatInt(all.data.total)} topic${all.data.total === 1 ? '' : 's'} · ${formatInt(parts)} partitions · ${totalSizeText(everything)} · ${attention} need attention${all.data.total > everything.length ? ` (totals cover the first ${formatInt(everything.length)})` : ''}`
             : '\u00a0' // keeps the line's height so the table below doesn't shift (CLS)
         }
         actions={

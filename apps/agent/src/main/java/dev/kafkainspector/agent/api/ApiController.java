@@ -91,17 +91,13 @@ public class ApiController {
         List<Dto.Broker> out = new ArrayList<>();
         for (ClusterState.BrokerSnap b : s.brokers) {
             int partitions = 0, leaders = 0;
-            double bytesIn = 0;
             for (ClusterState.TopicSnap t : s.topics.values()) {
                 for (ClusterState.PartSnap p : t.partitions) {
                     if (p.replicas.contains(b.id())) partitions++;
-                    if (Objects.equals(p.leader, b.id())) {
-                        leaders++;
-                        bytesIn += p.high > p.low && p.sizeBytes > 0 ? p.rate * p.sizeBytes / (p.high - p.low) : 0;
-                    }
+                    if (Objects.equals(p.leader, b.id())) leaders++;
                 }
             }
-            out.add(new Dto.Broker(b.id(), b.host(), b.port(), b.rack(), Objects.equals(s.controller, b.id()), b.online(), partitions, leaders, bytesIn, b.diskUsed(), b.diskTotal()));
+            out.add(new Dto.Broker(b.id(), b.host(), b.port(), b.rack(), Objects.equals(s.controller, b.id()), b.online(), partitions, leaders, Views.bytesIn(s, b.id()), b.diskUsed(), b.diskTotal()));
         }
         return out;
     }

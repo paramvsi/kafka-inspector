@@ -78,10 +78,25 @@ public final class Views {
         }
     }
 
+    /**
+     * Bytes in per second for the partitions a broker leads, from each one's message rate × average message size.
+     * Unknown (null, shown "—") when a led partition takes traffic but its size was never reported: 0 would read as idle.
+     */
+    public static Double bytesIn(ClusterState s, int broker) {
+        double bytesIn = 0;
+        for (ClusterState.TopicSnap t : s.topics.values())
+            for (ClusterState.PartSnap p : t.partitions) {
+                if (!java.util.Objects.equals(p.leader, broker) || p.rate <= 0) continue;
+                if (p.sizeBytes < 0) return null;
+                bytesIn += p.high > p.low && p.sizeBytes > 0 ? p.rate * p.sizeBytes / (p.high - p.low) : 0;
+            }
+        return bytesIn;
+    }
+
     public static Dto.TopicSummary topic(ClusterState s, ClusterState.TopicSnap t, List<Double> trend) {
         int rf = t.partitions.isEmpty() ? 0 : t.partitions.get(0).replicas.size();
-        // unknown when no partition's size was ever reported (the UI shows "—", not 0 B)
-        Long size = t.partitions.stream().anyMatch(p -> p.sizeBytes >= 0) ? t.partitions.stream().mapToLong(p -> Math.max(0, p.sizeBytes)).sum() : null;
+        // unknown unless every partition's size was reported (the UI shows "—"): a partial sum would read as exact
+        Long size = !t.partitions.isEmpty() && t.partitions.stream().allMatch(p -> p.sizeBytes >= 0) ? t.partitions.stream().mapToLong(p -> p.sizeBytes).sum() : null;
         long last = t.partitions.stream().mapToLong(p -> p.lastMessageAt).max().orElse(0);
         int urp = (int) t.partitions.stream().filter(p -> p.isr.size() < p.replicas.size()).count();
         return new Dto.TopicSummary(t.name, t.internal, t.partitions.size(), rf, size, t.rate(), consumersOf(s, t.name), iso(last), urp, health(s, t), trend);

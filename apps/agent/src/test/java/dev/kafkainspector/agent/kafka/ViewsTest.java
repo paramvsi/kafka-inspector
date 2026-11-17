@@ -22,7 +22,28 @@ class ViewsTest {
         t.partitions.add(part(1, -1));
         assertNull(Views.topic(s, t, List.of()).sizeBytes(), "no DescribeLogDirs: unknown, not 0 B");
         t.partitions.set(1, part(1, 2048));
-        assertEquals(2048L, Views.topic(s, t, List.of()).sizeBytes());
+        // one partition still unknown: 2048 is only a lower bound, so the size is unknown, not an exact 2 KB
+        assertNull(Views.topic(s, t, List.of()).sizeBytes(), "a partly known size isn't the topic's size");
+        t.partitions.set(0, part(0, 1024));
+        assertEquals(3072L, Views.topic(s, t, List.of()).sizeBytes());
+    }
+
+    @Test
+    void aBrokerWhoseLedPartitionsHaveNoSizeHasNoByteRateNotZero() {
+        ClusterState s = new ClusterState();
+        ClusterState.TopicSnap t = new ClusterState.TopicSnap();
+        t.name = "orders";
+        ClusterState.PartSnap p = part(0, -1); // DescribeLogDirs didn't answer for it
+        p.leader = 1;
+        p.high = 1000;
+        p.low = 0;
+        p.rate = 50;
+        t.partitions.add(p);
+        s.topics = java.util.Map.of("orders", t);
+        assertNull(Views.bytesIn(s, 1), "traffic flows but its size is unknown: no rate, not 0 B/s");
+        p.sizeBytes = 100_000; // 100 bytes per message × 50 messages/s
+        assertEquals(5000.0, Views.bytesIn(s, 1), 0.001);
+        assertEquals(0.0, Views.bytesIn(s, 2), 0.001); // leads nothing: a real 0
     }
 
     @Test

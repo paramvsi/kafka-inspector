@@ -1,5 +1,5 @@
 // Lag status / group state → badge (status word always shown; neutral states use the neutral badge).
-import { formatInt, type GroupState, type LagStatus } from '@ki/core';
+import { formatBytes, formatInt, type GroupState, type LagStatus } from '@ki/core';
 import type { BadgeStatus, SparkTone } from '@ki/ui';
 
 export function groupBadge(
@@ -56,4 +56,12 @@ export function totalLagTone(status: string, totalLag: number, rising: boolean):
 /** A partition's lag cell: with no committed offset the lag is unknown (the agent sends 0), so "—" as Committed shows. */
 export function partitionLagText(r: { committedOffset: number | null; lag: number }): string {
   return r.committedOffset == null ? '—' : formatInt(r.lag);
+}
+
+/** The Topics header's total size: unknown sizes are never counted as 0 (a partial sum is said to be one). */
+export function totalSizeText(topics: { sizeBytes?: number | null }[]): string {
+  const known = topics.filter((t) => t.sizeBytes != null);
+  if (!known.length) return 'size unknown';
+  const sum = formatBytes(known.reduce((a, t) => a + t.sizeBytes!, 0));
+  return known.length < topics.length ? `at least ${sum}` : sum;
 }
