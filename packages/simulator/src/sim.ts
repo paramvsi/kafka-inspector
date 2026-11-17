@@ -2076,6 +2076,14 @@ export class Simulator {
         'Topic names use letters, digits, ".", "_" and "-" (max 249 characters), and can\'t be "." or "..".',
       );
     if (this.topics.has(spec.name)) throw new Error(`Topic ${spec.name} already exists.`);
+    // Kafka refuses names that differ only by "." vs "_": they collide in its metric names
+    const clash = [...this.topics.keys()].find(
+      (t) => t.replaceAll('.', '_') === spec.name.replaceAll('.', '_'),
+    );
+    if (clash)
+      throw new Error(
+        `Topic ${spec.name} collides with ${clash}: Kafka treats "." and "_" alike in topic names. Pick another name.`,
+      );
     if (!Number.isInteger(spec.partitions) || spec.partitions < 1 || spec.partitions > 1000)
       throw new Error('Partitions must be between 1 and 1,000.');
     const online = [...this.brokersOnline.values()].filter(Boolean).length;
@@ -2644,8 +2652,29 @@ function checkConfigs(changes: Record<string, string | null>, rf: number): void 
     }
     if ((def0 === 'true' || def0 === 'false') && v !== 'true' && v !== 'false')
       throw new Error(`${k} must be true or false.`);
+    const allowed = ENUM_CONFIG[k];
+    if (allowed) {
+      // cleanup.policy is a list: "compact,delete"
+      const parts = k === 'cleanup.policy' ? v.split(',').map((p) => p.trim()) : [v];
+      if (!parts.length || parts.some((p) => !allowed.includes(p)))
+        throw new Error(
+          `${k} must be ${allowed.join(', ')}${k === 'cleanup.policy' ? ' (or both)' : ''}.`,
+        );
+    }
+    if (
+      k === 'min.cleanable.dirty.ratio' &&
+      !(Number(v) >= 0 && Number(v) <= 1) /* NaN fails too */
+    )
+      throw new Error(`${k} must be a number from 0 to 1.`);
   }
 }
+
+/** Topic configs Kafka takes only from a fixed set (anything else is InvalidConfigurationException). */
+const ENUM_CONFIG: Record<string, string[]> = {
+  'cleanup.policy': ['delete', 'compact'],
+  'compression.type': ['uncompressed', 'zstd', 'lz4', 'snappy', 'gzip', 'producer'],
+  'message.timestamp.type': ['CreateTime', 'LogAppendTime'],
+};
 
 const MIN_CONFIG: Record<string, number> = {
   'retention.ms': -1,

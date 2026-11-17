@@ -1282,10 +1282,10 @@ test('a reset skips a partition with no leader (its brokers are down), in the pr
 test('topics sort by name in code-point order like the agent; a page size below 1 reads as 1', async () => {
   const a = make();
   await a.init();
-  for (const name of ['zz-b', 'zz.b', 'zz_b', 'ZZ'])
+  for (const name of ['zz-b', 'zz.b', 'zz_c', 'ZZ']) // zz_b would collide with zz.b, as Kafka refuses
     await a.sim.createTopic({ name, partitions: 1, replicationFactor: 3 } as never);
   const names = a.sim.listTopics({ query: 'zz', sort: 'name' } as never).items.map((t) => t.name);
-  expect(names).toEqual(['ZZ', 'zz-b', 'zz.b', 'zz_b']); // Java's String.compareTo order
+  expect(names).toEqual(['ZZ', 'zz-b', 'zz.b', 'zz_c']); // Java's String.compareTo order
   expect(a.sim.listTopics({ size: 0 } as never).items.length).toBe(1);
 });
 
@@ -1325,4 +1325,28 @@ test('a "specific" alert rule with no target is refused, not saved to never fire
     await expect(
       h.sim.saveAlertRule({ ...rule, id: undefined, scope: { kind: 'specific', target } } as never),
     ).rejects.toThrow('Pick the group, topic or broker this rule watches.');
+});
+
+test('topic writes refuse what Kafka refuses: "." / "_" name collisions and invalid enum configs', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.createTopic({ name: 'audit_log', partitions: 1, replicationFactor: 1 });
+  await expect(
+    h.sim.createTopic({ name: 'audit.log', partitions: 1, replicationFactor: 1 }),
+  ).rejects.toThrow(/collides with audit_log/);
+  for (const [k, v] of [
+    ['cleanup.policy', 'compaction'],
+    ['compression.type', 'zzz'],
+    ['message.timestamp.type', 'x'],
+    ['min.cleanable.dirty.ratio', 'abc'],
+    ['min.cleanable.dirty.ratio', '1.5'],
+  ] as const)
+    await expect(h.sim.updateTopicConfig('orders', { [k]: v })).rejects.toThrow(k);
+  // what Kafka accepts still goes through
+  await h.sim.updateTopicConfig('orders', { 'cleanup.policy': 'compact,delete' });
+  await h.sim.updateTopicConfig('orders', {
+    'compression.type': 'zstd',
+    'min.cleanable.dirty.ratio': '0.25',
+  });
+  await h.sim.updateTopicConfig('orders', { 'message.timestamp.type': 'LogAppendTime' });
 });
