@@ -1953,3 +1953,13 @@ test('Needs attention says how many more there are and shows them, instead of cu
     4,
   );
 });
+
+test('the topology map stops its flow and says it shows last known values while reconnecting', async ({
+  page,
+}) => {
+  await page.goto('/app/topology/');
+  await expect(page.locator('path.ki-flow').first()).toBeAttached({ timeout: 15_000 }); // live: the flow runs
+  await page.goto('/app/topology/?preview=disconnected');
+  await expect(page.getByText(/Showing last known values/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('path.ki-flow')).toHaveCount(0);
+});

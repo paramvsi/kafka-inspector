@@ -1,5 +1,5 @@
 'use client';
-import { formatCount, shownName, type Topology, type TopologyNode } from '@ki/core';
+import { formatClock, formatCount, shownName, type Topology, type TopologyNode } from '@ki/core';
 import { Button, Card, EmptyState, SearchInput } from '@ki/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +8,7 @@ import { useKafka, useKafkaQuery } from '../../lib/kafka';
 import { useStickyError } from '../../lib/stickyError';
 import { useUrlText } from '../../lib/url';
 import { PageHeader } from '../Page';
-import { LoadingRows } from '../Shell';
+import { LoadingRows, useConnection } from '../Shell';
 
 const W = 1040,
   NODE_W = 200,
@@ -82,6 +82,9 @@ export function TopologyView() {
   const drag = useRef<{ x: number; y: number } | null>(null);
   const [visible, setVisible] = useState(true);
   const { live } = useApp(); // paused Live: the flow stops moving too
+  // reconnecting: the map shows the last values it had, so it stops flowing and says so (as Overview does)
+  const connection = useConnection();
+  const stale = connection.state === 'reconnecting';
   useEffect(() => {
     // Stop continuous animation when the tab is hidden (MOTION.md principle 7)
     const on = () => setVisible(document.visibilityState === 'visible');
@@ -149,6 +152,12 @@ export function TopologyView() {
           </>
         }
       />
+      {stale && (
+        <p className="m-0 text-[13px] text-ink-muted">
+          Showing last known values from {formatClock(connection.since ?? Date.now())}. The map
+          updates again when the connection returns.
+        </p>
+      )}
       {q && t.nodes.length > 0 && !t.nodes.some((n) => match(n)) && (
         <p role="status" className="m-0 text-[13px] text-ink-muted">
           Nothing matches “{highlight}”.
@@ -253,7 +262,7 @@ export function TopologyView() {
                                 : undefined
                         }
                       />
-                      {flowing && visible && live && (
+                      {flowing && visible && live && !stale && (
                         <path
                           d={d}
                           fill="none"
