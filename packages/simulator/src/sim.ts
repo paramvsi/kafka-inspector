@@ -78,7 +78,7 @@ import {
 } from './model';
 import { hash, hex, rng } from './prng';
 import * as registry from './registry';
-import { MemoryStore, type Action, type Store } from './store';
+import { MemoryStore, type Action, type Saved, type Store } from './store';
 
 const DAY = 24 * 3600 * 1000;
 // Lag window in demo mode: 10 samples at 1 s, so a stall shows within 10 s (phase 3 gate). Configurable per
@@ -275,10 +275,26 @@ export class Simulator {
   // ───────────────────────────── setup and back-fill ─────────────────────────────
 
   async init(): Promise<void> {
-    const saved = await this.store.load();
-    if (saved.settings) this.settings = { ...this.settings, ...saved.settings };
-    if (saved.rules) this.rules = saved.rules;
-    this.backfill(this.now(), saved.actions);
+    const saved = (await this.store.load()) as Partial<Record<keyof Saved, unknown>>;
+    // whatever the store holds (an older version, a hand-edited IndexedDB, a half-written save) must not stop the
+    // demo starting: keep what has the right shape and drop the rest
+    const obj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object';
+    const st = obj(saved.settings) ? saved.settings : {};
+    if (typeof st.baseTraffic === 'number' && Number.isFinite(st.baseTraffic))
+      this.settings.baseTraffic = st.baseTraffic;
+    if (typeof st.dailyWave === 'boolean') this.settings.dailyWave = st.dailyWave;
+    if (typeof st.seed === 'string') this.settings.seed = st.seed;
+    if (Array.isArray(saved.rules))
+      this.rules = saved.rules.filter((r): r is AlertRule => obj(r) && typeof r.id === 'string');
+    const actions = Array.isArray(saved.actions)
+      ? saved.actions.filter(
+          (a): a is Action =>
+            obj(a) && typeof a.t === 'number' && Number.isFinite(a.t) && typeof a.kind === 'string',
+        )
+      : [];
+    const dropped = (Array.isArray(saved.actions) ? saved.actions.length : 0) - actions.length;
+    if (dropped > 0) console.warn(`Skipped ${dropped} unreadable saved demo change(s).`);
+    this.backfill(this.now(), actions);
   }
 
   /** Builds the seeded cluster and simulates the last 24 h (60 s steps, then 1 s for the last 15 min). */

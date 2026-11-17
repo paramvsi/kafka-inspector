@@ -1167,3 +1167,18 @@ test('an acknowledged or muted alert stays so after a reload (it was re-raised a
   expect(find(acked)?.acknowledged).toBe(true);
   expect(find(muted)?.mutedUntil).toBe(until);
 });
+
+test('a corrupt saved state starts the demo fresh instead of never becoming ready', async () => {
+  for (const bad of [
+    { actions: [null, { t: 'x' }, 7], rules: 'oops', settings: { baseTraffic: 'lots' } },
+    { actions: 'not a list', rules: [null, { id: 3 }] },
+  ]) {
+    const store = new MemoryStore();
+    store.saved = bad as never;
+    const s = new Simulator({ store, now: () => LOAD });
+    await s.init();
+    expect(s.getOverview().kpis.topics).toBeGreaterThan(0);
+    expect(s.listAlerts().every((a) => typeof a.id === 'string')).toBe(true);
+    expect(Number.isFinite((await s.getTopic('orders')).partitions[0]!.highWatermark)).toBe(true);
+  }
+});
