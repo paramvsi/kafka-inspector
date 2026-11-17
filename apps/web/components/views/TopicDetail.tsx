@@ -83,7 +83,8 @@ export function TopicDetailView() {
       />
     );
   // a failed refresh keeps the last data on screen; only a real not-found says "not found"
-  if (topicFailed && !topic.data) {
+  // not found wins over the last data: a topic deleted elsewhere would otherwise stay on screen looking live
+  if (topicFailed && (!topic.data || isNotFound(topicFailed))) {
     const missing = isNotFound(topicFailed);
     return (
       <>

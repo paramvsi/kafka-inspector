@@ -213,6 +213,20 @@ test('F-62: earliest and latest dry runs, then apply latest; F-63: delete an emp
   await expect(page.getByRole('link', { name: 'search-indexer', exact: true })).toHaveCount(0);
 });
 
+test('a group deleted while its page is cached says it no longer exists, not its old numbers', async ({
+  page,
+}) => {
+  await page.goto('/app/groups/view/?id=search-indexer');
+  await page.getByRole('button', { name: 'Delete group' }).click();
+  await expect(page).toHaveURL(/\/app\/groups\/$/);
+  await page.goBack(); // the cached detail is still there; the next poll says not found
+  await expect(
+    page.getByText('Consumer group search-indexer not found', { exact: true }),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
+});
+
 test('F-80: mute 1 h and acknowledge a firing alert', async ({ page }) => {
   await page.goto('/app/alerts/');
   const mute = page.getByRole('button', { name: 'Mute 1 h' }).first();

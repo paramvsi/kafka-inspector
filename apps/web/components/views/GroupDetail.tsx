@@ -61,7 +61,8 @@ export function GroupDetailView() {
   );
   const d = group.data;
   // a failed refresh keeps the last data on screen; only a real not-found says "not found"
-  if (groupFailed && !d) {
+  // not found wins over the last data: a group deleted elsewhere would otherwise stay on screen looking live
+  if (groupFailed && (!d || isNotFound(groupFailed))) {
     return (
       <Card>
         <EmptyState
