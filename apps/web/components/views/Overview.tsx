@@ -21,6 +21,7 @@ import { hourAgoValue } from '../../lib/baseline';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { groupBadge, sparkTone } from '../../lib/status';
 import { BootStatus, PageSkeleton, useConnection } from '../Shell';
+import { useRetryWhenReachable } from '../Disconnected';
 
 export function OverviewView() {
   const { preview, range } = useApp();
@@ -391,6 +392,7 @@ function RecentEvents({ data }: { data: OverviewData }) {
 
 /** Only what the browser actually knows: it can't see brokers while the agent is unreachable. */
 function ConnectionChecks({ brokers, mode }: { brokers: number; mode: string }) {
+  const [retry, retryNote] = useRetryWhenReachable();
   const online = typeof navigator === 'undefined' || navigator.onLine;
   const row = (state: 'Done' | 'Failed' | 'Waiting', text: React.ReactNode) => (
     <li className="flex items-center gap-3">
@@ -432,9 +434,14 @@ function ConnectionChecks({ brokers, mode }: { brokers: number; mode: string }) 
           simulated cluster to keep exploring.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button variant="primary" onClick={() => location.reload()}>
+          <Button variant="primary" onClick={retry}>
             Retry now
           </Button>
+          {retryNote && (
+            <span role="status" className="self-center text-[12px] text-ink">
+              {retryNote}
+            </span>
+          )}
           <Button onClick={() => location.assign('/app/')}>Switch to simulated cluster</Button>
         </div>
       </div>

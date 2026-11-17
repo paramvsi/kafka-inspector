@@ -615,6 +615,16 @@ function RuleDialog({
               {previewLabel(previewData, preview.error)}
             </span>
           </div>
+          {/* the rule and its preview skip groups with no members (no one to be behind); the chart still plots
+              their lag, so say why it won't fire */}
+          {r.metric === 'lag' &&
+            target &&
+            groups.data?.some((g) => g.groupId === target && g.members === 0) && (
+              <p className="m-0 mb-2 text-[12px] text-ink-muted">
+                <span className="font-mono">{target}</span> has no members, so lag rules skip it
+                until it has some.
+              </p>
+            )}
           {r.metric === 'lag' && (seriesData?.length ?? 0) > 1 ? (
             <TimeSeriesChart
               label="Lag over the last 24 hours with the threshold"

@@ -676,7 +676,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         <div
           ref={scroller}
           tabIndex={0}
-          aria-label={`Messages in ${topic}`}
+          aria-label={
+            regex !== undefined
+              ? `Messages in topics matching ${regex || '.*'}`
+              : `Messages in ${topic}`
+          }
           className="max-h-[calc(100vh-330px)] min-h-[200px] overflow-auto"
           onScroll={(e) => {
             atTop.current = e.currentTarget.scrollTop < 8;
@@ -813,7 +817,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                       ? `${(page.error as Error).message} Try another start position, or try again.`
                       : from === 'offset'
                         ? `No messages at or after offset ${formatInt(Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0))} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier offset or Newest.`
-                        : `${p === 'all' ? 'This topic has' : `Partition ${p} has`} no messages in its retention window.`}
+                        : regex !== undefined
+                          ? `No messages found in topics matching ${regex || '.*'}. Check the pattern, or search from Oldest.`
+                          : from === 'timestamp'
+                            ? `No messages at or after ${formatTimestamp(url.get('ts') ?? '')} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier time or Newest.`
+                            : `${p === 'all' ? 'This topic has' : `Partition ${p} has`} no messages in its retention window.`}
             </EmptyState>
           )}
         </div>

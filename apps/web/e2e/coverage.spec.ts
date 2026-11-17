@@ -1643,3 +1643,36 @@ test('a double click on Trigger starts chaos once; its progress bar resumes wher
   const delay = await bar.evaluate((e) => parseFloat(getComputedStyle(e).animationDelay));
   expect(delay).toBeLessThanOrEqual(-2);
 });
+
+test('Retry now while the agent is unreachable stays in the app instead of reloading into an error page', async ({
+  page,
+}) => {
+  await page.route('**/api/health', (r) => r.abort());
+  await page.goto('/app/?preview=disconnected');
+  const retry = page.getByRole('button', { name: 'Retry now' }).first();
+  await expect(retry).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => ((window as unknown as { kiAlive: number }).kiAlive = 1));
+  await retry.click();
+  await expect(page.getByText(/Still can't reach the agent/)).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1);
+});
+
+test('reading from a future time says nothing is that recent, not that the topic is empty', async ({
+  page,
+}) => {
+  await page.goto(
+    '/app/topics/view/?name=orders&tab=messages&from=timestamp&ts=2099-01-01T00%3A00',
+  );
+  await expect(page.getByText(/at or after/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/no messages in its retention window/)).toHaveCount(0);
+});
+
+test('a lag rule on a group with no members says it is skipped until the group has members', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog');
+  await d.getByLabel('Scope').selectOption('search-indexer');
+  await expect(d.getByText(/has no members/)).toBeVisible();
+});

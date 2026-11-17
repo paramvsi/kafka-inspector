@@ -1,7 +1,23 @@
 'use client';
 import type { ConnectionState } from '@ki/core';
 import { Button } from '@ki/ui';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { pingAgent } from '../lib/client/agent';
+
+/** Retry that reloads only once the agent answers: a self-hosted app is served by the agent, so a reload while
+ * it's down lands on the browser's own error page and strands the user there. */
+export function useRetryWhenReachable(): [() => void, string | undefined] {
+  const [note, setNote] = useState<string>();
+  const retry = () => {
+    setNote(undefined);
+    pingAgent(location.origin).then(
+      () => location.reload(),
+      () => setNote("Still can't reach the agent. The app keeps trying to reconnect."),
+    );
+  };
+  return [retry, note];
+}
 
 /** Disconnected banner (01c): what failed, reconnect countdown, attempt count, Retry and Edit connection. */
 export function DisconnectedBanner({
@@ -16,6 +32,7 @@ export function DisconnectedBanner({
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  const [retry, note] = useRetryWhenReachable();
   const left = connection.nextAt ? Math.max(0, Math.ceil((connection.nextAt - now) / 1000)) : 0;
   const since = connection.since ? new Date(connection.since).toTimeString().slice(0, 8) : '—';
   return (
@@ -44,14 +61,20 @@ export function DisconnectedBanner({
               {left > 0 ? `Reconnecting in ${left} s` : 'Reconnecting now'} · attempt{' '}
               {connection.attempt ?? 1} of {connection.maxAttempts ?? 10}.
             </div>
+            {note && (
+              <div role="status" className="text-[12px] text-ink">
+                {note}
+              </div>
+            )}
           </div>
-          <a
+          {/* in-app: a full page load needs the agent, which is the thing that's down */}
+          <Link
             href="/app/clusters/"
             className="text-[13px] font-semibold text-ink underline-offset-2 hover:underline"
           >
             Edit connection
-          </a>
-          <Button onClick={() => location.reload()}>Retry now</Button>
+          </Link>
+          <Button onClick={retry}>Retry now</Button>
         </div>
       </div>
     </div>

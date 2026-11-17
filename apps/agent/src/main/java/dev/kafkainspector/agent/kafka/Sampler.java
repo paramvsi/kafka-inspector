@@ -391,18 +391,22 @@ public class Sampler {
         s.messagesIn = msgsIn;
         s.messagesOut = msgsOut;
         s.bytesIn = topics.values().stream().filter(t -> !t.internal).flatMap(t -> t.partitions.stream()).mapToDouble(p -> p.rate * (p.high > p.low && p.sizeBytes > 0 ? (double) p.sizeBytes / (p.high - p.low) : 0)).sum();
-        record(cid, s, now);
+        record(cid, s, now, dtMs > 0);
     }
 
-    private void record(String cid, ClusterState s, long now) {
+    /** rated: false on the first sample after a start, when no previous snapshot exists — its rates read 0, which
+     * history would keep as a false drop to 0 msg/s at every agent restart; those points are left out instead. */
+    private void record(String cid, ClusterState s, long now, boolean rated) {
         List<HistoryRepository.Row> rows = new ArrayList<>();
-        rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesIn", now, s.messagesIn));
-        rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesOut", now, s.messagesOut));
-        rows.add(new HistoryRepository.Row(cid, "cluster", "", "bytesIn", now, s.bytesIn));
+        if (rated) {
+            rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesIn", now, s.messagesIn));
+            rows.add(new HistoryRepository.Row(cid, "cluster", "", "messagesOut", now, s.messagesOut));
+            rows.add(new HistoryRepository.Row(cid, "cluster", "", "bytesIn", now, s.bytesIn));
+        }
         long total = 0;
         int urp = 0;
         for (ClusterState.TopicSnap t : s.topics.values()) {
-            rows.add(new HistoryRepository.Row(cid, "topic", t.name, "messagesIn", now, t.rate()));
+            if (rated) rows.add(new HistoryRepository.Row(cid, "topic", t.name, "messagesIn", now, t.rate()));
             for (ClusterState.PartSnap p : t.partitions) {
                 rows.add(new HistoryRepository.Row(cid, "partition", t.name + "-" + p.partition, "endOffset", now, p.high));
                 if (p.isr.size() < p.replicas.size()) urp++;
