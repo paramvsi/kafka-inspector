@@ -145,3 +145,23 @@ test('a deliberate sign-out is not reported as an expired session', async () => 
   await client.listTopics('c', {}).catch(() => undefined);
   expect(assign.mock.calls.some(([u]) => String(u).includes('reason=expired'))).toBe(false);
 });
+
+test('a silent connection (no frame, not even the 20 s ping, for 45 s) is dropped and reopened', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('WebSocket', FakeSocket);
+  vi.stubGlobal('location', { protocol: 'http:', host: 'agent:8080' });
+  const client = createAgentClient();
+  client.subscribe('local', 'metrics', () => {});
+  const first = FakeSocket.all[0]!;
+  first.up();
+  // pings keep it alive
+  for (let i = 0; i < 3; i++) {
+    vi.advanceTimersByTime(20_000);
+    first.onmessage?.({ data: JSON.stringify({ op: 'ping' }) });
+  }
+  expect(FakeSocket.all).toHaveLength(1);
+  // then nothing: a NAT or proxy dropped it without a close
+  vi.advanceTimersByTime(46_000 + 60_000);
+  expect(first.closed).toBe(true);
+  expect(FakeSocket.all).toHaveLength(2);
+});

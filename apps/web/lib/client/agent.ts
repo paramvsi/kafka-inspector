@@ -168,13 +168,25 @@ export function createAgentClient(): KafkaClient {
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/stream`;
     const sock = new WebSocket(url);
     ws = sock;
+    // the agent pings every 20 s: 45 s of silence is a connection a NAT or proxy dropped without a close,
+    // which would otherwise read "connected" over frozen numbers until TCP gives up
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    const alive = () => {
+      clearTimeout(quiet);
+      quiet = setTimeout(() => {
+        sock.close();
+        sock.onclose?.({ code: 4000 } as CloseEvent); // reconnect now; a later real close is ignored (ws !== sock)
+      }, 45_000);
+    };
     sock.onopen = () => {
+      alive();
       attempt = 0;
       since = undefined;
       emit({ state: 'connected' });
       subs.forEach((s) => sock.send(JSON.stringify(s.msg)));
     };
     sock.onmessage = (e) => {
+      alive();
       const m = JSON.parse(e.data as string);
       if (m.op === 'ping') return;
       const sub = subs.get(m.id);
@@ -184,6 +196,7 @@ export function createAgentClient(): KafkaClient {
       } else sub?.onData(m.data, m.ts);
     };
     sock.onclose = (e) => {
+      clearTimeout(quiet);
       if (ws !== sock) return;
       ws = null;
       // 1008 "Signed out": the agent ended this session; retrying would only be refused

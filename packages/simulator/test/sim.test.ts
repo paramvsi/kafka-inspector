@@ -963,7 +963,7 @@ test('a tab asleep for two hours wakes without a lag jump from one giant step', 
     worst = Math.max(worst, after - before);
   }
   expect(worst).toBeLessThan(200_000);
-});
+}, 20_000); // ~3.5 s alone, over the 5 s default when every package's tests run at once
 
 test('a deleted group leaves no topology edge behind', async () => {
   const h = make();
