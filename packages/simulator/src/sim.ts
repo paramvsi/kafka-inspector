@@ -1350,7 +1350,8 @@ export class Simulator {
 
   private offsetAt(s: PState, ts: number): number {
     const v = this.history.at(`end:${s.def.name}:${s.p}`, ts);
-    return Math.max(this.low(s), Math.floor(v ?? this.low(s)));
+    // a topic created later has NaN history before it existed: `??` doesn't catch NaN, so check finiteness
+    return Math.max(this.low(s), Math.floor(Number.isFinite(v) ? v! : this.low(s)));
   }
 
   search(req: SearchRequest): RawMessagePage {

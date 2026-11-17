@@ -1107,3 +1107,19 @@ test('broker settings match the agent: sorted by name, secret-looking names mask
   expect(masked('num.partitions')).toBe(false);
   expect(cfg.filter((c) => c.isSensitive).map((c) => c.name)).toEqual(['ssl.keystore.password']);
 });
+
+test('browsing a new topic from a time before it existed starts at its oldest message, not an empty page', async () => {
+  const a = make();
+  await a.init();
+  await a.sim.createTopic({ name: 'fresh', partitions: 1, replicationFactor: 3 });
+  await a.sim.produce({ topic: 'fresh', key: 'k', value: 'v1' });
+  await a.sim.produce({ topic: 'fresh', key: 'k', value: 'v2' });
+  a.advance(5);
+  const page = a.sim.browse({
+    topic: 'fresh',
+    partition: 'all',
+    from: 'timestamp',
+    timestamp: new Date(LOAD - 3_600_000).toISOString(),
+  });
+  expect(page.messages.length).toBe(2);
+});
