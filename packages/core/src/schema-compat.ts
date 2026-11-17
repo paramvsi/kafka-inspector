@@ -1,6 +1,6 @@
 // Schema compatibility and field diff (F-88, F-89). Avro follows the spec's schema-resolution rules;
 // JSON Schema uses a pragmatic subset (required properties and property types).
-import { collectNamed } from './serdes/avro';
+import { namedTypes } from './serdes/avro';
 import type { CompatibilityResult, SubjectSummary } from './types';
 
 // Parsed Avro schema JSON: deliberately loose (any) — it is walked structurally and checked at runtime.
@@ -24,8 +24,6 @@ function typeName(s: Avro, named: Named): string {
     return s.type;
   return typeName(s.type as Avro, named);
 }
-
-const collect = (s: Avro, named: Named): void => collectNamed(s, named); // one namespace walker for decode and compat
 
 const resolve = (s: Avro, named: Named): Avro =>
   typeof s === 'string' && named.has(s) ? named.get(s)! : s;
@@ -191,10 +189,13 @@ function avroCheck(
       compatible: false,
       messages: ['An Avro schema must be a JSON object, a type name or a non-empty union array.'],
     };
-  const on: Named = new Map(),
-    nn: Named = new Map();
-  collect(o, on);
-  collect(n, nn);
+  // the decoder's name rules: a bare reference resolves in its enclosing namespace first
+  const ot = namedTypes(o),
+    nt = namedTypes(n);
+  o = ot.root;
+  n = nt.root;
+  const on: Named = ot.named,
+    nn: Named = nt.named;
   const messages: string[] = [];
   const backward = mode.startsWith('BACKWARD') || mode.startsWith('FULL');
   const forward = mode.startsWith('FORWARD') || mode.startsWith('FULL');
@@ -323,8 +324,8 @@ export function diffFields(
       return []; // a version that isn't valid JSON can't be diffed (and mustn't crash the page)
     }
     if (type === 'AVRO') {
-      const named: Named = new Map();
-      collect(j, named);
+      const { root, named } = namedTypes(j);
+      j = root;
       return ((j.fields ?? []) as Array<{ name: string; type: Avro; default?: unknown }>).map(
         (f) => ({ name: f.name, type: describe(f.type, named), hasDefault: 'default' in f }),
       );

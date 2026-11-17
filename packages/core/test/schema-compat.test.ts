@@ -234,3 +234,23 @@ test('a field without a type does not crash the field diff or the check', () => 
   expect(() => diffFields('AVRO', s, s)).not.toThrow();
   expect(() => checkCompatibility('AVRO', s, s, 'BACKWARD')).not.toThrow();
 });
+
+test('a bare name resolves in its own namespace: reordering fields stays compatible', () => {
+  const p = { name: 'p', type: { type: 'record', name: 'Item', fields: [f('x', 'int')] } };
+  const m = {
+    name: 'm',
+    type: {
+      type: 'record',
+      name: 'Mid',
+      namespace: 'b',
+      fields: [f('i', { type: 'record', name: 'Item', fields: [f('y', 'string')] })],
+    },
+  };
+  const r = f('r', 'Item'); // the spec: a.Item in both schemas
+  const schema = (fields: unknown[]) =>
+    JSON.stringify({ type: 'record', name: 'Top', namespace: 'a', fields });
+  const writer = schema([p, m, r]);
+  const reader = schema([m, p, r]);
+  expect(checkCompatibility('AVRO', writer, reader, 'FULL').compatible).toBe(true);
+  expect(diffFields('AVRO', writer, reader).filter((c) => c.change !== 'same')).toEqual([]);
+});
