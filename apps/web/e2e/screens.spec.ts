@@ -292,6 +292,8 @@ test('command palette: ⌘K, type, arrows, Enter navigates; > shows actions only
 });
 
 test('the decode-error hex dump passes contrast in the light theme', async ({ page }) => {
+  // the OS says dark, so only the stored choice can make this page light (Chrome's default scheme is light)
+  await page.emulateMedia({ colorScheme: 'dark' });
   await page.addInitScript(() => localStorage.setItem('ki-theme', 'light'));
   await page.goto('/app/groups/view/?id=fraud-scorer');
   const stalled = page.getByRole('row', { name: /payments · 7/ });
