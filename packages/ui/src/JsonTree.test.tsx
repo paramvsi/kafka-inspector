@@ -35,3 +35,11 @@ test('a top-level array of many objects opens closed: 200 rows, not every field 
   const small = render(<JsonTree value={[{ a: 1, b: 2 }]} />);
   expect(within(small.container).queryAllByText(/^"[ab]":$/).length).toBe(2);
 });
+
+test('keys and strings go through `show`, so a bidi override can’t make one key look like another', () => {
+  const show = (s: string) => s.replace(/‮/g, '\\u{202E}');
+  const { container } = render(<JsonTree value={{ '‮admin': 'x‮y' }} show={show} />);
+  expect(container.textContent).toContain('"\\u{202E}admin"');
+  expect(container.textContent).toContain('"x\\u{202E}y"');
+  expect(container.textContent).not.toContain('‮');
+});

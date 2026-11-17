@@ -13,7 +13,7 @@ import {
 } from '../../lib/serdes';
 import { useUrl } from '../../lib/url';
 import { useReadOnly } from '../Page';
-import { applyMasks, decode as decodeBytes } from '@ki/core';
+import { applyMasks, decode as decodeBytes, shownName } from '@ki/core';
 
 export function MessageDrawer({
   topic,
@@ -192,6 +192,7 @@ export function MessageDrawer({
                 {typeof d.shown === 'object' && d.shown !== null ? (
                   <JsonTree
                     value={d.shown}
+                    show={shownName}
                     masked={new Set(d.masked.map((x) => x.path))}
                     onCopyPath={(path) =>
                       navigator.clipboard?.writeText(path).catch(() => undefined)
@@ -243,7 +244,7 @@ export function MessageDrawer({
                   <div className="mt-3 rounded-md border border-line bg-surface-sunken p-3">
                     <div className="mb-2 text-[12px] text-ink-muted">{alt.label}</div>
                     {typeof alt.value === 'object' ? (
-                      <JsonTree value={alt.value} />
+                      <JsonTree value={alt.value} show={shownName} />
                     ) : (
                       <p className="m-0 text-[13px]">{String(alt.value)}</p>
                     )}

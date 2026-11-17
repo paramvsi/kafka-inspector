@@ -78,15 +78,26 @@ export function JsonTree({
   value,
   onCopyPath,
   masked,
+  show,
 }: {
   value: unknown;
   onCopyPath?: (path: string) => void;
   masked?: Set<string>;
+  /** how cluster-supplied text (keys and string values) is shown, e.g. core's shownName for bidi/invisible characters */
+  show?: (s: string) => string;
 }) {
   return (
     // not role="tree": that promises arrow-key navigation; this is nested content with real toggle buttons
     <div className="font-mono text-[12px] leading-[20px]">
-      <Node k={null} v={value as Json} path="$" depth={0} onCopyPath={onCopyPath} masked={masked} />
+      <Node
+        k={null}
+        v={value as Json}
+        path="$"
+        depth={0}
+        onCopyPath={onCopyPath}
+        masked={masked}
+        show={show ?? same}
+      />
     </div>
   );
 }
@@ -102,6 +113,7 @@ function Node({
   depth,
   onCopyPath,
   masked,
+  show,
   autoOpen = depth < 2,
 }: {
   k: string | null;
@@ -112,10 +124,11 @@ function Node({
   autoOpen?: boolean;
   onCopyPath?: (p: string) => void;
   masked?: Set<string>;
+  show: (s: string) => string;
 }) {
   const [open, setOpen] = useState(autoOpen);
   const [shown, setShown] = useState(MAX_CHILDREN);
-  const label = k === null ? '' : /^\d+$/.test(k) ? k : `"${k}"`;
+  const label = k === null ? '' : /^\d+$/.test(k) ? k : `"${show(k)}"`;
   // a control only when it does something
   const key =
     k !== null &&
@@ -174,6 +187,7 @@ function Node({
                   autoOpen={depth + 1 < 2 && entries.length <= 20}
                   onCopyPath={onCopyPath}
                   masked={masked}
+                  show={show}
                 />
               ))}
               {entries.length > shown && (
@@ -201,15 +215,18 @@ function Node({
   const isMasked = masked?.has(path);
   return (
     <div style={{ paddingLeft: depth ? 36 : 20 }}>
-      {key} <Scalar v={v} />
+      {key} <Scalar v={v} show={show} />
       {isMasked && <span className="ml-2 font-sans text-[11px] text-ink-muted">masked</span>}
     </div>
   );
 }
 
-function Scalar({ v }: { v: Json }) {
+const same = (s: string) => s;
+
+function Scalar({ v, show }: { v: Json; show: (s: string) => string }) {
   // rule 4: status colours mean status only, so syntax uses ink / copper / muted
-  if (typeof v === 'string') return <span className="break-all text-ink">&quot;{v}&quot;</span>;
+  if (typeof v === 'string')
+    return <span className="break-all text-ink">&quot;{show(v)}&quot;</span>;
   if (typeof v === 'number') return <span className="text-copper">{v}</span>;
   return <span className="italic text-ink-muted">{String(v)}</span>;
 }
