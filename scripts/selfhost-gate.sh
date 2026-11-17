@@ -21,7 +21,7 @@ YML
 trap 'docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" down -v >/dev/null 2>&1; rm -rf "$OUT"' EXIT
 docker compose -p ki-gate -f "$OUT/docker-compose.yml" -f "$OUT/docker-compose.override.yml" up -d
 for i in $(seq 1 60); do curl -fs http://localhost:8090/api/health >/dev/null && break; sleep 2; done
-J=$(mktemp)
+J="$OUT/cookies" # inside $OUT, so the EXIT cleanup removes the session cookie too
 curl -fs -c "$J" -b "$J" http://localhost:8090/api/info >/dev/null
 T=$(grep KI_CSRF "$J" | awk '{print $7}')
 curl -fs -c "$J" -b "$J" -H "X-KI-CSRF: $T" -H 'Content-Type: application/json' -d '{"username":"admin","password":"gate-password"}' http://localhost:8090/api/auth/login

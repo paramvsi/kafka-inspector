@@ -11,3 +11,6 @@ docs
 prompts
 assets
 .git
+# a developer's local env files would be copied into the build and NEXT_PUBLIC_* inlined into the image
+**/.env*
+!**/.env.example
