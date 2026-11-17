@@ -1,6 +1,7 @@
 import avsc from 'avsc';
 import { expect, test } from 'vitest';
 import { AvroError, AvroType } from '../src/serdes/avro';
+import { logicalDisplay } from '../src/serdes/decode';
 
 const SCHEMA = {
   type: 'record',
@@ -230,4 +231,70 @@ test('a record named with a dotted fullname puts its nested types in that namesp
   const value = { a: { city: 'Oslo' }, b: { city: 'Bergen' } };
   const bytes = new Uint8Array(avsc.Type.forSchema(schema as avsc.Schema).toBuffer(value));
   expect(new AvroType(schema as never).decode(bytes)).toEqual(value);
+});
+
+test('a bare name resolves in the enclosing namespace when two namespaces share it', () => {
+  const schema = {
+    type: 'record',
+    name: 'a.Root',
+    fields: [
+      {
+        name: 'x',
+        type: { type: 'record', name: 'Item', fields: [{ name: 'p', type: 'string' }] },
+      },
+      {
+        name: 'y',
+        type: {
+          type: 'record',
+          name: 'b.W',
+          fields: [
+            {
+              name: 'i',
+              type: { type: 'record', name: 'Item', fields: [{ name: 'q', type: 'int' }] },
+            },
+          ],
+        },
+      },
+      { name: 'z', type: 'Item' }, // the spec: a.Item, the enclosing namespace
+    ],
+  };
+  const value = { x: { p: 'one' }, y: { i: { q: 7 } }, z: { p: 'two' } };
+  const t = new AvroType(schema);
+  expect(t.decode(t.encode(value))).toEqual(value);
+  expect(avsc.Type.forSchema(schema as avsc.Schema).fromBuffer(Buffer.from(t.encode(value)))).toEqual(value);
+});
+
+test('logicalDisplay follows the same namespace rule', () => {
+  const schema = {
+    type: 'record',
+    name: 'a.Root',
+    fields: [
+      {
+        name: 'x',
+        type: {
+          type: 'record',
+          name: 'T',
+          fields: [{ name: 't', type: { type: 'long', logicalType: 'timestamp-millis' } }],
+        },
+      },
+      {
+        name: 'y',
+        type: {
+          type: 'record',
+          name: 'b.W',
+          fields: [
+            {
+              name: 'i',
+              type: { type: 'record', name: 'T', fields: [{ name: 't', type: 'long' }] },
+            },
+          ],
+        },
+      },
+      { name: 'z', type: ['null', 'T'] },
+    ],
+  };
+  const shown = logicalDisplay(schema, { x: { t: 0 }, y: { i: { t: 0 } }, z: { t: 0 } }) as {
+    z: { t: unknown };
+  };
+  expect(shown.z.t).toBe('1970-01-01T00:00:00Z');
 });

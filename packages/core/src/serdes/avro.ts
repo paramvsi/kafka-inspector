@@ -33,10 +33,48 @@ export function collectNamed(s: AvroSchema, named: Map<string, AvroSchema>, ns?:
   if (typeof s.type === 'object') collectNamed(s.type, named, space);
 }
 
+const PRIMITIVES = new Set([
+  'null',
+  'boolean',
+  'int',
+  'long',
+  'float',
+  'double',
+  'bytes',
+  'string',
+]);
+
+/** A copy of `s` whose bare references name their type in full: the spec resolves a bare name in the
+ *  enclosing namespace first, so two namespaces may each have an `Item` */
+export function qualify(s: AvroSchema, named: Map<string, AvroSchema>, ns?: string): AvroSchema {
+  if (typeof s === 'string')
+    return !PRIMITIVES.has(s) && !s.includes('.') && ns && named.has(`${ns}.${s}`)
+      ? `${ns}.${s}`
+      : s;
+  if (s == null || typeof s !== 'object') return s;
+  if (Array.isArray(s)) return s.map((x) => qualify(x, named, ns));
+  let space = ns;
+  if (['record', 'enum', 'fixed', 'error'].includes(s.type) && s.name) {
+    const name = String(s.name); // the same namespace rules as collectNamed
+    space = name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : (s.namespace ?? ns);
+  } else if (s.namespace) space = s.namespace;
+  const out = { ...s };
+  if (s.fields)
+    out.fields = s.fields.map((f: AvroSchema) => ({ ...f, type: qualify(f.type, named, space) }));
+  if ('items' in s) out.items = qualify(s.items, named, space);
+  if ('values' in s) out.values = qualify(s.values, named, space);
+  if (typeof s.type === 'object') out.type = qualify(s.type, named, space);
+  return out;
+}
+
 export class AvroType {
   private named = new Map<string, AvroSchema>();
+  private root: AvroSchema;
   constructor(readonly schema: AvroSchema) {
-    collectNamed(schema, this.named);
+    const seen = new Map<string, AvroSchema>();
+    collectNamed(schema, seen);
+    this.root = qualify(schema, seen);
+    collectNamed(this.root, this.named); // names now point at the qualified copies
   }
 
   static parse(json: string): AvroType {
@@ -71,7 +109,7 @@ export class AvroType {
   // ─── encode ───
   encode(value: Value): Uint8Array {
     const out: number[] = [];
-    this.write(this.schema, value, out);
+    this.write(this.root, value, out);
     return Uint8Array.from(out);
   }
 
@@ -189,7 +227,7 @@ export class AvroType {
       p: 0,
       dv: new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength),
     };
-    const v = this.read(this.schema, r);
+    const v = this.read(this.root, r);
     if (strict && r.p !== bytes.length)
       throw new AvroError(`${bytes.length - r.p} trailing bytes after the value`);
     return v;

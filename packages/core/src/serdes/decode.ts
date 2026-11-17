@@ -1,7 +1,7 @@
 // Message decoding (ARCHITECTURE "Serdes"). Runs in the browser in both modes. Never throws into the UI:
 // failures come back as values with an annotated hex dump (F-46).
 import type { SchemaVersion } from '../types';
-import { AvroType } from './avro';
+import { AvroType, collectNamed, qualify } from './avro';
 
 export type DecodeAs =
   | 'auto'
@@ -133,29 +133,13 @@ function isPrintable(s: string): boolean {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchema = any;
 /** Exported for tests. */
-export function logicalDisplay(root: AnySchema, v: unknown): unknown {
+export function logicalDisplay(schema: AnySchema, v: unknown): unknown {
+  // the decoder's own name rules: a bare reference resolves in its enclosing namespace first
+  const seen = new Map<string, AnySchema>();
+  collectNamed(schema, seen);
+  const root = qualify(schema, seen);
   const named = new Map<string, AnySchema>();
-  const collect = (s: AnySchema, ns = ''): void => {
-    if (!s || typeof s !== 'object') return;
-    if (Array.isArray(s)) return s.forEach((x) => collect(x, ns));
-    let inner = ns;
-    if (typeof s.name === 'string' && ['record', 'error', 'enum', 'fixed'].includes(s.type)) {
-      const space = s.name.includes('.')
-        ? s.name.slice(0, s.name.lastIndexOf('.'))
-        : typeof s.namespace === 'string'
-          ? s.namespace
-          : ns;
-      const bare = s.name.slice(s.name.lastIndexOf('.') + 1);
-      named.set(bare, s);
-      if (space) named.set(`${space}.${bare}`, s);
-      inner = space;
-    }
-    (s.fields ?? []).forEach((f: { type: AnySchema }) => collect(f.type, inner));
-    collect(s.items, inner);
-    collect(s.values, inner);
-    if (typeof s.type === 'object') collect(s.type, inner);
-  };
-  collect(root);
+  collectNamed(root, named);
   const resolve = (s: AnySchema): AnySchema =>
     typeof s === 'string' && named.has(s) ? named.get(s) : s;
   // the union branch the decoder took, recovered from the value's runtime type
