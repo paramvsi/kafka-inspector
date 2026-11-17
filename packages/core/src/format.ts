@@ -140,3 +140,7 @@ export const shownName = (s: string): string =>
 
 /** "1 partition" · "3 partitions" */
 export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** Display name of a Schema Registry type: the chip on a topic, the producer and the schema list. */
+export const schemaTypeLabel = (t: 'AVRO' | 'JSON' | 'PROTOBUF'): string =>
+  t === 'AVRO' ? 'Avro' : t === 'JSON' ? 'JSON Schema' : 'Protobuf';

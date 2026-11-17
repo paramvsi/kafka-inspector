@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import {
+  schemaTypeLabel,
   formatBytes,
   formatCount,
   formatDelta,
@@ -89,4 +90,10 @@ test('formatWhen shows the date when the time is not today', () => {
   const now = new Date(2026, 10, 17, 10, 0).getTime();
   expect(formatWhen(new Date(2026, 10, 17, 12, 5).getTime(), now)).toBe('12:05');
   expect(formatWhen(new Date(2026, 10, 19, 12, 0).getTime(), now)).toBe('19 Nov 12:00');
+});
+
+test('schemaTypeLabel names all three registry types', () => {
+  expect(schemaTypeLabel('AVRO')).toBe('Avro');
+  expect(schemaTypeLabel('JSON')).toBe('JSON Schema');
+  expect(schemaTypeLabel('PROTOBUF')).toBe('Protobuf');
 });

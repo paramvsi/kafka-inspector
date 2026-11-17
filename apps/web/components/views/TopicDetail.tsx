@@ -9,6 +9,7 @@ import {
   type PartitionInfo,
   type TopicDetail as Detail,
   shownName,
+  schemaTypeLabel,
 } from '@ki/core';
 import {
   Button,
@@ -110,8 +111,7 @@ export function TopicDetailView() {
     url.hrefWith({ tab: t === 'overview' ? undefined : t, msg: undefined, produce: undefined });
   const schemaChip = d?.schema?.valueSubject && latest.data && (
     <span className="rounded-sm bg-surface-hover px-2 py-[3px] text-[12px] text-ink-muted">
-      {latest.data.type === 'AVRO' ? 'Avro' : 'JSON Schema'} · {d.schema.valueSubject} v
-      {latest.data.version}
+      {schemaTypeLabel(latest.data.type)} · {d.schema.valueSubject} v{latest.data.version}
     </span>
   );
   return (

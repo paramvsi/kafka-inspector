@@ -1,5 +1,12 @@
 'use client';
-import { AvroType, formatInt, fromDisplay, randomValue, type SchemaVersion } from '@ki/core';
+import {
+  AvroType,
+  formatInt,
+  fromDisplay,
+  randomValue,
+  schemaTypeLabel,
+  type SchemaVersion,
+} from '@ki/core';
 import { Button, Drawer, Select, TextArea, TextField, useToast } from '@ki/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -304,8 +311,7 @@ export function ProduceDrawer({
             <span className="text-[12px] font-medium text-ink-muted">Value</span>
             {schema && (
               <span className="rounded-sm bg-surface-hover px-2 py-[2px] text-[11px] text-ink-muted">
-                {schema.type === 'AVRO' ? 'Avro' : 'JSON Schema'} · {schema.subject} v
-                {schema.version}
+                {schemaTypeLabel(schema.type)} · {schema.subject} v{schema.version}
               </span>
             )}
             <div className="grow" />

@@ -8,6 +8,7 @@ import {
   type CompatibilityResult,
   type FieldChange,
   type SchemaVersion,
+  schemaTypeLabel,
 } from '@ki/core';
 import { Button, Card, Dialog, EmptyState, Select, StatusBadge, TextArea } from '@ki/ui';
 import Link from 'next/link';
@@ -118,7 +119,7 @@ export function SchemasView() {
             <header className="flex flex-wrap items-center gap-3">
               <h2 className="m-0 font-mono text-[24px] font-medium">{s.subject}</h2>
               <span className="rounded-sm bg-surface-hover px-2 py-[3px] text-[12px] text-ink-muted">
-                {s.type === 'AVRO' ? 'Avro' : s.type === 'JSON' ? 'JSON Schema' : 'Protobuf'}
+                {schemaTypeLabel(s.type)}
               </span>
               <span className="rounded-sm bg-surface-hover px-2 py-[3px] font-mono text-[11px] text-ink-muted">
                 {s.compatibility}
