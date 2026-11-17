@@ -58,7 +58,8 @@ const STATUS_BOX: Record<string, string> = {
   neutral: 'border-dashed border-line-strong',
   warn: 'border-warn bg-warn-soft',
   stalled: 'border-crit bg-crit-soft',
-  stopped: 'border-line opacity-70',
+  // no dimming class: the inline opacity (1, or 0.3 off-filter) always wins, and a faded crit tag would fail AA
+  stopped: 'border-line',
   unknown: 'border-line',
 };
 const DOT: Record<string, string> = {
