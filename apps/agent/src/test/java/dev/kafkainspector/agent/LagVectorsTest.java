@@ -31,12 +31,17 @@ class LagVectorsTest {
                 assertEquals(v.path("expect").path("forecast").path("kind").asString(), f.kind());
                 JsonNode ef = v.path("expect").path("forecast");
                 if (ef.has("seconds")) assertEquals(ef.path("seconds").asDouble(), f.seconds(), 1e-3);
+                else assertNull(f.seconds(), "seconds where core gives none");
                 if (ef.has("consumeRate")) assertEquals(ef.path("consumeRate").asDouble(), f.consumeRate(), 1e-6);
+                else assertNull(f.consumeRate(), "consumeRate where core gives none");
                 if (ef.has("produceRate")) assertEquals(ef.path("produceRate").asDouble(), f.produceRate(), 1e-6);
+                else assertNull(f.produceRate(), "produceRate where core gives none");
             }));
         }
         // group roll-up and combined forecast (lag-group-vectors.json, next to the partition vectors)
         JsonNode group = JsonMapper.builder().build().readTree(Files.readString(file.resolveSibling("lag-group-vectors.json")));
+        // an emptied or renamed key would otherwise create zero tests and pass
+        assertTrue(group.path("rollup").size() >= 5 && group.path("combine").size() >= 5, "group vectors missing");
         for (JsonNode r : group.path("rollup")) {
             tests.add(DynamicTest.dynamicTest("rollup " + r.path("statuses"), () -> {
                 List<Lag.Status> st = new ArrayList<>();

@@ -194,9 +194,21 @@ public class MessageService {
                 ClusterState.TopicSnap snap = topics.get(t);
                 String part = sample || snap == null || snap.partitions.isEmpty() ? "all"
                         : String.valueOf(snap.partitions.stream().max(Comparator.comparingDouble((ClusterState.PartSnap x) -> x.rate).thenComparingLong(x -> x.high)).get().partition);
-                Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), Math.max(1, (int) Math.ceil((double) max / matched.size())), null); // ceil, as the simulator: 3 topics × 34 → the full 100 after the cut
-                out.addAll(page.messages());
-                scanned += page.scanned();
+                int perTopic = Math.max(1, (int) Math.ceil((double) max / matched.size())); // ceil, as the simulator: 3 topics × 34 → the full 100 after the cut
+                String dir = "oldest".equals(from) ? "oldest" : "newest";
+                if (sample && snap != null && !snap.partitions.isEmpty()) {
+                    // an equal share from each partition, as the simulator: a newest-across-partitions cut dropped a partition with older records
+                    int perPart = Math.max(1, (int) Math.ceil((double) perTopic / snap.partitions.size()));
+                    for (ClusterState.PartSnap ps : snap.partitions) {
+                        Dto.RawMessagePage page = browse(cid, t, String.valueOf(ps.partition), dir, null, null, Map.of(), perPart, null);
+                        out.addAll(page.messages());
+                        scanned += page.scanned();
+                    }
+                } else {
+                    Dto.RawMessagePage page = browse(cid, t, part, dir, null, null, Map.of(), perTopic, null);
+                    out.addAll(page.messages());
+                    scanned += page.scanned();
+                }
             } catch (dev.kafkainspector.agent.config.Clusters.NotFound e) {
                 // deleted since it matched: the other topics' results still count
             }

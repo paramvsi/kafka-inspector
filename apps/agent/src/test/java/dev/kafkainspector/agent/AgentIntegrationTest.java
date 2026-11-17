@@ -476,7 +476,9 @@ class AgentIntegrationTest {
         try (Admin admin = Admin.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()));
              KafkaProducer<String, String> p = new KafkaProducer<>(Map.of("bootstrap.servers", KAFKA.getBootstrapServers(), "key.serializer", StringSerializer.class.getName(), "value.serializer", StringSerializer.class.getName()))) {
             admin.createTopics(List.of(new NewTopic("spread", 3, (short) 1))).all().get(30, TimeUnit.SECONDS);
-            for (int part = 0; part < 3; part++) for (int i = 0; i < 10 + part * 5; i++) p.send(new ProducerRecord<>("spread", part, "k", "v" + i));
+            // partition 0 is a minute older: a sample must still reach it (it used to keep only the newest across partitions, flaky on a fast produce)
+            long now = System.currentTimeMillis();
+            for (int part = 0; part < 3; part++) for (int i = 0; i < 10 + part * 5; i++) p.send(new ProducerRecord<>("spread", part, part == 0 ? now - 60_000 : now, "k", "v" + i));
             p.flush();
         }
         long until = System.currentTimeMillis() + 20_000;
