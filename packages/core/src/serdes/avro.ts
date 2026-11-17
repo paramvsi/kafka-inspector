@@ -170,7 +170,8 @@ export class AvroType {
             `Expected an object with the fields of ${s.name}, not ${v === null ? 'null' : Array.isArray(v) ? 'an array' : typeof v}.`,
           );
         for (const f of s.fields) {
-          if (v[f.name] === undefined && !('default' in f))
+          // a field that accepts null is written as null when left out (as before); only required ones are missing
+          if (v[f.name] === undefined && !('default' in f) && !this.acceptsNull(f.type))
             throw new AvroError(
               `Field "${f.name}" is missing. Add it, or give it a default in the schema.`,
             );
@@ -212,6 +213,12 @@ export class AvroType {
       }
     }
     throw new AvroError(`unsupported schema ${JSON.stringify(s)}`);
+  }
+
+  /** null itself, or a union with a null branch */
+  private acceptsNull(schema: AvroSchema): boolean {
+    const s = this.resolve(schema);
+    return Array.isArray(s) ? s.some((b) => this.matches(b, null)) : this.matches(s, null);
   }
 
   private matches(schema: AvroSchema, v: Value): boolean {

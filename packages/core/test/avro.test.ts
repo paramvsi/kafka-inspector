@@ -316,3 +316,15 @@ test('a missing record field or a null record says which, not "undefined" or a T
   expect(() => t.encode(null)).toThrow('Expected an object with the fields of Order, not null.');
   expect(() => t.encode({ orderId: 'a' })).not.toThrow(); // a field with a default may be left out
 });
+
+test('an omitted nullable field with no default is still written as null', () => {
+  const t = new AvroType({
+    type: 'record',
+    name: 'Order',
+    fields: [
+      { name: 'orderId', type: 'string' },
+      { name: 'email', type: ['null', 'string'] }, // no default: common in real schemas
+    ],
+  });
+  expect(t.decode(t.encode({ orderId: 'a' }))).toEqual({ orderId: 'a', email: null });
+});
