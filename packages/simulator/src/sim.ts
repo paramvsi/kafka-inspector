@@ -2189,6 +2189,16 @@ export class Simulator {
             skipped: true,
             reason: 'Not selected',
           };
+        // as Kafka (LEADER_NOT_AVAILABLE): no leader, no offsets to look up or commit — skip it, in preview and apply
+        if (s.leader === null)
+          return {
+            partition: gp.p,
+            current,
+            next: current,
+            lagAfter: hw - current,
+            skipped: true,
+            reason: 'No leader: its brokers are down. Bring one back, then reset.',
+          };
         const st = req.strategy;
         let next =
           st.kind === 'earliest'

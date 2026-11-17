@@ -1254,3 +1254,27 @@ test('broker settings whose name merely contains "id" (connections.max.idle.ms) 
   const id = a.sim.getBrokerConfig(1).find((c) => c.name === 'node.id' || c.name === 'broker.id');
   if (id) expect(id.source).toBe('static-broker');
 });
+
+test('a reset skips a partition with no leader (its brokers are down), in the preview and when applied', async () => {
+  const a = make();
+  await a.init();
+  const p0 = (await a.sim.getTopic('orders')).partitions[0]!;
+  for (const b of p0.replicas) a.sim.runChaos({ kind: 'broker-down', target: String(b) } as never);
+  a.advance(3);
+  const req = {
+    groupId: 'payments-sink',
+    topic: 'orders',
+    partitions: [0],
+    strategy: { kind: 'earliest' },
+  } as never;
+  const before = a.sim.getGroup('payments-sink');
+  const preview = await a.sim.resetOffsets(req, true);
+  expect(preview.rows.find((r) => r.partition === 0)).toMatchObject({
+    skipped: true,
+    reason: expect.stringMatching(/no leader/i),
+  });
+  await a.sim.resetOffsets(req, false);
+  const committed = (g: typeof before) =>
+    g.partitions?.find((p) => p.topic === 'orders' && p.partition === 0)?.committedOffset;
+  expect(committed(a.sim.getGroup('payments-sink'))).toBe(committed(before));
+});
