@@ -205,36 +205,33 @@ export function TimeSeriesChart({
 }
 
 /**
- * The chart's rows: one per timestamp, every series' value at it. Time with no samples for far longer than the usual
- * spacing (the agent was down, the cluster unreachable) gets an empty row, so the line breaks there instead of
- * joining across data nobody measured (rule 7). A series missing only because another series has a point at that
- * time takes the straight line between its neighbours — what Recharts' connectNulls drew before, minus the gaps.
+ * The chart's rows: one per timestamp, every series' value at it. A series with no samples for far longer than its
+ * own usual spacing (the agent was down, the cluster unreachable) gets an empty value there, so its line breaks
+ * instead of joining across data nobody measured (rule 7) — judged per series, so another series' samples in that
+ * time don't hide the outage, and a sparse series (the lag forecast: two points, now and the catch-up time) is never
+ * cut. A series missing only because another series has a point at that time takes the straight line between its
+ * neighbours — what Recharts' connectNulls drew before, minus the gaps.
  */
 export function chartRows(
   series: { key: string; points: Array<[number, number]> }[],
 ): Array<Record<string, number | null>> {
   const byT = new Map<number, Record<string, number | null>>();
-  for (const s of series)
-    for (const [t, v] of s.points) byT.set(t, { ...(byT.get(t) ?? { t }), [s.key]: v });
-  const rows = [...byT.values()].sort((a, b) => a.t! - b.t!);
-  // the usual spacing: the median step of the longest series (a merged timeline of offset series has tiny steps)
-  const longest = series.reduce<[number, number][]>(
-    (m, s) => (s.points.length > m.length ? s.points : m),
-    [],
-  );
-  const steps = longest
-    .slice(1)
-    .map(([t], i) => t - longest[i]![0])
-    .filter((d) => d > 0)
-    .sort((a, b) => a - b);
-  const step = steps[Math.floor(steps.length / 2)];
-  const out: Array<Record<string, number | null>> = [];
-  for (const r of rows) {
-    const prev = out.at(-1);
-    if (step && prev && r.t! - prev.t! > 3 * step)
-      out.push({ t: prev.t! + step, ...Object.fromEntries(series.map((s) => [s.key, null])) });
-    out.push(r);
+  const put = (t: number, key: string, v: number | null) =>
+    byT.set(t, { ...(byT.get(t) ?? { t }), [key]: v });
+  for (const s of series) for (const [t, v] of s.points) put(t, s.key, v);
+  for (const s of series) {
+    const pts = [...s.points].sort((a, b) => a[0] - b[0]);
+    const steps = pts
+      .slice(1)
+      .map(([t], i) => t - pts[i]![0])
+      .filter((d) => d > 0)
+      .sort((a, b) => a - b);
+    if (steps.length < 2) continue; // too few points to know a usual spacing
+    const step = steps[Math.floor(steps.length / 2)]!;
+    for (let i = 1; i < pts.length; i++)
+      if (pts[i]![0] - pts[i - 1]![0] > 3 * step) put(pts[i - 1]![0] + step, s.key, null);
   }
+  const out = [...byT.values()].sort((a, b) => a.t! - b.t!);
   // alignment holes: between two values of the same series with no gap row in between
   for (const s of series) {
     let last = -1;
