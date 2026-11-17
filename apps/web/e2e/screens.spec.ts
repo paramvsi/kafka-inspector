@@ -292,7 +292,7 @@ test('command palette: ⌘K, type, arrows, Enter navigates; > shows actions only
 });
 
 test('the decode-error hex dump passes contrast in the light theme', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('ki-theme', JSON.stringify('light')));
+  await page.addInitScript(() => localStorage.setItem('ki-theme', 'light'));
   await page.goto('/app/groups/view/?id=fraud-scorer');
   const stalled = page.getByRole('row', { name: /payments · 7/ });
   await expect(stalled.getByText('Stalled')).toBeVisible({ timeout: 15_000 });

@@ -45,15 +45,17 @@ export function useBoot(): Boot {
         if (alive) setBoot({ state: 'connecting', step: 'Connecting to the cluster' });
         const info = await picked.client.info();
         // ?c= picks a cluster; in-app links don't carry it, so this tab remembers the pick until it closes
-        let fromUrl = new URLSearchParams(location.search).get('c');
+        const known = (id: string | null) => info.clusters.find((c) => c.id === id)?.id;
+        const fromUrl = known(new URLSearchParams(location.search).get('c'));
+        let remembered: string | undefined;
         try {
+          // remember only a cluster that exists: a stale ?c=gone link must not replace this tab's pick
           if (fromUrl) sessionStorage.setItem('ki-cluster', fromUrl);
-          else fromUrl = sessionStorage.getItem('ki-cluster');
+          else remembered = known(sessionStorage.getItem('ki-cluster'));
         } catch {
           /* storage blocked: ?c= still works for this page */
         }
-        const clusterId =
-          info.clusters.find((c) => c.id === fromUrl)?.id ?? info.clusters[0]?.id ?? 'default';
+        const clusterId = fromUrl ?? remembered ?? info.clusters[0]?.id ?? 'default';
         if (alive) setBoot({ state: 'ready', ctx: { client: picked.client, info, clusterId } });
       } catch (e) {
         if (alive) setBoot({ state: 'failed', error: e instanceof Error ? e.message : String(e) });
