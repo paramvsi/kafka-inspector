@@ -67,14 +67,19 @@ export function createSimulatedClient(): KafkaClient {
       onBatch: (b: RawMessage[]) => void,
       onError?: (m: string) => void,
     ) => {
+      // a batch already posted when the page unsubscribes still arrives: drop it here
+      let live = true;
       const id = call<number>(
         'tailStart',
         req,
-        Comlink.proxy(onBatch),
-        onError ? Comlink.proxy(onError) : undefined,
+        Comlink.proxy((b: RawMessage[]) => live && onBatch(b)),
+        onError ? Comlink.proxy((m: string) => live && onError(m)) : undefined,
       );
       // after the worker died both reject: nothing to release, and no unhandled rejection
-      return () => void id.then((i) => call('release', i)).catch(() => undefined);
+      return () => {
+        live = false;
+        void id.then((i) => call('release', i)).catch(() => undefined);
+      };
     },
     listGroups: (_c, q) => call('listGroups', q),
     getGroup: (_c, id) => call('getGroup', id),

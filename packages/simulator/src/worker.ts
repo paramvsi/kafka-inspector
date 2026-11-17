@@ -56,7 +56,7 @@ async function boot(seed?: string): Promise<void> {
   }
 }
 
-const ready = (async () => {
+let ready = (async () => {
   let seed: string | undefined;
   try {
     seed = (await new DexieStore().load()).settings?.seed;
@@ -73,8 +73,14 @@ const api = new Proxy(
     get(_t, prop: string) {
       if (prop === 'then') return undefined;
       return async (...args: unknown[]) => {
+        // a reboot (Reset demo, new seed) joins the chain: calls made after it wait for the new simulator, so a
+        // write in the back-fill window isn't applied to the old one and then discarded; overlapping reboots run in
+        // the order they were asked for, so the last seed requested wins
+        if (prop === '__reboot') {
+          ready = ready.then(() => boot(args[0] as string | undefined));
+          return ready;
+        }
         await ready;
-        if (prop === '__reboot') return boot(args[0] as string | undefined);
         // Functions can't cross the worker boundary: keep unsubscribe handles here, return ids.
         if (prop === 'subscribeAll') {
           const id = ++seq;
