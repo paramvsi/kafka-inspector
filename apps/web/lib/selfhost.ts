@@ -53,6 +53,11 @@ export function compose(f: SelfHostForm): string {
     '  kafka-inspector:',
     `    image: ${IMAGE}`,
     '    restart: unless-stopped',
+    '    logging:                 # capped: a restart loop or a warning every sample must not fill the disk',
+    '      driver: json-file',
+    '      options:',
+    '        max-size: "10m"',
+    '        max-file: "3"',
     '    read_only: true          # only /data is writable',
     '    security_opt:',
     '      - no-new-privileges:true',
@@ -89,6 +94,7 @@ export function dotenv(f: SelfHostForm): string {
 export function dockerRun(f: SelfHostForm): string {
   return [
     `docker run -d --name kafka-inspector --restart unless-stopped -p ${f.port}:8080 \\`,
+    '  --log-opt max-size=10m --log-opt max-file=3 \\',
     '  --read-only --tmpfs /tmp:exec --security-opt no-new-privileges --cap-drop ALL \\',
     '  --env-file .env \\',
     ...envSettings(f).map(

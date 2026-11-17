@@ -120,6 +120,12 @@ HTTPS reverse proxy on a private network, send `X-Forwarded-Proto: https` so the
 runs as a non-root user with a read-only root filesystem (only `/data` and a `/tmp` tmpfs are writable). Masking rules are a
 display feature, not a security control.
 
+The agent serves plain HTTP on every interface of the port you publish. Over a network, put it behind HTTPS (a
+reverse proxy) or publish it on `127.0.0.1` only (`-p 127.0.0.1:8080:8080`): without TLS the admin password and the
+session cookie travel in clear text. To upgrade, stop the old container before starting the new one on the same
+`/data` volume (the history database allows one agent at a time), and don't start an older image on data a newer one
+has migrated.
+
 ## Develop
 
 ```bash

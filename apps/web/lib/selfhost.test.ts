@@ -115,3 +115,13 @@ describe('generator edge cases', () => {
     expect(PRESETS.Aiven!.note).toMatch(/mount/i);
   });
 });
+
+test('the generated compose and docker run cap their logs (a restart loop must not fill the disk)', () => {
+  const c = compose(f);
+  expect(c).toContain('logging:');
+  expect(c).toContain('max-size: "10m"');
+  expect(c).toContain('max-file: "3"');
+  const r = dockerRun(f);
+  expect(r).toContain('--log-opt max-size=10m');
+  expect(r).toContain('--log-opt max-file=3');
+});
