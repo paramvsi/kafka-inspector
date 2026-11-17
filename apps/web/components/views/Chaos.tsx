@@ -368,7 +368,13 @@ export function ChaosView() {
                     title: 'Demo reset',
                     body: 'Your topics, messages and offset resets were cleared.',
                   });
-                  qc.invalidateQueries();
+                  await qc.invalidateQueries();
+                  // the controls follow the refetched defaults even when the cached settings already equalled them
+                  // (structural sharing keeps the same object, so the sync effect wouldn't run)
+                  const s = await chaos.getSettings();
+                  setTraffic(s.baseTraffic);
+                  setWave(s.dailyWave);
+                  setSeed(s.seed);
                 }}
               >
                 Reset demo to start

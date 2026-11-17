@@ -207,6 +207,7 @@ export function ProduceDrawer({
           onClick: () =>
             url.set(
               {
+                name: target, // a reprocess to another topic: show it there, not on the topic it came from
                 tab: 'messages',
                 msg: `${first!.partition}:${first!.offset}`,
                 p: String(first!.partition), // the table behind the drawer starts at this message

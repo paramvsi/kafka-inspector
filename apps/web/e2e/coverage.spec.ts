@@ -65,6 +65,31 @@ test('chaos settings survive a reload and Reset demo returns the controls to the
   await expect(page.getByText('1.0×')).toBeVisible({ timeout: 15_000 });
 });
 
+test('Reset demo returns the controls to the defaults without a reload in between', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const slider = page.getByRole('slider', { name: /Base traffic/ });
+  await expect(slider).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('1.0×')).toBeVisible();
+  await slider.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+  await expect(page.getByText('1.5×')).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: 'Reset demo to start' }).click();
+  await expect(page.getByText('Demo reset')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('1.0×')).toBeVisible();
+});
+
+test('Show in messages after reprocessing to another topic opens that topic', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=payments&produce=1&reprocess=0:0');
+  const drawer = page.getByRole('dialog', { name: 'Reprocess message' });
+  await drawer.getByRole('button', { name: 'Send to payments.dlq' }).click({ timeout: 15_000 });
+  await drawer.getByRole('button', { name: /^Produce 1 message/ }).click();
+  await page.getByRole('button', { name: 'Show in messages' }).click();
+  await expect(page).toHaveURL(/[?&]name=payments\.dlq(&|$)/);
+});
+
 test('the settings menu reflects a theme change made in the command palette', async ({ page }) => {
   await page.goto('/app/');
   await expect(page.getByText('Needs attention')).toBeVisible({ timeout: 15_000 });
