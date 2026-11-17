@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +48,9 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     private final Map<String, Map<String, String[]>> subs = new ConcurrentHashMap<>(); // session → id → [cluster, channel]
     private final Map<String, Runnable> tails = new ConcurrentHashMap<>(); // session|id → stop
     private static final int MAX_TAILS = 8;
+    // broadcasts leave the sampler thread: a client with a stalled TCP window holds the send lock inside Tomcat's
+    // blocking send (~20 s), and on the sampler that stalled sampling for every cluster. One thread keeps order.
+    private final ExecutorService sender = Executors.newSingleThreadExecutor(Thread.ofVirtual().factory());
     private final ScheduledExecutorService pinger = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StreamHandler.class);
@@ -60,7 +64,7 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
         this.messages = messages;
         this.alerts = alerts;
         this.clusters = clusters;
-        sampler.onSample(this::broadcast);
+        sampler.onSample((cid, st) -> sender.execute(() -> broadcast(cid, st)));
         pinger.scheduleAtFixedRate(() -> sessions.values().forEach(s -> send(s, Map.of("op", "ping"))), 20, 20, TimeUnit.SECONDS);
     }
 

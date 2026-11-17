@@ -281,7 +281,9 @@ public final class Views {
             Deque<Lag.Sample> w = s.windows.get(g.groupId + "|" + topic + "|" + p);
             if (w == null || w.size() < 2) continue;
             Iterator<Lag.Sample> it = w.descendingIterator();
-            Lag.Sample last = it.next(), prev = it.next();
+            // the sampler may clear w (topic re-created) between the size check and these reads
+            Lag.Sample last = it.hasNext() ? it.next() : null, prev = it.hasNext() ? it.next() : null;
+            if (prev == null) continue;
             if (last.committed() != null && prev.committed() != null && last.t() > prev.t())
                 rate += Math.max(0, last.committed() - prev.committed()) * 1000.0 / (last.t() - prev.t());
         }
