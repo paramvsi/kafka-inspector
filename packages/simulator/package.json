@@ -18,9 +18,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
-    "fake-indexeddb": "^6.2.8",
+    "avsc": "5.7.9",
     "typescript": "6.0.3",
-    "vitest": "^5.1.0",
-    "avsc": "5.7.9"
+    "vitest": "^5.1.0"
   }
 }
