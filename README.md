@@ -83,6 +83,7 @@ docker run -d --name kafka-inspector -p 8080:8080 \
   ghcr.io/paramvsi/kafka-inspector:1.0.0
 ```
 
+The agent runs as UID 10001: to keep `/data` in a host folder instead of the named volume, `chown 10001:10001` it first.
 `broker:9092` must be reachable from inside the container: a broker in another container needs
 `--network <its network>`, and one on your machine is `host.docker.internal:9092` (Docker Desktop).
 Open http://localhost:8080 and sign in as `admin` with `KI_ADMIN_PASSWORD`. The demo’s

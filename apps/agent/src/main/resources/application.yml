@@ -2,6 +2,9 @@
 spring:
   application:
     name: kafka-inspector-agent
+  lifecycle:
+    # docker stop sends SIGKILL after 10 s: finish the graceful shutdown (default 30 s) inside that window
+    timeout-per-shutdown-phase: 8s
   config:
     import: optional:file:/config/kafka-inspector.yml
   datasource:
