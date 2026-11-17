@@ -1189,3 +1189,41 @@ test('a topic with a critical finding is drawn in the critical colour on the map
   expect(topicNodeStatus([{ severity: 'warn' }] as never)).toBe('warn');
   expect(topicNodeStatus([{ severity: 'info' }] as never)).toBe('healthy');
 });
+
+test('a message produced to a busy topic is at the same offset after a reload (it moved by hundreds)', async () => {
+  let now = LOAD;
+  const store = new MemoryStore();
+  const key = (m: { key: unknown }) =>
+    m.key ? new TextDecoder().decode(m.key as Uint8Array) : null;
+  const a = new Simulator({ store, now: () => now });
+  await a.init();
+  for (let i = 0; i < 1200; i++) {
+    now += 1000;
+    a.tick(now);
+  }
+  const r = await a.produce({ topic: 'orders', partition: 0, key: 'mine', value: '{"mine":1}' });
+  for (let i = 0; i < 600; i++) {
+    now += 1000;
+    a.tick(now);
+  }
+  const b = new Simulator({ store, now: () => now });
+  await b.init();
+  const m = b.browse({
+    topic: 'orders',
+    partition: 0,
+    from: 'offset',
+    offset: r.offset,
+    limit: 1,
+  } as never).messages[0]!;
+  expect({ offset: m.offset, key: key(m) }).toEqual({ offset: r.offset, key: 'mine' });
+});
+
+test('Reset demo starts with default topic settings: a config edit does not leak into the next simulator', async () => {
+  const a = make();
+  await a.init();
+  await a.sim.updateTopicConfig('orders', { 'retention.ms': '3600000' });
+  const fresh = new Simulator({ store: new MemoryStore(), now: () => LOAD }); // what the worker builds on reset
+  await fresh.init();
+  const v = fresh.getTopicConfig('orders').find((c) => c.name === 'retention.ms')!;
+  expect(v.value).not.toBe('3600000');
+});

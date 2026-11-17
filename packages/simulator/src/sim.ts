@@ -333,7 +333,10 @@ export class Simulator {
     this.replaying = false;
   }
 
-  private addTopic(def: TopicDef, ti: number, start: number): void {
+  private addTopic(seed: TopicDef, ti: number, start: number): void {
+    // this simulator's own copy: config edits replace def.configs, and the seed objects are shared with the next
+    // simulator the worker builds (Reset demo) — it must start from the defaults, not the last session's edits
+    const def: TopicDef = { ...seed, configs: seed.configs ? { ...seed.configs } : seed.configs };
     this.topics.set(def.name, def);
     const r = rng(hash(this.seed, 'topic', def.name));
     const ps: PState[] = [];
@@ -2026,9 +2029,11 @@ export class Simulator {
         });
         break;
       }
-      case 'produce':
-        this.doProduce(a.payload as ProduceRequest, a.t);
+      case 'produce': {
+        const p = a.payload as ProduceRequest & { at?: { partition: number; offset: number } };
+        this.doProduce(p, a.t, p.at); // older saves have no `at`: the offset is re-derived as before
         break;
+      }
       case 'reset-offsets':
         this.doReset(a.payload as ResetOffsetsRequest, false, a.t);
         break;
@@ -2089,7 +2094,11 @@ export class Simulator {
     await this.log('delete-topic', name);
   }
 
-  private doProduce(req: ProduceRequest, t: number): ProduceResult {
+  private doProduce(
+    req: ProduceRequest,
+    t: number,
+    at?: { partition: number; offset: number },
+  ): ProduceResult {
     const ps = this.topicParts(req.topic);
     const enc = new TextEncoder();
     const count = Math.max(1, Math.min(req.count ?? 1, 1000));
@@ -2110,7 +2119,9 @@ export class Simulator {
         `Not enough in-sync replicas for partition ${partition} of ${req.topic}: ${s.isr.length} of the ${minIsr} min.insync.replicas requires. Bring the broker back, or produce to another partition.`,
       );
     const maxBytes = Number(cfg['max.message.bytes']);
-    const first = Math.floor(s.end);
+    // on replay, the offset the message got when it was produced: re-deriving it from the replayed end put it at
+    // another offset (the back-fill's steps don't reproduce every second of traffic)
+    const first = at && at.partition === partition ? at.offset : Math.floor(s.end);
     const batch: RawMessage[] = []; // all checked before any is written: a failed batch leaves nothing behind
     for (let i = 0; i < count; i++) {
       const offset = first + i;
@@ -2141,7 +2152,7 @@ export class Simulator {
       });
     }
     for (const m of batch) this.produced.set(`${req.topic}:${partition}:${m.offset}`, m);
-    s.end = first + count + (s.end - first);
+    s.end = Math.max(s.end + count, first + count); // never behind the produced messages
     s.lastMsgAt = t;
     return { partition, offset: first, count };
   }
@@ -2149,7 +2160,11 @@ export class Simulator {
   async produce(req: ProduceRequest): Promise<ProduceResult> {
     if (!this.topics.has(req.topic)) throw new Error(`Topic ${req.topic} not found.`);
     const res = this.doProduce(req, this.lastTick);
-    await this.store.append({ t: this.lastTick, kind: 'produce', payload: req });
+    await this.store.append({
+      t: this.lastTick,
+      kind: 'produce',
+      payload: { ...req, at: { partition: res.partition, offset: res.offset } },
+    });
     return res;
   }
 
