@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from './cx';
 
 // ── Tooltip: CSS-only; opens after --dur-slow on hover/focus, closes instantly ──
@@ -169,19 +170,52 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       }),
     [],
   );
+  const host = useTopDialog();
+  const region = (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-2"
+    >
+      {items.map((t) => (
+        <Toast key={t.id} item={t} dismiss={dismiss} />
+      ))}
+    </div>
+  );
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-2"
-      >
-        {items.map((t) => (
-          <Toast key={t.id} item={t} dismiss={dismiss} />
-        ))}
-      </div>
+      {/* inside the topmost open modal: outside it, the modal makes the toast inert (an action you can't click) */}
+      {host === undefined ? region : createPortal(region, host ?? document.body)}
     </ToastCtx.Provider>
   );
+}
+
+/**
+ * The most recently opened <dialog> that's still open, or null; undefined before mount (no document when prerendering).
+ * Opening order, not DOM order: a drawer opened over another dialog is the top one wherever it sits in the page.
+ */
+function useTopDialog(): HTMLElement | null | undefined {
+  const [host, setHost] = useState<HTMLElement | null | undefined>(undefined);
+  useEffect(() => {
+    const stack: HTMLDialogElement[] = [];
+    const update = () => {
+      for (const d of document.querySelectorAll<HTMLDialogElement>('dialog[open]'))
+        if (!stack.includes(d)) stack.push(d);
+      for (let i = stack.length - 1; i >= 0; i--)
+        if (!stack[i]!.hasAttribute('open') || !stack[i]!.isConnected) stack.splice(i, 1);
+      setHost(stack.at(-1) ?? null);
+    };
+    update();
+    const o = new MutationObserver(update);
+    o.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['open'],
+    });
+    return () => o.disconnect();
+  }, []);
+  return host;
 }
 
 const TOAST_DOT = { info: 'bg-copper', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit' };

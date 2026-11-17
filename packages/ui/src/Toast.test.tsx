@@ -71,7 +71,11 @@ test('a focused toast stays when the pointer leaves', () => {
 function ActionPusher() {
   const toast = useToast();
   useEffect(() => {
-    toast({ tone: 'ok', title: 'Produced 1 message', action: { label: 'Show in messages', onClick: () => {} } });
+    toast({
+      tone: 'ok',
+      title: 'Produced 1 message',
+      action: { label: 'Show in messages', onClick: () => {} },
+    });
   }, [toast]);
   return null;
 }
@@ -85,4 +89,24 @@ test('a toast with an action stays until dismissed, so a keyboard user can reach
   );
   act(() => vi.advanceTimersByTime(20_000));
   expect(queryByText('Show in messages')).not.toBeNull();
+});
+
+test('a toast raised while a modal dialog is open renders inside it (else the modal makes it unclickable)', async () => {
+  const dialog = document.createElement('dialog');
+  document.body.appendChild(dialog);
+  dialog.setAttribute('open', '');
+  const { findByText } = render(
+    <ToastProvider>
+      <Pusher at={[[0, 'under a modal']]} />
+    </ToastProvider>,
+  );
+  const t = await findByText('under a modal');
+  expect(dialog.contains(t)).toBe(true);
+  // the dialog closes: toasts go back to the page
+  await act(async () => {
+    dialog.removeAttribute('open');
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  expect(dialog.contains(await findByText('under a modal'))).toBe(false);
+  dialog.remove();
 });
