@@ -65,7 +65,7 @@ function preview(
 
 export function MessagesTab({ topic, partitions }: { topic: string; partitions: number }) {
   const url = useUrl();
-  const { client, clusterId } = useKafka();
+  const { client, clusterId, info } = useKafka();
   const lookup = useSchemaLookup();
   const [rules, setRules] = useMaskRules();
   // a hand-edited or stale link falls back to the defaults instead of crashing the tab
@@ -359,7 +359,9 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         type: kind === 'json' ? 'application/json' : 'text/csv;charset=utf-8',
       }),
     );
-    a.download = `${topic}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.${kind}`;
+    // rule 7: generated messages say so in the file name once they leave the page
+    const tag = info.mode === 'demo' ? '-simulated' : '';
+    a.download = `${topic}${tag}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.${kind}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 0); // after the download has started
   };

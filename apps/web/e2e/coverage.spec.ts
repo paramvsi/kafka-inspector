@@ -182,7 +182,10 @@ test('F-48/F-49: export JSON downloads the shown rows; the column picker adds a 
   await expect(table.getByRole('row').nth(5)).toBeVisible({ timeout: 15_000 });
   const dl = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export JSON' }).click();
-  const file = await (await dl).path();
+  const download = await dl;
+  // rule 7: generated data says so once the file leaves the page
+  expect(download.suggestedFilename()).toMatch(/^orders-simulated-\d{4}-/);
+  const file = await download.path();
   const rows = JSON.parse(readFileSync(file, 'utf8')) as Array<{ topic: string }>;
   expect(rows.length).toBeGreaterThan(0);
   expect(rows[0]!.topic).toBe('orders');
