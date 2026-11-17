@@ -22,3 +22,16 @@ test('a huge array reveals 5,000 more per click, never all 100,000 at once', () 
   fireEvent.click(t.getByRole('button', { name: /^Show (all|5,000 more)/ }));
   expect(t.queryAllByText(/^\d+:$/).length).toBe(5200);
 });
+
+test('a top-level array of many objects opens closed: 200 rows, not every field of every object', () => {
+  const rec = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`f${i}`, i]));
+  const { container } = render(
+    <JsonTree value={Array.from({ length: 200 }, () => ({ ...rec }))} />,
+  );
+  const t = within(container);
+  expect(t.queryAllByText(/^"f\d+":$/).length).toBe(0); // was 200 × 30 = 6,000 field rows on open
+  expect(t.queryAllByText(/^\d+:$/).length).toBe(200);
+  // a small one still opens two levels, as before
+  const small = render(<JsonTree value={[{ a: 1, b: 2 }]} />);
+  expect(within(small.container).queryAllByText(/^"[ab]":$/).length).toBe(2);
+});

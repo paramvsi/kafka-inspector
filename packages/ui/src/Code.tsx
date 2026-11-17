@@ -102,15 +102,18 @@ function Node({
   depth,
   onCopyPath,
   masked,
+  autoOpen = depth < 2,
 }: {
   k: string | null;
   v: Json;
   path: string;
   depth: number;
+  /** open on first render; a level with many siblings starts closed, so 200 objects don't mount 6,000 rows */
+  autoOpen?: boolean;
   onCopyPath?: (p: string) => void;
   masked?: Set<string>;
 }) {
-  const [open, setOpen] = useState(depth < 2);
+  const [open, setOpen] = useState(autoOpen);
   const [shown, setShown] = useState(MAX_CHILDREN);
   const label = k === null ? '' : /^\d+$/.test(k) ? k : `"${k}"`;
   // a control only when it does something
@@ -168,6 +171,7 @@ function Node({
                   v={cv}
                   path={Array.isArray(v) ? `${path}[${ck}]` : `${path}.${ck}`}
                   depth={depth + 1}
+                  autoOpen={depth + 1 < 2 && entries.length <= 20}
                   onCopyPath={onCopyPath}
                   masked={masked}
                 />

@@ -1907,10 +1907,10 @@ test('a reprocess link names its source topic, and a broken one opens a plain Pr
     timeout: 15_000,
   });
   // a real payments message, reprocessed from the orders page (as a multi-topic search row would link it)
-  await page.goto('/app/topics/view/?name=payments&tab=messages');
-  // an older row, not the newest: after the reload the demo resumes from saved state, which may not have the very
-  // newest offset yet
-  const first = page.locator('table tbody button').last();
+  // an old message (browse from oldest): after the reload the demo resumes from saved state that can lag the
+  // newest offsets by seconds, but it still holds the oldest ones
+  await page.goto('/app/topics/view/?name=payments&tab=messages&from=oldest');
+  const first = page.locator('table tbody button').first();
   await expect(first).toBeVisible({ timeout: 15_000 });
   const [off, part] = await first.evaluate((b) => [
     (b.firstChild?.textContent ?? '').replace(/,/g, ''),
