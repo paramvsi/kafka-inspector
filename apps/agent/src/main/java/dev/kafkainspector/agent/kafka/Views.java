@@ -212,6 +212,14 @@ public final class Views {
     }
 
     /** 6m 12s · 45s · 2h 5m · 3d 4h — packages/core formatDuration, so agent and demo text read alike. */
+    /** Port of core's formatEta (ARCHITECTURE "Forecast" format, rule 9): "under a minute" · "~14 min" · "~3 h". */
+    static String eta(double seconds) {
+        if (seconds < 60) return "under a minute";
+        long min = Math.round(seconds / 60);
+        if (min < 120) return "~" + min + " min";
+        return "~" + Math.round(seconds / 3600) + " h";
+    }
+
     public static String duration(long ms) {
         long s = Math.max(0, Math.round(ms / 1000.0));
         if (s < 60) return s + "s";
@@ -254,7 +262,7 @@ public final class Views {
             if (!Set.of("stalled", "stopped", "warn").contains(g.status())) continue;
             ClusterState.GroupSnap gs = s.groups.get(g.groupId());
             String stuck = gs == null ? null : stuckLine(s, gs, g.totalLag());
-            String detail = stuck != null ? stuck : String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in ~" + Math.round(g.forecast().seconds() / 60) + " min" : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
+            String detail = stuck != null ? stuck : String.format("%,d behind", g.totalLag()) + (g.forecast().kind().equals("eta") ? " · catch-up in " + eta(g.forecast().seconds()) : g.status().equals("warn") ? " · won’t catch up at current rates" : "");
             items.add(new Dto.AttentionItem("group-" + g.groupId(), g.status().equals("warn") ? "warn" : "crit", g.groupId() + (g.status().equals("warn") ? " lag rising" : " " + g.status()), detail, since(s, g.groupId(), g.status(), firstSeen.apply("group-" + g.groupId())), "/app/groups/view/?id=" + java.net.URLEncoder.encode(g.groupId(), java.nio.charset.StandardCharsets.UTF_8), "Investigate " + g.groupId()));
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {

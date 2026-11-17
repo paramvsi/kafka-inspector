@@ -61,4 +61,13 @@ class ViewsTest {
         s.ts = 1_000_500; // half a second later, broker 2 goes too
         assertEquals("broker-2", Views.attention(s, List.of(), 0, 0).get(0).id());
     }
+
+    @org.junit.jupiter.api.Test
+    void etaMatchesCoreFormatEta() {
+        // the vectors of packages/core/test/lag.test.ts (ARCHITECTURE "Forecast" format, rule 9)
+        org.junit.jupiter.api.Assertions.assertEquals("under a minute", Views.eta(59));
+        org.junit.jupiter.api.Assertions.assertEquals("~14 min", Views.eta(14 * 60 + 10));
+        org.junit.jupiter.api.Assertions.assertEquals("~119 min", Views.eta(119 * 60));
+        org.junit.jupiter.api.Assertions.assertEquals("~3 h", Views.eta(3 * 3600));
+    }
 }
