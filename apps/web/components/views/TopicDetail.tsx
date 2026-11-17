@@ -61,7 +61,7 @@ export function TopicDetailView() {
   const latest = useKafkaQuery(
     ['schema', subject, 'latest'],
     (c, id) => (subject ? c.getSchema(id, subject, 'latest') : Promise.resolve(undefined)),
-    false,
+    30_000, // a version registered while the page is open shows up in the header chip
   );
   const hourAgo = useKafkaQuery(
     ['topic-1h', name],
@@ -630,8 +630,10 @@ function EditConfigDialog({
 
 function SchemaTab({ d }: { d: Detail }) {
   const subject = d.schema?.valueSubject;
-  const latest = useKafkaQuery(['schema', subject, 'latest'], (c, id) =>
-    subject ? c.getSchema(id, subject, 'latest') : Promise.resolve(undefined),
+  const latest = useKafkaQuery(
+    ['schema', subject, 'latest'],
+    (c, id) => (subject ? c.getSchema(id, subject, 'latest') : Promise.resolve(undefined)),
+    30_000,
   );
   // no subject may only mean the registry is down: same query as the Schemas page (cached)
   const subjects = useKafkaQuery(['subjects'], (c, id) => c.listSubjects(id), false);
@@ -654,6 +656,14 @@ function SchemaTab({ d }: { d: Detail }) {
       </Card>
     );
   const v = latest.data;
+  if (!v && latest.error)
+    return (
+      <Card title={<span className="font-mono">{subject}</span>}>
+        <EmptyState title="Couldn't load the schema">
+          {(latest.error as Error).message} It tries again every 30 seconds.
+        </EmptyState>
+      </Card>
+    );
   return (
     <Card
       title={<span className="font-mono">{subject}</span>}
