@@ -1993,3 +1993,15 @@ test('the Clusters page shows a cluster’s current status, not the one it had w
     timeout: 15_000,
   });
 });
+
+test('the cluster switcher shows each cluster’s current status, not the one at load', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const down = page.getByRole('article').filter({ hasText: 'Broker down' });
+  await down.getByRole('button', { name: 'Trigger' }).click({ timeout: 15_000 });
+  await page.getByRole('button', { name: /^Cluster .*Switch cluster$/ }).click();
+  await expect(page.getByRole('link', { name: /prod-eu-1/ }).getByText('Degraded')).toBeVisible({
+    timeout: 15_000,
+  });
+});

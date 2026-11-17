@@ -19,7 +19,14 @@ import { CommandPalette } from './CommandPalette';
 import { ShortcutSheet, useShortcuts } from './Shortcuts';
 import { useSavedClusters } from '../lib/clusters';
 import { AppStateProvider, useApp } from '../lib/app';
-import { KafkaProvider, useBoot, useKafkaMaybe, useStream, type Boot } from '../lib/kafka';
+import {
+  KafkaProvider,
+  useBoot,
+  useKafkaMaybe,
+  useLiveClusters,
+  useStream,
+  type Boot,
+} from '../lib/kafka';
 import { locate, navFor, type Mode } from '../lib/nav';
 import { DisconnectedBanner } from './Disconnected';
 import { keepFocus } from '../lib/focus';
@@ -196,9 +203,7 @@ function ChromeInner({ children, boot }: { children: ReactNode; boot: Boot }) {
       version={info.version}
       onSearchOpen={openPalette}
       bell={<Bell />}
-      clusterMenu={
-        <ClusterMenu clusters={info.clusters} saved={info.mode === 'demo' ? saved : []} />
-      }
+      clusterMenu={<ClusterMenu saved={info.mode === 'demo' ? saved : []} />}
     >
       {lost && <DisconnectedBanner cluster={cluster.name} connection={connection} />}
       {children}
@@ -298,13 +303,8 @@ function Frame({
   );
 }
 
-function ClusterMenu({
-  clusters,
-  saved,
-}: {
-  clusters: Array<{ id: string; name: string; status: 'connected' | 'degraded' | 'disconnected' }>;
-  saved: Array<{ id: string; name: string; url?: string }>;
-}) {
+function ClusterMenu({ saved }: { saved: Array<{ id: string; name: string; url?: string }> }) {
+  const clusters = useLiveClusters(); // current status, not the boot snapshot
   const DOT = { connected: 'bg-ok', degraded: 'bg-warn', disconnected: 'bg-crit' };
   // switching keeps the section, not the detail page: a topic or group may not exist on the other cluster
   const section = (usePathname() ?? '/app/').replace(/^(\/app\/[^/]+\/).*$/, '$1');

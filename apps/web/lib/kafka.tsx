@@ -150,3 +150,13 @@ export function useStream<T>(
   }, [client, clusterId, channel, qc, live, opts.always]);
   return data;
 }
+
+/**
+ * The clusters with their current status: boot info is a snapshot, and a cluster that went down (or came back) since
+ * the page loaded must say so. One shared 10 s poll for the switcher and the Clusters page.
+ */
+export function useLiveClusters() {
+  const { info } = useKafka();
+  const live = useKafkaQuery(['info'], (c) => c.info(), 10_000);
+  return live.data?.clusters ?? info.clusters;
+}
