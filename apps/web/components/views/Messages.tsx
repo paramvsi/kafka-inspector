@@ -539,7 +539,10 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             {filter.error}
           </span>
         ) : filter ? (
-          <span className="whitespace-nowrap text-[12px] text-ink-muted" role="status">
+          <span
+            className="whitespace-nowrap text-[12px] text-ink-muted"
+            role={live ? undefined : 'status'} // a live tail changes the counts every tick: don't re-announce them
+          >
             <span className="font-mono tabular-nums">{formatInt(filter.matches.length)}</span> of{' '}
             <span className="font-mono tabular-nums">{formatInt(filter.scanned)}</span> scanned
             match
@@ -638,7 +641,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
         </div>
         {quickOn && (
           <>
-            <span className="pb-2 text-[12px] text-ink-muted" role="status">
+            <span className="pb-2 text-[12px] text-ink-muted" role={live ? undefined : 'status'}>
               <span className="font-mono tabular-nums">{formatInt(rows.length)}</span> of{' '}
               <span className="font-mono tabular-nums">{formatInt(jsRows.length)}</span> shown
             </span>

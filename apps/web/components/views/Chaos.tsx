@@ -218,7 +218,8 @@ export function ChaosView() {
                   <span className="text-ink-muted">
                     {' '}
                     · started {formatClock(i.startedAt)} · {a.effect}
-                    {metricFor(i) && ` · ${metricFor(i)}`}
+                    {/* polled every refresh: inside the status region it re-announced the whole banner each time */}
+                    {metricFor(i) && <span aria-hidden="true">{` · ${metricFor(i)}`}</span>}
                   </span>
                 </div>
                 <Link

@@ -158,8 +158,11 @@ test('a filtered list survives live tail and partition changes (no crash)', asyn
   await page.getByLabel('Live tail').click();
   await page.waitForTimeout(1500);
   expect(errors).toEqual([]);
+  // live: the count changes every tick, so it must not be a live region (it would re-announce constantly)
+  await expect(page.getByRole('status').filter({ hasText: /scanned match/ })).toHaveCount(0);
   await page.getByLabel('Live tail').click();
   await expect(page.getByText(/of [\d,]+ scanned match/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('status').filter({ hasText: /scanned match/ })).toHaveCount(1);
   expect(errors).toEqual([]);
   await expect(page.getByRole('table', { name: 'Messages in orders' })).toBeVisible();
 });
