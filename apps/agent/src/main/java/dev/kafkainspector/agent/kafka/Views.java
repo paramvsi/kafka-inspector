@@ -211,7 +211,6 @@ public final class Views {
         return now;
     }
 
-    /** 6m 12s · 45s · 2h 5m · 3d 4h — packages/core formatDuration, so agent and demo text read alike. */
     /** Port of core's formatEta (ARCHITECTURE "Forecast" format, rule 9): "under a minute" · "~14 min" · "~3 h". */
     static String eta(double seconds) {
         if (seconds < 60) return "under a minute";
@@ -220,6 +219,7 @@ public final class Views {
         return "~" + Math.round(seconds / 3600) + " h";
     }
 
+    /** 6m 12s · 45s · 2h 5m · 3d 4h — packages/core formatDuration, so agent and demo text read alike. */
     public static String duration(long ms) {
         long s = Math.max(0, Math.round(ms / 1000.0));
         if (s < 60) return s + "s";
