@@ -21,42 +21,45 @@ export function CopyButton({
     timer.current = setTimeout(() => setDone(false), 1200);
   };
   return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          // undefined on plain-http origins (a self-hosted agent without TLS): say so instead of nothing
-          await navigator.clipboard.writeText(typeof text === 'function' ? text() : text);
-          show('ok');
-        } catch {
-          show('failed');
-        }
-      }}
-      className={cx(
-        'inline-flex h-control-sm cursor-pointer items-center gap-[6px] rounded-md border border-line bg-surface px-3 text-[12px] font-semibold text-ink transition-colors duration-instant ease-standard hover:bg-surface-hover',
-        className,
-      )}
-    >
-      <span aria-hidden="true" className="relative inline-block w-3 text-center">
-        <span
-          className={cx(
-            'absolute inset-0 transition-opacity duration-fast',
-            done === 'ok' ? 'opacity-0' : 'opacity-100',
-          )}
-        >
-          ⧉
+    <>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            // undefined on plain-http origins (a self-hosted agent without TLS): say so instead of nothing
+            await navigator.clipboard.writeText(typeof text === 'function' ? text() : text);
+            show('ok');
+          } catch {
+            show('failed');
+          }
+        }}
+        className={cx(
+          'inline-flex h-control-sm cursor-pointer items-center gap-[6px] rounded-md border border-line bg-surface px-3 text-[12px] font-semibold text-ink transition-colors duration-instant ease-standard hover:bg-surface-hover',
+          className,
+        )}
+      >
+        <span aria-hidden="true" className="relative inline-block w-3 text-center">
+          <span
+            className={cx(
+              'absolute inset-0 transition-opacity duration-fast',
+              done === 'ok' ? 'opacity-0' : 'opacity-100',
+            )}
+          >
+            ⧉
+          </span>
+          <span
+            className={cx(
+              'text-ok transition-opacity duration-fast',
+              done === 'ok' ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            ✓
+          </span>
         </span>
-        <span
-          className={cx(
-            'text-ok transition-opacity duration-fast',
-            done === 'ok' ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          ✓
-        </span>
-      </span>
-      <span>{done === 'ok' ? 'Copied' : done === 'failed' ? 'Copy failed' : label}</span>
-      {/* announced from outside the button's name, which changes */}
+        <span>{done === 'ok' ? 'Copied' : done === 'failed' ? 'Copy failed' : label}</span>
+      </button>
+      {/* a sibling, always mounted and empty until used: inside the button it joined the name ("Copied Copied")
+        and wasn't announced, since a button flattens its children */}
       <span role="status" className="sr-only">
         {done === 'ok'
           ? 'Copied'
@@ -64,7 +67,7 @@ export function CopyButton({
             ? 'Copy failed: the browser blocked the clipboard'
             : ''}
       </span>
-    </button>
+    </>
   );
 }
 
