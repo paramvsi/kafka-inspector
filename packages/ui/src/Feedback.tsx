@@ -194,7 +194,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
  * The most recently opened <dialog> that's still open, or null; undefined before mount (no document when prerendering).
  * Opening order, not DOM order: a drawer opened over another dialog is the top one wherever it sits in the page.
  */
-function useTopDialog(): HTMLElement | null | undefined {
+export function useTopDialog(): HTMLElement | null | undefined {
   const [host, setHost] = useState<HTMLElement | null | undefined>(undefined);
   useEffect(() => {
     const stack: HTMLDialogElement[] = [];

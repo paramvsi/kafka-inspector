@@ -12,7 +12,16 @@ export { KpiCard, useValueFlash, type Tone } from './KpiCard';
 export { DataTable, type Column, type DataTableProps } from './DataTable';
 export { Tabs, type TabItem } from './Tabs';
 export { Dialog, Drawer } from './Dialog';
-export { Tooltip, Banner, Skeleton, EmptyState, Kbd, ToastProvider, useToast } from './Feedback';
+export {
+  Tooltip,
+  Banner,
+  Skeleton,
+  EmptyState,
+  Kbd,
+  ToastProvider,
+  useToast,
+  useTopDialog,
+} from './Feedback';
 export { TextField, TextArea, Select, Checkbox, Switch } from './Form';
 export { CopyButton, JsonTree, HexDump, type HexAnnotation } from './Code';
 export { AlertItem } from './AlertItem';

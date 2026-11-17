@@ -2,7 +2,7 @@
 // Guided tour (F-102): one incident end to end — stalled → open group → reset +1 → recovered.
 // Spotlight moves between targets on --dur-slow (MOTION.md "Signature moments"). Skippable, resumable.
 import type { GroupSummary } from '@ki/core';
-import { Button, useToast } from '@ki/ui';
+import { Button, useToast, useTopDialog } from '@ki/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -67,6 +67,7 @@ export function GuidedTour() {
   const { client, clusterId } = useKafka();
   const groups = useStream<GroupSummary[]>('lag');
   const toast = useToast();
+  const topDialog = useTopDialog();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
 
@@ -184,11 +185,9 @@ export function GuidedTour() {
         ? 'Finish'
         : 'Next';
 
-  // A modal <dialog> makes everything outside it inert: render inside the open dialog so the tour stays usable.
-  const host =
-    typeof document !== 'undefined'
-      ? document.querySelector<HTMLDialogElement>('dialog[open]')
-      : null;
+  // A modal <dialog> makes everything outside it inert: render inside the topmost open one (as toasts do) so the
+  // tour stays usable — the most recently opened, not the first in the page, when two are open
+  const host = topDialog ?? null;
   const ui = (
     <>
       {rect && (

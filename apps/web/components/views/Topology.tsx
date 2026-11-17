@@ -209,7 +209,7 @@ export function TopologyView() {
               {/* the lines are drawn for the eye only: this is who feeds whom, and how fast, for everyone else */}
               <ul aria-label="Connections" className="sr-only">
                 {t.edges.map((e) => {
-                  const name = (id: string) => t.nodes.find((n) => n.id === id)?.label ?? id;
+                  const name = (id: string) => nodeById.get(id)?.label ?? id;
                   return (
                     <li key={`${e.from}>${e.to}`}>
                       {name(e.from)} → {name(e.to)} · {formatInt(e.rate)} messages / s
