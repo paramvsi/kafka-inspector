@@ -404,6 +404,12 @@ html.theme-switching * {
     --control-sm: 44px;
     --control-md: 44px;
   }
+  /* iOS Safari zooms the page into a text field under 16px when it gets focus (sign-in, search, forms) */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
   button,
   select,
   input[type='checkbox'],

@@ -984,6 +984,8 @@ test.describe('touch layout', () => {
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
     const search = page.locator('header input').first();
     expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // iOS Safari zooms the page into any field under 16px when it's focused (the sign-in password, the search)
+    expect(parseFloat(await search.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
   });
 });
 
