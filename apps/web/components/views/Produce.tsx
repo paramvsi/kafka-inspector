@@ -102,8 +102,9 @@ export function ProduceDrawer({
   const lookup = useSchemaLookup();
   const { clusterId, info } = useKafka();
   // topic:partition:offset (or partition:offset on this topic); anything else is a plain Produce
-  const rref = parseMsgParam(url.get('reprocess'));
-  const reprocess = rref ? url.get('reprocess') : null;
+  const rawReprocess = url.get('reprocess');
+  const rref = useMemo(() => parseMsgParam(rawReprocess), [rawReprocess]);
+  const reprocess = rref ? rawReprocess : null;
   const srcTopic = rref?.topic ?? topic;
   const [target, setTarget] = useState(topic);
   const topics = useKafkaQuery(
@@ -162,8 +163,15 @@ export function ProduceDrawer({
   );
   useEffect(() => {
     // only for a reprocess, and only this message: the query holds the previous one as placeholder data
-    const m = source.isPlaceholderData ? undefined : source.data?.messages[0];
-    if (!open || !m || !reprocess) return;
+    if (!open || !reprocess || !rref || source.isPlaceholderData || !source.data) return;
+    const m = source.data.messages[0];
+    // a browse "from offset" returns the next message when that one is gone: never prefill a different message
+    if (!m || m.partition !== rref.partition || m.offset !== rref.offset) {
+      setError(
+        `Message ${formatInt(rref.offset)} on partition ${rref.partition} of ${srcTopic} is no longer on the cluster (retention removed it). Pick another message to reprocess.`,
+      );
+      return;
+    }
     decodeMessage(m, 'auto', 'auto', lookup, []).then((d) => {
       setValue(d.value.ok ? JSON.stringify(d.value.value, null, 2) : d.value.hex);
       setKey(d.key.ok && d.key.value !== null ? keyText(d.key) : '');
@@ -172,7 +180,7 @@ export function ProduceDrawer({
         ['reprocessed-from', `${srcTopic}-${m.partition}@${m.offset}`],
       ]);
     });
-  }, [open, source.data, source.isPlaceholderData, lookup, srcTopic, reprocess]);
+  }, [open, source.data, source.isPlaceholderData, lookup, srcTopic, reprocess, rref]);
   // a fresh sample per target schema: switching topic doesn't keep the previous topic's JSON
   const [sampledFor, setSampledFor] = useState<string>();
   // only once the target's own detail (and schema) loaded — placeholder data is the previous topic's
@@ -237,7 +245,13 @@ export function ProduceDrawer({
         },
       });
       onClose();
-      url.set({ produce: undefined, reprocess: undefined });
+      // sent: close the message drawer a reprocess was opened from too — left open (modal) it made the toast's
+      // "Show in messages" inert. Cancel still returns to it.
+      url.set({
+        produce: undefined,
+        reprocess: undefined,
+        msg: reprocess ? undefined : (url.get('msg') ?? undefined),
+      });
     } catch (e) {
       // a multi-send that fails midway: say how many are already in the topic, so a retry doesn't double them
       setError(

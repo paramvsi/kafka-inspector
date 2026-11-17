@@ -72,6 +72,15 @@ function rawHidden(topic: string, rules: MaskRule[]) {
     : undefined;
 }
 
+function isJson(s: string): boolean {
+  try {
+    JSON.parse(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function decodeMessage(
   m: RawMessage,
   valueAs: DecodeAs,
@@ -91,6 +100,15 @@ export async function decodeMessage(
   if (value.ok && (value.format === 'hex' || value.format === 'base64') && m.value)
     masked =
       maskEncodedJson(m.value, value.format, m.topic, rules) ?? rawHidden(m.topic, rules) ?? masked;
+  // "Show as text" of a body that isn't JSON (e.g. Avro bytes read as UTF-8): its strings are plain text that no
+  // field rule can reach, so hide it like the hex view. JSON text is still masked field by field above.
+  if (
+    value.ok &&
+    value.format === 'text' &&
+    typeof value.value === 'string' &&
+    !isJson(value.value)
+  )
+    masked = rawHidden(m.topic, rules) ?? masked;
   const headers = joinHeaders(m.headers, (b) => td.decode(b));
   return {
     raw: m,

@@ -243,6 +243,9 @@ function Frame({
   const crumb = loc.parent && item ? item : loc.crumb;
   // after a page change: the item leads the title (the route announcer reads it; "Topic" alone repeats for every
   // topic), and focus that fell with the link that was followed lands on the page's main content
+  // after a page change: focus that fell with the link that was followed lands on the page's main content, and
+  // the item leads the title ("orders · Topic …"; "Topic" alone repeats for every topic). Best effort: Next can
+  // set the route's metadata title after this effect, which leaves the plain title (no worse than before).
   const titled = useRef('');
   const first = useRef(true);
   useEffect(() => {
