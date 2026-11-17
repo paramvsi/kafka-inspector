@@ -86,6 +86,8 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     void stopAllTails() {
         tails.values().forEach(Runnable::run);
         tails.clear();
+        pinger.shutdownNow(); // each test context would otherwise keep its pinger and sender threads
+        sender.shutdown();
     }
 
     /** A signed-out or expired session ends its live streams too. */
