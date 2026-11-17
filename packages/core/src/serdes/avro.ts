@@ -370,12 +370,12 @@ function need(r: Reader, n: number): void {
 const LONG_MIN = -(2n ** 63n);
 const LONG_MAX = 2n ** 63n - 1n;
 
-/** A long is a safe integer, or (beyond 2^53) its exact decimal string as decoded. */
 /** int32 only: a real Avro writer refuses 3000000000 for an int. */
 function isInt(v: unknown): v is number {
   return Number.isInteger(v) && (v as number) >= -2147483648 && (v as number) <= 2147483647;
 }
 
+/** A long is a safe integer, or (beyond 2^53) its exact decimal string as decoded. */
 function isLong(v: unknown): v is number | string {
   if (typeof v === 'number') return Number.isSafeInteger(v);
   if (typeof v !== 'string' || !/^-?\d+$/.test(v)) return false;
