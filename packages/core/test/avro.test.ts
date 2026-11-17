@@ -164,6 +164,8 @@ test('longs are exact across the whole 64-bit range (beyond 2^53 as decimal stri
   expect(t.decode(min)).toBe('-9223372036854775808');
   for (const v of ['9007199254740993', '9223372036854775807', '-9223372036854775808'])
     expect(t.decode(t.encode(v))).toBe(v);
+  // anchored on the encode side too: a round trip alone passes if both directions share a zigzag/varint bug
+  expect(Array.from(t.encode('9007199254740993'))).toEqual([130, 128, 128, 128, 128, 128, 128, 32]);
   expect(t.decode(t.encode(9007199254740991))).toBe(9007199254740991);
   expect(t.decode(t.encode(-1))).toBe(-1);
   expect(() => t.encode(2 ** 60)).toThrow(AvroError); // already imprecise as a JS number

@@ -438,7 +438,7 @@ test('a created topic has exactly RF replicas, and a broker that is down is not 
   expect(parts.every((p) => !p.isr.includes(2) && p.leader !== 2)).toBe(true);
   await expect(
     a.sim.createTopic({ name: 'frac', partitions: 1, replicationFactor: 1.5 }),
-  ).rejects.toThrow();
+  ).rejects.toThrow(/Replication factor must be/); // not just any error (a TypeError would also pass)
 });
 
 test('a saved fix for the poison message survives a reload long after it', async () => {
