@@ -75,6 +75,14 @@ public class Clusters {
                 throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_USERNAME and KI_CLUSTERS_n_SASL_PASSWORD.");
             if (!sasl && hasMech)
                 throw new IllegalStateException("Cluster " + c.name() + ": KI_CLUSTERS_n_SASL_MECHANISM is set but security is " + c.security() + "; use SASL_SSL or SASL_PLAINTEXT.");
+            boolean hasUser = c.saslUsername() != null && !c.saslUsername().isBlank();
+            boolean hasPassword = c.saslPassword() != null && !c.saslPassword().isBlank();
+            // a username alone would send password="" and fail every call at authentication
+            if (sasl && !hasPassword)
+                throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_PASSWORD as well as the username.");
+            // credentials on a non-SASL protocol would be ignored and the agent would connect unauthenticated
+            if (!sasl && (hasUser || hasPassword))
+                throw new IllegalStateException("Cluster " + c.name() + ": SASL credentials are set but security is " + c.security() + "; use SASL_SSL or SASL_PLAINTEXT, or remove KI_CLUSTERS_n_SASL_USERNAME and _PASSWORD.");
             if (c.sslTruststoreLocation() != null && !c.sslTruststoreLocation().isBlank() && !java.nio.file.Files.isReadable(java.nio.file.Path.of(c.sslTruststoreLocation())))
                 throw new IllegalStateException("Cluster " + c.name() + ": KI_CLUSTERS_n_SSL_TRUSTSTORE_LOCATION " + c.sslTruststoreLocation() + " doesn't exist or can't be read. Mount the file into the container.");
             byId.put(id, c);

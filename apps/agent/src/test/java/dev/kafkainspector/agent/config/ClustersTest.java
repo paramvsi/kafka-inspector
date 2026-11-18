@@ -14,7 +14,7 @@ class ClustersTest {
     }
 
     static KiProperties.Cluster c(String security, String mech, String user, String truststore) {
-        return new KiProperties.Cluster("prod", "b:9092", security, mech, user, "pw", truststore, null, null, null, null);
+        return new KiProperties.Cluster("prod", "b:9092", security, mech, user, user == null ? null : "pw", truststore, null, null, null, null);
     }
 
     static void refused(String part, org.junit.jupiter.api.function.Executable r) {
@@ -85,5 +85,15 @@ class ClustersTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> new Clusters(new KiProperties("pw", true, Duration.ofMillis(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment())).getMessage().contains("KI_HISTORY_RETENTION"));
         // the id lands in VARCHAR(100) columns: a longer name started fine, then every history write failed
         assertTrue(assertThrows(IllegalStateException.class, () -> of(c("x".repeat(101), "PLAINTEXT", null))).getMessage().contains("KI_CLUSTERS_n_NAME"));
+    }
+
+    @Test
+    void saslCredentialsMustBeCompleteAndOnlyWithSasl() {
+        // a username with no password would build password="" and fail every call at authentication
+        refused("KI_CLUSTERS_n_SASL_PASSWORD", () -> of(new KiProperties.Cluster("prod", "b:9092", "SASL_SSL", "PLAIN", "u", null, null, null, null, null, null)));
+        refused("KI_CLUSTERS_n_SASL_PASSWORD", () -> of(new KiProperties.Cluster("prod", "b:9092", "SASL_SSL", "PLAIN", "u", " ", null, null, null, null, null)));
+        // credentials set on a non-SASL protocol would be ignored: the agent would connect unauthenticated
+        refused("SASL_SSL or SASL_PLAINTEXT", () -> of(new KiProperties.Cluster("prod", "b:9092", "SSL", null, "u", "pw", null, null, null, null, null)));
+        refused("SASL_SSL or SASL_PLAINTEXT", () -> of(new KiProperties.Cluster("prod", "b:9092", "PLAINTEXT", null, null, "pw", null, null, null, null, null)));
     }
 }
