@@ -238,6 +238,7 @@ test('JS filter shows N of M scanned match; a syntax error is reported inline', 
 test('poison message: decode error with annotated hex, then reset offsets shift +1 recovers', async ({
   page,
 }) => {
+  test.setTimeout(90_000); // waits up to 60 s for the recovery: the 30 s default would cap that wait
   await page.goto('/app/groups/view/?id=fraud-scorer');
   const stalled = page.getByRole('row', { name: /payments · 7/ });
   await expect(stalled.getByText('Stalled')).toBeVisible({ timeout: 15_000 });

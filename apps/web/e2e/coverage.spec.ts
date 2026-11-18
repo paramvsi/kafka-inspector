@@ -277,6 +277,7 @@ test('form dialogs open on their first field, not the Close button', async ({ pa
 });
 
 test('F-80: mute 1 h and acknowledge a firing alert', async ({ page }) => {
+  test.setTimeout(90_000); // waits up to 40 s for an alert to fire: the 30 s default would cap that wait
   await page.goto('/app/alerts/');
   const mute = page.getByRole('button', { name: 'Mute 1 h' }).first();
   await expect(mute).toBeEnabled({ timeout: 40_000 });
@@ -580,6 +581,7 @@ test('F-72: 1h, 24h and 7d ranges load history', async ({ page }) => {
 test('F-01/F-14: sidebar sections, firing-alert chip and the recent events feed', async ({
   page,
 }) => {
+  test.setTimeout(90_000); // waits up to 45 s for an alert: the 30 s default would cap that wait
   await page.goto('/app/');
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const s of ['Monitor', 'Data', 'Operate'])

@@ -32,7 +32,7 @@ describe('seeded cluster', () => {
   });
 
   test('back-fill of 24 h stays fast', () => {
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(process.env.CI ? 6000 : 2000); // CPU-bound: a 2-vCPU runner is ~3× slower
     expect(h.sim.historySize).toBeGreaterThan(1400 + 890);
   });
 
@@ -1142,7 +1142,7 @@ test('a reload later in the session never moves offsets backwards (a message the
   // within ~2 s of traffic (the last 15 min of the back-fill keeps per-second noise), not the 10 minutes it lost
   // before (~620,000 messages on partition 0)
   after.forEach((h, i) => expect(h).toBeGreaterThanOrEqual(before[i]! - 2000));
-});
+}, 20_000); // two 24 h back-fills plus hundreds of ticks: ~0.6 s alone, past 5 s under parallel package runs
 
 test('an acknowledged or muted alert stays so after a reload (it was re-raised as new)', async () => {
   let now = LOAD;
@@ -1217,7 +1217,7 @@ test('a message produced to a busy topic is at the same offset after a reload (i
     limit: 1,
   } as never).messages[0]!;
   expect({ offset: m.offset, key: key(m) }).toEqual({ offset: r.offset, key: 'mine' });
-});
+}, 20_000); // two 24 h back-fills plus hundreds of ticks: ~0.6 s alone, past 5 s under parallel package runs
 
 test('Reset demo starts with default topic settings: a config edit does not leak into the next simulator', async () => {
   const a = make();
