@@ -1,4 +1,5 @@
 'use client';
+import { LoadingRows } from '../Shell';
 import {
   formatClock,
   formatDuration,
@@ -106,6 +107,8 @@ export function AlertsView() {
     (a) => !a.acknowledged,
   );
   const history = (all.data ?? []).filter((a) => a.state === 'resolved' || a.acknowledged);
+  // still loading is neither an all-clear nor an empty history (rule 7)
+  const loading = !all.data && !firingLive && !alertsFailed;
   const ruleOf = (id: string) => rules.data?.find((r) => r.id === id);
   const refresh = () => qc.invalidateQueries({ queryKey: [clusterId, 'alerts'] });
   const editing = url.get('rule');
@@ -122,7 +125,13 @@ export function AlertsView() {
     <>
       <PageHeader
         title="Alerts"
-        subtitle={`${firing.filter((a) => !isMuted(a, now)).length} firing · ${rules.data?.length ?? 0} rules · notifications to this browser`} // muted ones stay listed but aren't counted, as in the bell
+        subtitle={[
+          loading ? null : `${firing.filter((a) => !isMuted(a, now)).length} firing`,
+          rules.data ? `${rules.data.length} rules` : null,
+          'notifications to this browser',
+        ]
+          .filter(Boolean)
+          .join(' · ')} // muted ones stay listed but aren't counted, as in the bell
         actions={
           <Button variant="primary" onClick={() => url.set({ rule: 'new' })}>
             New rule
@@ -133,7 +142,11 @@ export function AlertsView() {
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="section-title m-0">Firing</h2>
           {firing.length === 0 &&
-            (alertsFailed && !firingLive ? (
+            (loading ? (
+              <Card>
+                <LoadingRows label="Loading alerts…" rows={2} />
+              </Card>
+            ) : alertsFailed && !firingLive ? (
               <Card>
                 <EmptyState title="Couldn't load alerts">
                   {(alertsFailed as Error).message} It retries every few seconds.
@@ -233,7 +246,9 @@ export function AlertsView() {
             rows={history.slice(0, 50)}
             rowKey={(a) => a.id}
             empty={
-              alertsFailed ? (
+              loading ? (
+                <LoadingRows label="Loading alert history…" rows={3} />
+              ) : alertsFailed ? (
                 <EmptyState title="Couldn't load alert history">
                   {(alertsFailed as Error).message} It retries every few seconds.
                 </EmptyState>

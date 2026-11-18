@@ -150,7 +150,9 @@ export function TopicDetailView() {
           href: href(t),
           label:
             t === 'consumers'
-              ? `Consumers · ${d?.consumers.length ?? 0}`
+              ? d
+                ? `Consumers · ${d.consumers.length}`
+                : 'Consumers'
               : t[0]!.toUpperCase() + t.slice(1),
         }))}
       />

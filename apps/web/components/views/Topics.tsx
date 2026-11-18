@@ -1,4 +1,5 @@
 'use client';
+import { LoadingRows } from '../Shell';
 import { formatBytes, formatInt, formatRelative, TOPIC_NAME, type TopicSummary } from '@ki/core';
 import {
   Banner,
@@ -168,7 +169,11 @@ export function TopicsView() {
             {(listFailed as Error).message} Fix the filter, or clear it.
           </EmptyState>
         </div>
-      ) : data && data.total === 0 ? (
+      ) : !data ? (
+        <div className="rounded-lg border border-line bg-surface">
+          <LoadingRows label="Loading topics…" />
+        </div>
+      ) : data.total === 0 ? (
         <div className="rounded-lg border border-line bg-surface">
           <EmptyState
             title={
