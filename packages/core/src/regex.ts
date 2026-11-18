@@ -3,10 +3,12 @@
 // ponytail: catches nested quantifiers like (a+)+, (\w*)* and ((a)+b)+ — the classic cases — not every slow
 // pattern: overlapping alternation such as (a|aa)+ still gets through (needs a step budget to catch).
 function nested(source: string): boolean {
-  // escapes and classes are single atoms, and an exact {n} doesn't multiply paths: none of them count
+  // escapes and classes are single atoms, and an exact {n} on an atom doesn't multiply paths; on a group it repeats
+  // the group like + does, so (.*a){12} counts as (.*a)+
   let s = source
     .replace(/\\./g, 'e')
     .replace(/\[[^\]]*\]/g, 'e')
+    .replace(/\)\{\d+\}/g, ')+')
     .replace(/\{\d+\}/g, '');
   for (;;) {
     if (/\([^()]*[+*}][^()]*\)\s*(?:[+*]|\{\d+,\d*\})/.test(s)) return true;
