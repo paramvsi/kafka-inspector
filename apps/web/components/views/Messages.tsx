@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { exportBody } from '../../lib/csv';
 import { findMsg, parseMsgParam } from '../../lib/msgParam';
 import { keepFocus } from '../../lib/focus';
+import { onReconnect } from '../../lib/reconnect';
 import { runFilter, type FilterResult } from '../../lib/filter';
 import { useApp } from '../../lib/app';
 import { useKafka, useKafkaQuery } from '../../lib/kafka';
@@ -167,6 +168,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const [paused, setPaused] = useState(false);
   const [tailError, setTailError] = useState<string>();
   const [unseen, setUnseen] = useState(0);
+  const [gap, setGap] = useState<string>();
   const atTop = useRef(true);
   // a new tail (topic/partition/live) starts empty; Resume continues the same list
   useEffect(() => {
@@ -174,7 +176,20 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     setTailError(undefined);
     setPaused(false); // a new tail runs; only Resume continues a paused one
     setUnseen(0);
+    setGap(undefined);
   }, [live, topic, p]);
+  // a reconnect restarts the tail from now: say so, or the list reads as continuous across the gap
+  useEffect(
+    () =>
+      live
+        ? onReconnect(client, () =>
+            setGap(
+              `Reconnected at ${new Date().toLocaleTimeString()}: messages produced while disconnected aren't in this list. Browse the topic to see them.`,
+            ),
+          )
+        : undefined,
+    [client, live],
+  );
   const appLive = useApp().live; // the top bar's Live: paused there freezes the tail too
   useEffect(() => {
     if (!live || paused || !appLive) return;
@@ -832,6 +847,11 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               )}
             </tbody>
           </table>
+          {live && gap && (
+            <p role="status" className="m-0 px-4 py-3 text-[12px] text-ink-muted">
+              {gap}
+            </p>
+          )}
           {live && tailError && (
             <p role="alert" className="m-0 px-4 py-3 text-[13px] text-crit-text">
               {tailError} Switch off Live tail to browse, or try again.

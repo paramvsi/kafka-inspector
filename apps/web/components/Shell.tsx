@@ -30,6 +30,8 @@ import {
 import { locate, navFor, type Mode } from '../lib/nav';
 import { DisconnectedBanner } from './Disconnected';
 import { keepFocus } from '../lib/focus';
+import { onReconnect } from '../lib/reconnect';
+import { useQueryClient } from '@tanstack/react-query';
 import { SettingsMenu } from './SettingsMenu';
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -136,6 +138,13 @@ function Chrome({ children, boot }: { children: ReactNode; boot: Boot }) {
   const client = useKafkaMaybe()?.client;
   const [real, setReal] = useState<ConnectionState>({ state: 'connected' });
   useEffect(() => client?.onConnection?.(setReal), [client]);
+  // what changed while the live connection was down (a new topic, a config) is fetched again, not left
+  // until the next poll or, for unpolled data, the next navigation
+  const qc = useQueryClient();
+  useEffect(
+    () => (client ? onReconnect(client, () => qc.invalidateQueries()) : undefined),
+    [client, qc],
+  );
   return (
     <ConnectionCtx.Provider value={real}>
       <ChromeInner boot={boot}>{children}</ChromeInner>
