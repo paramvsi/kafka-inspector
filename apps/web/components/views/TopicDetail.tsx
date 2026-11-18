@@ -467,8 +467,11 @@ function ConfigTab({ name }: { name: string }) {
   if (cfg.error && !cfg.data)
     return (
       <Card>
-        <EmptyState title="Couldn't load the topic configuration">
-          {(cfg.error as Error).message} Reload the page to try again.
+        <EmptyState
+          title="Couldn't load the topic configuration"
+          actions={<Button onClick={() => void cfg.refetch()}>Retry</Button>}
+        >
+          {(cfg.error as Error).message}
         </EmptyState>
       </Card>
     );

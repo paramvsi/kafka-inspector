@@ -52,3 +52,31 @@ test('a topic still loading shows no "Consumers · 0"', async ({ page }) => {
   await page.waitForTimeout(3000);
   await expect(page.getByText(/Consumers\s*·\s*0/)).toHaveCount(0);
 });
+
+test('a failed card load offers Retry, which loads it again without a page reload (SCREENS: error state)', async ({
+  page,
+}) => {
+  const info = {
+    ...INFO,
+    capabilities: { ...INFO.capabilities, schemaRegistry: true },
+    clusters: [{ ...INFO.clusters[0], schemaRegistry: true }],
+  };
+  await page.route('**/api/info', (r) => r.fulfill({ json: info }));
+  let calls = 0;
+  await page.route('**/api/clusters/local/schemas/subjects', (r) =>
+    ++calls <= 2 // the client retries a 5xx once by itself
+      ? r.fulfill({
+          status: 500,
+          json: { error: { code: 'INTERNAL', message: 'Something failed.' } },
+        })
+      : r.fulfill({ json: [] }),
+  );
+  await page.route(/\/api\/(clusters\/local\/(?!schemas)|alerts)/, () => new Promise(() => {}));
+  await page.goto('/app/schemas/');
+  await expect(page.getByText("Couldn't load schemas")).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => ((window as unknown as { kiAlive: number }).kiAlive = 1));
+  await page.getByRole('button', { name: 'Retry', exact: true }).click({ timeout: 5000 });
+  await expect(page.getByText("Couldn't load schemas")).toHaveCount(0);
+  expect(calls).toBe(3);
+  expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1); // no reload
+});

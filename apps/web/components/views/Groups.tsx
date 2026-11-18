@@ -8,6 +8,7 @@ import {
   shownName,
 } from '@ki/core';
 import {
+  Button,
   DataTable,
   EmptyState,
   KpiCard,
@@ -111,8 +112,11 @@ export function GroupsView() {
         empty={
           !live && !fallback.data ? (
             fallback.error ? (
-              <EmptyState title="Couldn't list consumer groups">
-                {(fallback.error as Error).message} Reload the page to try again.
+              <EmptyState
+                title="Couldn't list consumer groups"
+                actions={<Button onClick={() => void fallback.refetch()}>Retry</Button>}
+              >
+                {(fallback.error as Error).message}
               </EmptyState>
             ) : (
               <LoadingRows label="Loading consumer groups…" />
