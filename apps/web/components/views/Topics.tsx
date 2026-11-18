@@ -230,13 +230,13 @@ export function TopicsView() {
       ) : (
         <DataTable
           caption="Topics"
-          rows={data?.items ?? []}
+          rows={data.items}
           rowKey={(t) => t.name}
           onRowClick={(t) => router.push(`/app/topics/view/?name=${encodeURIComponent(t.name)}`)}
           footer={
             <div className="flex items-center gap-3">
               <span>
-                Showing {data?.items.length ?? 0} of {data?.total ?? 0}
+                Showing {data.items.length} of {data.total}
                 {!internal && internalCount > 0 && ` · ${internalCount} internal topics hidden`}
               </span>
               <div className="grow" />
