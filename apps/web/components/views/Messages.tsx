@@ -684,7 +684,8 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               mono
               defaultValue={regex}
               onKeyDown={(e) =>
-                e.key === 'Enter' && url.set({ search: (e.target as HTMLInputElement).value })
+                e.key === 'Enter' &&
+                url.set({ search: (e.target as HTMLInputElement).value || '.*' })
               }
             />
           </div>
@@ -877,7 +878,13 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
               scanned
             </span>
             <div className="grow" />
-            <Button size="sm" variant="ghost" onClick={() => url.set({ search: '' })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={
+                () => url.set({ search: '.*' }) /* '' deletes the key: .* is "every topic" */
+              }
+            >
               Search other topics
             </Button>
             {loadError && (

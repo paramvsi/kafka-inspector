@@ -2066,3 +2066,18 @@ test('Create topic refused over a min.insync.replicas override opens the section
   await expect(dialog.locator('details')).toHaveAttribute('open', '');
   await expect(dialog.locator('details input[value="min.insync.replicas"]')).toBeVisible();
 });
+
+test('"Search other topics" opens the topic search, and an empty pattern searches every topic', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await page.getByRole('button', { name: 'Search other topics' }).click({ timeout: 15_000 });
+  const field = page.getByLabel('Search topics matching (regex)');
+  await expect(field).toBeVisible();
+  await expect(page).toHaveURL(/[?&]search=/);
+  // an emptied pattern stays in search mode, over every topic
+  await field.fill('');
+  await field.press('Enter');
+  await expect(page).toHaveURL(/[?&]search=\.\*/);
+  await expect(field).toBeVisible();
+});
