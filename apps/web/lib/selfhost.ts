@@ -16,9 +16,10 @@ const sasl = (f: SelfHostForm) => f.security.startsWith('SASL');
 // `$` doubled so Compose doesn't interpolate it
 const yamlStr = (s: string) => JSON.stringify(s).replace(/\$/g, '$$$$');
 
-/** Rule 6: credentials typed into a URL never reach a generated file. Everything up to the authority's
- * last `@` is userinfo (a password may contain `@`), with or without a scheme. */
-export const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^/?#\s]*@/i;
+/** Rule 6: credentials typed into a URL never reach a generated file. Everything up to the last `@` is
+ * userinfo, with or without a scheme: a pasted password may hold `@`, `/`, `?` or `#` unencoded, and a
+ * registry URL has no `@` in its path. */
+export const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/)?[^\s]*@/i;
 export const withoutUserinfo = (url: string) =>
   url.replace(USERINFO, (_, scheme?: string) => scheme ?? '');
 /** A query string or fragment (e.g. ?api_key=…) can carry a token too: it's left out as well. */
@@ -83,9 +84,10 @@ export function compose(f: SelfHostForm): string {
 export function dotenv(f: SelfHostForm): string {
   return [
     '# Fill these in on your server. Never commit this file.',
-    '# With docker compose, write a $ in a value as $$ (compose reads $ as a variable),',
-    '# and quote a value that contains a space or # (KEY="a #b"): unquoted, compose cuts it at the #.',
-    '# docker run --env-file reads quotes and $$ literally: there, write the value as it is.',
+    "# With docker compose, wrap each value in single quotes (KEY='p@ss $word #1'): compose then reads",
+    "# $, #, spaces and backslashes literally (a value can't contain ' itself). Unquoted or in double",
+    '# quotes, compose reads $ as a variable and cuts an unquoted value at " #".',
+    '# docker run --env-file keeps quotes as part of the value: there, write the value bare.',
     ...secretNames(f).map((n) => `${n}=`),
     '',
   ].join('\n');

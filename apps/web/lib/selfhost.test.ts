@@ -104,8 +104,9 @@ describe('generator edge cases', () => {
     expect(dockerRun(g)).not.toContain('s3cret');
     expect(warnings(g).join(' ')).toMatch(/query/i);
   });
-  test('the .env says how compose reads a $ in a value', () => {
-    expect(dotenv(f)).toContain('$$');
+  test('the .env says how compose reads a $ in a value: single quotes keep it literal', () => {
+    expect(dotenv(f)).toMatch(/single quotes/);
+    expect(dotenv(f)).toMatch(/\$ as a variable/);
   });
   test('the .env says to quote a value containing # (compose cuts it off as a comment)', () => {
     expect(dotenv(f)).toMatch(/#.*quote|quote.*#/i);
@@ -124,4 +125,15 @@ test('the generated compose and docker run cap their logs (a restart loop must n
   const r = dockerRun(f);
   expect(r).toContain('--log-opt max-size=10m');
   expect(r).toContain('--log-opt max-file=3');
+});
+
+test('a registry password containing / or # never reaches a generated file, and the user is told', () => {
+  for (const url of ['http://u:pa/ss@reg:8081', 'http://u:pa#ss@reg:8081', 'u:p?w@reg:8081']) {
+    const g = { ...f, schemaRegistry: url };
+    for (const out of [compose(g), dockerRun(g)]) {
+      expect(out).not.toMatch(/u:pa|u:p\?|pa\/ss|pa#ss/);
+      expect(out).toContain('reg:8081');
+    }
+    expect(warnings(g).join(' ')).toMatch(/username or password/);
+  }
 });

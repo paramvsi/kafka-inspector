@@ -88,7 +88,9 @@ The agent runs as UID 10001: to keep `/data` in a host folder instead of the nam
 `--network <its network>`, and one on your machine is `host.docker.internal:9092` (Docker Desktop).
 Open http://localhost:8080 and sign in as `admin` with `KI_ADMIN_PASSWORD`. The demo’s
 **Run on your own Kafka** page generates a `docker-compose.yml`, a `.env` with variable _names_ (never values)
-and a `docker run` line, entirely in your browser.
+and a `docker run` line, entirely in your browser. With docker compose, wrap each `.env` value in single quotes
+(`KEY='p@ss $word #1'`) so `$`, `#` and spaces stay literal; `docker run --env-file` keeps quotes as part of the
+value, so there write it bare.
 
 | Variable                                                             | Default                                | Meaning                                                                                                                                                 |
 | -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
