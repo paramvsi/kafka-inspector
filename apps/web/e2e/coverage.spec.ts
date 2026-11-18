@@ -2102,3 +2102,21 @@ test('a keyed batch says the offsets it took, not only the first message’s', a
   // one key, one partition: the body names the range ("offsets 120–122"), not a single offset
   await expect(toast).toContainText(/offsets [\d,]+–[\d,]+/);
 });
+
+test('a stored cluster or saved-filter list with a broken entry is ignored, not a crash', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    localStorage.setItem('ki-saved-clusters', '[null, 1, {"id":"x"}]');
+    localStorage.setItem('ki-saved-filters', '[null, {"name":"big","expr":"value.total > 500"}]');
+  });
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  await expect(page.getByRole('heading', { name: 'orders', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.goto('/app/clusters/');
+  await expect(page.getByRole('heading', { name: 'Clusters', level: 1 })).toBeVisible();
+  expect(errors).toEqual([]);
+});

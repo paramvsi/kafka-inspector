@@ -20,10 +20,15 @@ const clean = (c: SavedCluster): SavedCluster =>
 
 export function useSavedClusters() {
   const [saved, setSaved] = useLocal<SavedCluster[]>('ki-saved-clusters', []);
-  const list = saved.map(clean);
-  const dirty = list.some((c, i) => c !== saved[i]);
+  // a hand-edited or older entry ([null], {"id":"x"}) is dropped, never trusted: one bad item mustn't break every page
+  const valid = saved.filter(
+    (c): c is SavedCluster =>
+      !!c && typeof c === 'object' && typeof c.id === 'string' && typeof c.name === 'string',
+  );
+  const list = valid.map(clean);
+  const dirty = valid.length !== saved.length || list.some((c, i) => c !== valid[i]);
   useEffect(() => {
-    if (dirty) setSaved(saved.map(clean)); // rewrite the stored copy too
+    if (dirty) setSaved(list); // rewrite the stored copy too
   }, [dirty]);
   return [list, setSaved] as const;
 }

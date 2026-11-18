@@ -999,7 +999,11 @@ function useSavedFilters(): [SavedFilter[], (f: SavedFilter) => void] {
   const qc = useQueryClient();
   const toast = useToast();
   const remote = client.savedFilters;
-  const [local, setLocal] = useLocal<SavedFilter[]>('ki-saved-filters', []);
+  const [stored, setLocal] = useLocal<SavedFilter[]>('ki-saved-filters', []);
+  // entries without a string name and expression (hand-edited, older) are dropped, not trusted
+  const local = stored.filter(
+    (f) => !!f && typeof f === 'object' && typeof f.name === 'string' && typeof f.expr === 'string',
+  );
   const fromAgent = useKafkaQuery(['saved-filters'], (c) =>
     c.savedFilters ? c.savedFilters.list() : Promise.resolve([]),
   );
