@@ -72,14 +72,14 @@ public class Clusters {
             // combinations that would otherwise fail every request with an obscure Kafka error
             boolean sasl = c.security().startsWith("SASL");
             boolean hasMech = c.saslMechanism() != null && !c.saslMechanism().isBlank();
+            boolean hasUser = c.saslUsername() != null && !c.saslUsername().isBlank();
+            boolean hasPassword = c.saslPassword() != null && !c.saslPassword().isBlank();
             if (sasl && !hasMech)
                 throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_MECHANISM (PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512).");
-            if (sasl && (c.saslUsername() == null || c.saslUsername().isBlank()))
+            if (sasl && !hasUser)
                 throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_USERNAME and KI_CLUSTERS_n_SASL_PASSWORD.");
             if (!sasl && hasMech)
                 throw new IllegalStateException("Cluster " + c.name() + ": KI_CLUSTERS_n_SASL_MECHANISM is set but security is " + c.security() + "; use SASL_SSL or SASL_PLAINTEXT.");
-            boolean hasUser = c.saslUsername() != null && !c.saslUsername().isBlank();
-            boolean hasPassword = c.saslPassword() != null && !c.saslPassword().isBlank();
             // a username alone would send password="" and fail every call at authentication
             if (sasl && !hasPassword)
                 throw new IllegalStateException("Cluster " + c.name() + ": security " + c.security() + " needs KI_CLUSTERS_n_SASL_PASSWORD as well as the username.");
