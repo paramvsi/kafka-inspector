@@ -207,6 +207,7 @@ export function ProduceDrawer({
     let sent = 0;
     try {
       let first: { partition: number; offset: number } | undefined;
+      const all: Array<{ partition: number; offset: number }> = [];
       for (let i = 0; i < n; i++) {
         const body = i > 0 && generated ? generate(schema) : value;
         const r = await writes.produce(clusterId, {
@@ -218,13 +219,20 @@ export function ProduceDrawer({
           valueFormat: schema?.type === 'AVRO' ? 'avro' : 'json',
         });
         first ??= r;
+        all.push(r);
         sent++;
       }
       await qc.invalidateQueries({ queryKey: [clusterId] });
       toast({
         tone: 'ok',
         title: `Produced ${n} message${n > 1 ? 's' : ''} to ${target}`,
-        body: `partition ${first!.partition} · offset ${formatInt(first!.offset)}`,
+        // a batch says what it took: one partition → the offset range; keyless messages may spread out
+        body:
+          n === 1
+            ? `partition ${first!.partition} · offset ${formatInt(first!.offset)}`
+            : new Set(all.map((x) => x.partition)).size === 1
+              ? `partition ${first!.partition} · offsets ${formatInt(first!.offset)}–${formatInt(all.at(-1)!.offset)}`
+              : `across ${new Set(all.map((x) => x.partition)).size} partitions · the first at partition ${first!.partition}, offset ${formatInt(first!.offset)}`,
         action: {
           label: 'Show in messages',
           onClick: () =>

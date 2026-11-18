@@ -2090,3 +2090,15 @@ test('a topic search that skipped topics says so', async ({ page }) => {
     timeout: 15_000,
   });
 });
+
+test('a keyed batch says the offsets it took, not only the first message’s', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&produce=1');
+  const pr = page.getByRole('dialog', { name: 'Produce message' });
+  await pr.getByLabel('Key').fill('same-key');
+  await pr.getByLabel('Send').fill('3');
+  await pr.getByRole('button', { name: /Produce 3 messages/ }).click({ timeout: 15_000 });
+  const toast = page.locator('.ki-toast').filter({ hasText: 'Produced 3 messages' });
+  await expect(toast).toBeVisible({ timeout: 10_000 });
+  // one key, one partition: the body names the range ("offsets 120–122"), not a single offset
+  await expect(toast).toContainText(/offsets [\d,]+–[\d,]+/);
+});
