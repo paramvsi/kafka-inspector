@@ -291,7 +291,9 @@ function jsonCheck(
   const compatible = mode === 'NONE' || messages.length === 0;
   // say what "compatible" covers: nested objects, items, enums, $ref and oneOf aren't compared
   if (compatible)
-    messages.push('Checked top-level properties, their types and required fields only.');
+    messages.push(
+      'Checked top-level properties, their types, required fields and closed models (additionalProperties: false) only.',
+    );
   return { compatible, messages };
 }
 
