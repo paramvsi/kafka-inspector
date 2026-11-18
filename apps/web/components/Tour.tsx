@@ -130,7 +130,9 @@ export function GuidedTour() {
 
   useEffect(() => {
     if (!step) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && go(0);
+    // an open <dialog> takes this Escape itself (it closes): only the top layer goes, the tour stays
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && !document.querySelector('dialog[open]') && go(0);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });

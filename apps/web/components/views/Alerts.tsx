@@ -473,6 +473,7 @@ function RuleDialog({
       setError(`Couldn't delete the rule: ${(e as Error).message}`);
     }
     await qc.invalidateQueries({ queryKey: [clusterId, 'alert-rules'] });
+    keepFocus(); // the row that opened this dialog is gone once the list refreshes
   };
   const browser = r.channels.includes('browser');
   return (

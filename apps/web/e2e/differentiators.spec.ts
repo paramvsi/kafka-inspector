@@ -89,3 +89,36 @@ test('deep links: tab, filter and selected message survive a copy of the URL', a
     'page',
   );
 });
+
+test('Escape with a dialog open during the tour closes only the dialog, not the tour', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('/app/chaos/');
+  await page.getByRole('button', { name: 'Start guided tour' }).click();
+  const tour = page.getByRole('dialog', { name: /of 5/ });
+  for (const n of [2, 3, 4]) {
+    await tour.getByRole('button', { name: 'Next' }).click();
+    await expect(tour).toContainText(`${n} of 5`);
+  }
+  const open = page.locator('dialog[open]');
+  await expect(open).toHaveCount(1); // step 4 opens Reset offsets
+  await open.focus();
+  await page.keyboard.press('Escape');
+  await expect(open).toHaveCount(0);
+  await expect(tour).toContainText('4 of 5');
+});
+
+test('deleting an alert rule from its dialog keeps keyboard focus on the page, not <body>', async ({
+  page,
+}) => {
+  await page.goto('/app/alerts/');
+  await page.getByRole('button', { name: 'New rule' }).click();
+  const d = page.getByRole('dialog', { name: 'New alert rule' });
+  await d.getByLabel('Name').fill('e2e focus rule');
+  await d.getByRole('button', { name: 'Create rule' }).click();
+  await page.getByRole('button', { name: /e2e focus rule/ }).click();
+  await page.getByRole('button', { name: 'Delete rule' }).click();
+  await expect(page.getByRole('button', { name: /e2e focus rule/ })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+});
