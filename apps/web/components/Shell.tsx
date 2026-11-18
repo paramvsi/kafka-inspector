@@ -123,7 +123,9 @@ const ConnectionCtx = createContext<ConnectionState>({ state: 'connected' });
 export function useConnection(): ConnectionState {
   const real = useContext(ConnectionCtx);
   const { preview } = useApp();
-  return preview === 'disconnected'
+  // demo only: on a real agent it would show a made-up outage of a cluster that's fine (rule 7)
+  const demo = useKafkaMaybe()?.info.mode === 'demo';
+  return preview === 'disconnected' && demo
     ? {
         state: 'reconnecting',
         since: Date.now() - 23_000,

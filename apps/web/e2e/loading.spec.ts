@@ -80,3 +80,17 @@ test('a failed card load offers Retry, which loads it again without a page reloa
   expect(calls).toBe(3);
   expect(await page.evaluate(() => (window as unknown as { kiAlive?: number }).kiAlive)).toBe(1); // no reload
 });
+
+test('?preview=disconnected never fakes an outage on a real agent (rule 7: previews are demo-only)', async ({
+  page,
+}) => {
+  await page.route('**/api/info', (r) => r.fulfill({ json: INFO }));
+  await page.route(/\/api\/(clusters|alerts)/, () => new Promise(() => {}));
+  await page.routeWebSocket(/\/api\/stream/, () => {}); // an agent stream that stays open: really connected
+  await page.goto('/app/alerts/?preview=disconnected');
+  await expect(page.getByRole('heading', { name: 'Alerts', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.waitForTimeout(1500);
+  await expect(page.getByText(/attempt 3 of 10/)).toHaveCount(0);
+});
