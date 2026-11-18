@@ -48,12 +48,12 @@ export function StatusBadge({
     <span
       className={cx(
         'relative inline-flex h-[22px] items-center gap-[6px] whitespace-nowrap rounded-sm px-2 text-[12px] font-medium transition-colors duration-fast ease-standard',
-        TONE[status],
+        TONE[status] ?? TONE.neutral, // a status this badge doesn't know reads as Unknown, never blank
         className,
       )}
     >
       {dot && <span aria-hidden="true" className="size-[6px] shrink-0 rounded-full bg-current" />}
-      {children ?? LABEL[status]}
+      {children ?? LABEL[status] ?? LABEL.neutral}
       {pulse > 0 && (
         <span
           key={pulse}

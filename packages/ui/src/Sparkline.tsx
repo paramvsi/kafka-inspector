@@ -26,13 +26,15 @@ export function Sparkline({
   label?: string;
   className?: string;
 }) {
-  if (points.length < 2)
+  // one NaN, Infinity or null would turn every coordinate into NaN: skip the points that aren't numbers
+  const pts = points.filter((v) => Number.isFinite(v));
+  if (pts.length < 2)
     return <svg width={width} height={height} aria-hidden="true" className={className} />;
-  const min = Math.min(...points),
-    max = Math.max(...points),
+  const min = Math.min(...pts),
+    max = Math.max(...pts),
     span = max - min || 1;
-  const step = width / (points.length - 1);
-  const d = points
+  const step = width / (pts.length - 1);
+  const d = pts
     .map(
       (v, i) =>
         `${(i * step).toFixed(1)},${(max === min ? height / 2 : height - 2 - ((v - min) / span) * (height - 4)).toFixed(1)}`,
