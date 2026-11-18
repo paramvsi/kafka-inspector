@@ -484,11 +484,12 @@ function RuleDialog({
       await client.deleteAlertRule(rule.id);
       toast({ tone: 'info', title: `Deleted “${rule.name}”` });
       onClose();
+      // the closing dialog hands focus back to the rule's row, which a later render removes: watch for that
+      keepFocus(undefined, 2000);
     } catch (e) {
       setError(`Couldn't delete the rule: ${(e as Error).message}`);
     }
     await qc.invalidateQueries({ queryKey: [clusterId, 'alert-rules'] });
-    keepFocus(); // the row that opened this dialog is gone once the list refreshes
   };
   const browser = r.channels.includes('browser');
   return (
