@@ -82,7 +82,7 @@ test('Reset demo returns the controls to the defaults without a reload in betwee
 });
 
 test('Show in messages after reprocessing to another topic opens that topic', async ({ page }) => {
-  // a message that exists (reprocess=0:0 was removed by retention long ago; it used to prefill the next one)
+  // a message that exists (reprocess=0:0 was removed by retention long ago)
   await page.goto('/app/topics/view/?name=payments&tab=messages');
   await page.locator('table tbody button').first().click({ timeout: 15_000 });
   await page.getByRole('dialog').getByRole('button', { name: 'Reprocess to topic' }).click();
