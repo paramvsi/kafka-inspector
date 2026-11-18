@@ -142,7 +142,8 @@ public class Clusters {
     }
 
     private static String esc(String s) {
-        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"");
+        // JAAS quoted strings end at a raw line break: escape it too, or a password with a newline breaks every client
+        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     public static class NotFound extends RuntimeException {
