@@ -1377,3 +1377,13 @@ test('browsing from a group’s offsets keeps every partition in the cursor, so 
   // a partition with nothing on page 1 must still be in the cursor: without it, page 2 restarts it at the end
   expect(keys).toEqual([...behind].sort((a, b) => a - b));
 });
+
+test('a search over more than 20 matching topics says it searched only the first 20, as the agent does', async () => {
+  const h = make();
+  await h.init();
+  const page = h.sim.search({ topicRegex: '.*', from: 'newest', limit: 100 } as never);
+  expect(page.note).toMatch(/^Searched the first 20 of \d+ matching topics, by name\./);
+  expect(
+    h.sim.search({ topicRegex: '^orders$', from: 'newest', limit: 100 } as never).note,
+  ).toBeUndefined();
+});

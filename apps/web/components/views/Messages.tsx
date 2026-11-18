@@ -699,6 +699,12 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
           </Button>
         </div>
       )}
+      {regex !== undefined && pageData?.note && (
+        // a partial search must not read as complete (topics skipped by the cap or the time budget)
+        <p role="status" className="m-0 text-[12px] text-ink-muted">
+          {pageData.note}
+        </p>
+      )}
 
       <Card padded={false} className="relative">
         {live && unseen > 0 && (

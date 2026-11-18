@@ -2081,3 +2081,10 @@ test('"Search other topics" opens the topic search, and an empty pattern searche
   await expect(page).toHaveURL(/[?&]search=\.\*/);
   await expect(field).toBeVisible();
 });
+
+test('a topic search that skipped topics says so', async ({ page }) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&search=.*');
+  await expect(page.getByText(/Searched the first 20 of \d+ matching topics/)).toBeVisible({
+    timeout: 15_000,
+  });
+});

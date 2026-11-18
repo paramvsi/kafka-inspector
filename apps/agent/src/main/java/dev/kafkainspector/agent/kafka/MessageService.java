@@ -179,16 +179,30 @@ public class MessageService {
         }
     }
 
+    /** What a search skipped, for the user (null: nothing): a partial result must not read as complete. */
+    static String searchNote(int matching, int searched, boolean timedOut) {
+        if (timedOut) return "Stopped after 10 s: searched " + searched + " of " + matching + " matching topics. Narrow the pattern to search the rest.";
+        if (matching > searched) return "Searched the first " + searched + " of " + matching + " matching topics, by name. Narrow the pattern to search the rest.";
+        return null;
+    }
+
     public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Map<String, ClusterState.TopicSnap> topics) {
         Pattern p = dev.kafkainspector.agent.api.SafeRegex.compile(topicRegex, 0);
-        List<String> matched = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).sorted().limit(20).toList(); // by name: the same 20 as the demo, whatever the map order
+        List<String> matching = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).sorted().toList();
+        List<String> matched = matching.stream().limit(20).toList(); // by name: the same 20 as the demo, whatever the map order
         int max = Math.max(1, Math.min(limit, 500));
         List<Dto.RawMessage> out = new ArrayList<>();
         int scanned = 0;
         // ponytail: sequential browses, bounded by a 10 s budget (partial results); parallelise if search gets slow
         long deadline = System.currentTimeMillis() + 10_000;
+        int searched = 0;
+        boolean timedOut = false;
         for (String t : matched) {
-            if (System.currentTimeMillis() > deadline) break;
+            if (System.currentTimeMillis() > deadline) {
+                timedOut = true;
+                break;
+            }
+            searched++;
             try {
                 // sample: an equal share from every partition (a newest-across-partitions cut dropped one with older records);
                 // otherwise the busiest partition — both as the simulator (F-43)
@@ -210,7 +224,7 @@ public class MessageService {
         // by time (not the ISO string: "…:00Z" sorts after "…:00.500Z"), then a stable tie-break
         out.sort(Comparator.comparing((Dto.RawMessage r) -> Instant.parse(r.timestamp())).reversed()
                 .thenComparing(Dto.RawMessage::topic).thenComparingInt(Dto.RawMessage::partition).thenComparingLong(Dto.RawMessage::offset));
-        return new Dto.RawMessagePage(firstFitting(out, max, PAGE_BYTES), null, scanned);
+        return new Dto.RawMessagePage(firstFitting(out, max, PAGE_BYTES), null, scanned, searchNote(matching.size(), timedOut ? searched : matched.size(), timedOut));
     }
 
     /**

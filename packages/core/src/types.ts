@@ -188,6 +188,8 @@ export interface RawMessagePage {
   messages: RawMessage[];
   nextCursor?: string;
   scanned: number;
+  /** a search's partial result, said plainly ("Searched the first 20 of 42 matching topics…"); absent for browse */
+  note?: string;
 }
 
 export interface GroupQuery {

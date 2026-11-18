@@ -1392,10 +1392,15 @@ export class Simulator {
   search(req: SearchRequest): RawMessagePage {
     const re = safeRegex(req.topicRegex);
     // same as the agent (AGENT_API): at most 20 matching topics, results newest first whichever end is read
-    const topics = [...this.topics.keys()]
+    const matching = [...this.topics.keys()]
       .filter((n) => re.test(n) && !this.topics.get(n)!.internal)
-      .sort() // by name, as the agent picks them
-      .slice(0, 20);
+      .sort(); // by name, as the agent picks them
+    const topics = matching.slice(0, 20);
+    // the agent's words for a partial search (MessageService.searchNote); the demo never runs out of time
+    const note =
+      matching.length > topics.length
+        ? `Searched the first ${topics.length} of ${matching.length} matching topics, by name. Narrow the pattern to search the rest.`
+        : undefined;
     const limit = Math.min(req.limit ?? 100, 500);
     const out: RawMessage[] = [];
     let scanned = 0;
@@ -1414,7 +1419,7 @@ export class Simulator {
       }
     }
     out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-    return { messages: out.slice(0, limit), scanned };
+    return { messages: out.slice(0, limit), scanned, ...(note ? { note } : {}) };
   }
 
   // ───────────────────────────── groups ─────────────────────────────
