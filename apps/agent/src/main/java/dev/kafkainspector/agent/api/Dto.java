@@ -26,9 +26,7 @@ public final class Dto {
 
     public record Header(String key, String value) {}
     public record RawMessage(String topic, int partition, long offset, String timestamp, String key, String value, List<Header> headers, int sizeBytes) {}
-    public record RawMessagePage(List<RawMessage> messages, String nextCursor, int scanned, String note) {
-        public RawMessagePage(List<RawMessage> messages, String nextCursor, int scanned) { this(messages, nextCursor, scanned, null); }
-    } // note: what a search skipped (null for browse)
+    public record RawMessagePage(List<RawMessage> messages, String nextCursor, int scanned, String note) {} // note: what a search skipped (null for browse)
 
     public record Forecast(String kind, Double seconds, Double consumeRate, Double produceRate) {}
     public record GroupSummary(String groupId, String type, String state, int members, List<String> topics, long totalLag, String lastCommitAt, String status, Forecast forecast, List<Double> trend) {}

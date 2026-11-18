@@ -175,7 +175,7 @@ public class MessageService {
                 }
             }
             String nextCursor = next.isEmpty() ? null : cursorOf(next);
-            return new Dto.RawMessagePage(page.stream().map(MessageService::dto).toList(), nextCursor, Math.max(scanned, page.size()));
+            return new Dto.RawMessagePage(page.stream().map(MessageService::dto).toList(), nextCursor, Math.max(scanned, page.size()), null);
         }
     }
 
@@ -224,7 +224,7 @@ public class MessageService {
         // by time (not the ISO string: "…:00Z" sorts after "…:00.500Z"), then a stable tie-break
         out.sort(Comparator.comparing((Dto.RawMessage r) -> Instant.parse(r.timestamp())).reversed()
                 .thenComparing(Dto.RawMessage::topic).thenComparingInt(Dto.RawMessage::partition).thenComparingLong(Dto.RawMessage::offset));
-        return new Dto.RawMessagePage(firstFitting(out, max, PAGE_BYTES), null, scanned, searchNote(matching.size(), timedOut ? searched : matched.size(), timedOut));
+        return new Dto.RawMessagePage(firstFitting(out, max, PAGE_BYTES), null, scanned, searchNote(matching.size(), searched, timedOut));
     }
 
     /**

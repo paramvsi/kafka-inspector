@@ -1382,7 +1382,10 @@ test('a search over more than 20 matching topics says it searched only the first
   const h = make();
   await h.init();
   const page = h.sim.search({ topicRegex: '.*', from: 'newest', limit: 100 } as never);
-  expect(page.note).toMatch(/^Searched the first 20 of \d+ matching topics, by name\./);
+  // the agent's exact words (SearchCapTest): the two sides must not drift
+  expect(page.note).toMatch(
+    /^Searched the first 20 of \d+ matching topics, by name\. Narrow the pattern to search the rest\.$/,
+  );
   expect(
     h.sim.search({ topicRegex: '^orders$', from: 'newest', limit: 100 } as never).note,
   ).toBeUndefined();
