@@ -42,6 +42,10 @@ export function SignInView() {
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
+      // the disabled button dropped focus to the page: put it back where the fix is typed (and the error is read)
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLInputElement>('form input[type="password"]')?.select(),
+      );
     }
   };
   return (

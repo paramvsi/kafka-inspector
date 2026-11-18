@@ -212,7 +212,11 @@ export function CreateTopicDialog({
             </div>
           </fieldset>
         </div>
-        <details className="rounded-md border border-line-subtle px-3 py-2 text-[13px]">
+        {/* open when the replication factor is refused over an override in here, so the fix is in view */}
+        <details
+          className="rounded-md border border-line-subtle px-3 py-2 text-[13px]"
+          open={minIsr > r || undefined}
+        >
           <summary className="cursor-pointer font-semibold">
             Advanced config{' '}
             <span className="font-normal text-ink-muted">

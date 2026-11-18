@@ -2033,3 +2033,36 @@ test('the Overview chart draws a line, not isolated dots (a gap rule once broke 
   // each "M" starts a separate piece of line: a few for real gaps, never one per point
   expect((d.match(/M/g) ?? []).length).toBeLessThanOrEqual(3);
 });
+
+test('a failed sign-in puts focus back on the password, not on the page body', async ({ page }) => {
+  await page.route('**/api/info', (r) =>
+    r.fulfill({ json: { mode: 'agent', version: '1', auth: true, signedIn: false, clusters: [] } }),
+  );
+  await page.route('**/api/auth/login', (r) =>
+    r.fulfill({
+      status: 401,
+      json: {
+        error: { code: 'BAD_CREDENTIALS', message: 'Wrong username or password.', details: {} },
+      },
+    }),
+  );
+  await page.goto('/app/sign-in/');
+  await page.getByLabel('Password').fill('nope');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText(/Wrong username or password/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByLabel('Password')).toBeFocused();
+});
+
+test('Create topic refused over a min.insync.replicas override opens the section with that override', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/');
+  await page.getByRole('button', { name: 'Create topic' }).click({ timeout: 15_000 });
+  const dialog = page.getByRole('dialog', { name: 'Create topic' });
+  await dialog.getByLabel('Name').fill('rf-one');
+  await dialog.getByLabel('Replication factor').fill('1');
+  await expect(dialog.getByText(/min\.insync\.replicas is 2/)).toBeVisible();
+  // the override the message names is in view, not inside a closed section
+  await expect(dialog.locator('details')).toHaveAttribute('open', '');
+  await expect(dialog.locator('details input[value="min.insync.replicas"]')).toBeVisible();
+});
