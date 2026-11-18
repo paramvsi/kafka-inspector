@@ -455,3 +455,15 @@ test('a masked field repeated in the JSON text never shows its hidden copy (JSON
     '{ "orderId": "o1" }',
   );
 });
+
+test('a JSON number a double cannot hold keeps its digits, not Infinity (null in exports) or 0', async () => {
+  const r = await decode(
+    enc.encode('{"big":1e400,"neg":-2E+999,"tiny":1e-400,"z":0.0,"f":1.10}'),
+    'auto',
+    lookup,
+  );
+  expect(r).toMatchObject({
+    ok: true,
+    value: { big: '1e400', neg: '-2E+999', tiny: '1e-400', z: 0, f: 1.1 },
+  });
+});

@@ -279,18 +279,19 @@ async function viaRegistry(
 /** `lookup` is undefined when the cluster has no Schema Registry. */
 /**
  * JSON.parse, but an integer JSON can't hold exactly (a 64-bit id such as 12345678901234567890) keeps its original
- * digits as a string instead of silently becoming 12345678901234567000. Uses the parser's source text where the
+ * digits as a string instead of silently becoming 12345678901234567000 — as does a number past a double's
+ * range or one that underflows to 0. Uses the parser's source text where the
  * runtime offers it (V8 11.4+); elsewhere it's plain JSON.parse.
  */
 export function parseJson(text: string): unknown {
   return JSON.parse(text, function (_k, v, ctx?: { source?: string }) {
-    if (
-      typeof v === 'number' &&
-      ctx?.source &&
-      /^-?\d+$/.test(ctx.source) &&
-      !Number.isSafeInteger(v)
-    )
-      return ctx.source;
+    if (typeof v !== 'number' || !ctx?.source) return v;
+    const src = ctx.source;
+    // beyond 2^53, past a double's range (1e400 → Infinity, which exports write as null), or a non-zero
+    // literal that underflowed to 0: keep the stored digits instead of showing a different number
+    if (/^-?\d+$/.test(src) && !Number.isSafeInteger(v)) return src;
+    if (!Number.isFinite(v)) return src;
+    if (v === 0 && /[1-9]/.test(src.split(/e/i)[0]!)) return src;
     return v;
   } as (this: unknown, k: string, v: unknown) => unknown);
 }
