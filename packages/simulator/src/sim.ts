@@ -1339,6 +1339,7 @@ export class Simulator {
     const descending = req.from === 'newest';
     const candidates: Array<{ s: PState; o: number; t: number }> = [];
     const next: Record<number, number> = {};
+    const from = new Map<number, number>(); // each partition's start this page: carried when none of it was picked
     let scanned = 0;
     for (const s of ps) {
       const hw = Math.floor(s.end);
@@ -1353,6 +1354,7 @@ export class Simulator {
         const gp = g?.parts.find((x) => x.topic === s.def.name && x.p === s.p);
         startAt = gp ? Math.floor(gp.committed) : hw;
       }
+      from.set(s.p, startAt);
       const offsets: number[] = [];
       if (descending) for (let o = startAt; o >= lo && offsets.length < limit; o--) offsets.push(o);
       else for (let o = startAt; o < hw && offsets.length < limit; o++) offsets.push(o);
@@ -1363,12 +1365,20 @@ export class Simulator {
     const picked = candidates.slice(0, limit);
     for (const s of ps) {
       const mine = picked.filter((c) => c.s === s).map((c) => c.o);
-      if (mine.length) next[s.p] = descending ? Math.min(...mine) - 1 : Math.max(...mine) + 1;
-      else if (cursor[s.p] !== undefined) next[s.p] = cursor[s.p]!;
+      // a partition with nothing on this page keeps its start: a "from group" page 2 no longer knows the offsets
+      next[s.p] = mine.length
+        ? descending
+          ? Math.min(...mine) - 1
+          : Math.max(...mine) + 1
+        : from.get(s.p)!;
     }
+    // more to read only while some partition has offsets left (the agent returns no cursor once all are done)
+    const more = ps.some((s) =>
+      descending ? next[s.p]! >= this.low(s) : next[s.p]! < Math.floor(s.end),
+    );
     return {
       messages: picked.map((c) => this.message(c.s, c.o, c.t)),
-      nextCursor: picked.length === limit ? JSON.stringify(next) : undefined,
+      nextCursor: picked.length === limit && more ? JSON.stringify(next) : undefined,
       scanned,
     };
   }

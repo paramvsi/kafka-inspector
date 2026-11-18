@@ -1282,7 +1282,8 @@ test('a reset skips a partition with no leader (its brokers are down), in the pr
 test('topics sort by name in code-point order like the agent; a page size below 1 reads as 1', async () => {
   const a = make();
   await a.init();
-  for (const name of ['zz-b', 'zz.b', 'zz_c', 'ZZ']) // zz_b would collide with zz.b, as Kafka refuses
+  for (const name of ['zz-b', 'zz.b', 'zz_c', 'ZZ'])
+    // zz_b would collide with zz.b, as Kafka refuses
     await a.sim.createTopic({ name, partitions: 1, replicationFactor: 3 } as never);
   const names = a.sim.listTopics({ query: 'zz', sort: 'name' } as never).items.map((t) => t.name);
   expect(names).toEqual(['ZZ', 'zz-b', 'zz.b', 'zz_c']); // Java's String.compareTo order
@@ -1349,4 +1350,30 @@ test('topic writes refuse what Kafka refuses: "." / "_" name collisions and inva
     'min.cleanable.dirty.ratio': '0.25',
   });
   await h.sim.updateTopicConfig('orders', { 'message.timestamp.type': 'LogAppendTime' });
+});
+
+test('browsing from a group’s offsets keeps every partition in the cursor, so later pages show them all', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'crash-consumer', target: 'order-service' }); // no members: lag builds on every partition
+  h.advance(30);
+  const behind = h.sim
+    .getGroup('order-service')
+    .partitions.filter(
+      (p) => p.topic === 'orders' && p.committedOffset != null && p.committedOffset < p.endOffset,
+    )
+    .map((p) => p.partition);
+  expect(behind.length).toBeGreaterThan(1);
+  const page = h.sim.browse({
+    topic: 'orders',
+    partition: 'all',
+    from: 'group',
+    group: 'order-service',
+    limit: 1,
+  } as never);
+  const keys = Object.keys(JSON.parse(page.nextCursor!))
+    .map(Number)
+    .sort((a, b) => a - b);
+  // a partition with nothing on page 1 must still be in the cursor: without it, page 2 restarts it at the end
+  expect(keys).toEqual([...behind].sort((a, b) => a - b));
 });
