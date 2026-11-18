@@ -2541,7 +2541,8 @@ export class Simulator {
   }
 
   private endPoison(): void {
-    if (this.poison?.incident) this.incidents.delete(this.poison.incident);
+    // one started from the Chaos panel ends through its own undo, which logs "Chaos ended", as every action does
+    if (this.poison?.incident) this.stopChaos(this.poison.incident);
     this.poison = null;
   }
 

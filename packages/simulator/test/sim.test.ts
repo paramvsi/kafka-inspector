@@ -1429,3 +1429,30 @@ test('a produced message counts its headers in sizeBytes, and a created topic gr
   expect(m.sizeBytes).toBe(1 + 5 + 5 + 6); // key + value + header key + header value, as generated messages and the agent
   expect(h.sim.listTopics({ query: 'sized' }).items[0]!.sizeBytes).toBeGreaterThan(0);
 });
+
+test('a chaos poison ended by deleting its topic or group logs its end, like every other chaos action', async () => {
+  for (const del of ['topic', 'group'] as const) {
+    const h = make();
+    await h.init();
+    // fix the seeded poison, then start one from the Chaos panel
+    await h.sim.resetOffsets(
+      {
+        groupId: 'fraud-scorer',
+        topic: 'payments',
+        partitions: [7],
+        strategy: { kind: 'shift', by: 1 },
+      },
+      false,
+    );
+    h.advance(5);
+    h.sim.runChaos({ kind: 'poison-message' });
+    if (del === 'topic') await h.sim.deleteTopic('payments');
+    else {
+      h.sim.runChaos({ kind: 'crash-consumer', target: 'fraud-scorer' }); // a group with members can't be deleted
+      await h.sim.deleteGroup('fraud-scorer');
+    }
+    expect(h.sim.listIncidents().some((i) => i.kind === 'poison-message')).toBe(false);
+    const ends = h.sim.getOverview().events.filter((e) => /Chaos ended: .*poison/i.test(e.title));
+    expect(ends, del).toHaveLength(1);
+  }
+});
