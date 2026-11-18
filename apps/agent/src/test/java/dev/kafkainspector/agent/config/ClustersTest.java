@@ -96,4 +96,15 @@ class ClustersTest {
         refused("SASL_SSL or SASL_PLAINTEXT", () -> of(new KiProperties.Cluster("prod", "b:9092", "SSL", null, "u", "pw", null, null, null, null, null)));
         refused("SASL_SSL or SASL_PLAINTEXT", () -> of(new KiProperties.Cluster("prod", "b:9092", "PLAINTEXT", null, null, "pw", null, null, null, null, null)));
     }
+
+    @Test
+    void aRegistryUrlWithCredentialsInItIsRefusedSoTheyNeverReachALog() {
+        // a / in the password made the URL parse with host "u", and the log redaction //[^/@]*@ missed it
+        for (String url : new String[] {"https://u:pa/ss@reg:8081", "https://u:secret@reg:8081"}) {
+            var c = new KiProperties.Cluster("prod", "b:9092", "PLAINTEXT", null, null, null, null, null, url, null, null);
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> of(c));
+            assertTrue(e.getMessage().contains("KI_CLUSTERS_n_SCHEMA_REGISTRY_USERNAME"), e.getMessage());
+            assertFalse(e.getMessage().contains("secret") || e.getMessage().contains("pa/ss"), e.getMessage());
+        }
+    }
 }

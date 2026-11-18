@@ -47,6 +47,9 @@ public class Clusters {
             if (c.bootstrap() == null || c.bootstrap().isBlank()) throw new IllegalStateException("Cluster " + c.name() + " has no bootstrap servers (KI_CLUSTERS_n_BOOTSTRAP).");
             if (c.schemaRegistry() != null && !c.schemaRegistry().isBlank()) {
                 try {
+                    // a registry URL never needs @: one there is userinfo, which would reach logs (and a / in the
+                    // password even changes the host), so it's refused before anything parses or prints it
+                    if (c.schemaRegistry().contains("@")) throw new IllegalArgumentException();
                     java.net.URI u = java.net.URI.create(c.schemaRegistry());
                     if (u.getScheme() == null || u.getHost() == null) throw new IllegalArgumentException();
                 } catch (IllegalArgumentException e) {

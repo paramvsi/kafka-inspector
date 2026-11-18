@@ -54,7 +54,7 @@ class SchemaRegistryTest {
         try (var probe = new java.net.ServerSocket(0)) {
             port = probe.getLocalPort(); // closed again: nothing listens there
         }
-        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://admin:s3cret@127.0.0.1:" + port, "reg-user", "reg-pw-sentinel");
+        var c = new KiProperties.Cluster("local", "b:9092", "PLAINTEXT", null, null, null, null, null, "http://127.0.0.1:" + port /* userinfo in the URL is refused at startup (ClustersTest) */, "reg-user", "reg-pw-sentinel");
         var clusters = new Clusters(new KiProperties("pw", true, Duration.ofDays(7), Duration.ofSeconds(10), 30, List.of(c)), new MockEnvironment());
         Exception e = org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
                 () -> new SchemaRegistry(clusters, JsonMapper.builder().build()).compatibility("local", "x-value", "{}", null));
