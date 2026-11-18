@@ -1412,3 +1412,20 @@ test('a skewed topic: the design wording, a since that stays put, no skew while 
   h.advance(5);
   expect(h.sim.getTopic('idle-six').summary.health.some((f) => f.id === 'skew')).toBe(false);
 });
+
+test('a produced message counts its headers in sizeBytes, and a created topic grows with what is produced to it', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.createTopic({ name: 'sized', partitions: 1, replicationFactor: 3 });
+  const res = await h.sim.produce({
+    topic: 'sized',
+    key: 'k',
+    value: 'hello',
+    headers: [{ key: 'trace', value: 'abc123' }],
+  });
+  const m = h.sim
+    .browse({ topic: 'sized', partition: res.partition, from: 'oldest', limit: 10 })
+    .messages.find((x) => x.offset === res.offset)!;
+  expect(m.sizeBytes).toBe(1 + 5 + 5 + 6); // key + value + header key + header value, as generated messages and the agent
+  expect(h.sim.listTopics({ query: 'sized' }).items[0]!.sizeBytes).toBeGreaterThan(0);
+});

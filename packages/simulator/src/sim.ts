@@ -1099,7 +1099,12 @@ export class Simulator {
 
   private sizeOf(def: TopicDef): number {
     const growth = def.name === 'orders' ? 0.05 : 0;
-    return Math.round(def.sizeBytes * (1 + (growth * (this.lastTick - this.loadedAt)) / DAY));
+    // what the user produced lands on disk too: a created topic isn't 0 B after messages were sent to it
+    let produced = 0;
+    for (const [k, m] of this.produced) if (k.startsWith(`${def.name}:`)) produced += m.sizeBytes;
+    return (
+      Math.round(def.sizeBytes * (1 + (growth * (this.lastTick - this.loadedAt)) / DAY)) + produced
+    );
   }
 
   /** KRaft: the lowest online broker leads; none when all are down. */
@@ -2198,7 +2203,11 @@ export class Simulator {
         key,
         value,
         headers,
-        sizeBytes: (key?.length ?? 0) + value.length,
+        // headers count, as in generated messages and on the agent
+        sizeBytes:
+          (key?.length ?? 0) +
+          value.length +
+          headers.reduce((a, x) => a + x.key.length + x.value.length, 0),
       });
     }
     for (const m of batch) this.produced.set(`${req.topic}:${partition}:${m.offset}`, m);
