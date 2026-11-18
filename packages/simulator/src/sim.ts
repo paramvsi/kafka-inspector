@@ -2656,7 +2656,7 @@ function checkConfigs(changes: Record<string, string | null>, rf: number): void 
     if (allowed) {
       // cleanup.policy is a list: "compact,delete"
       const parts = k === 'cleanup.policy' ? v.split(',').map((p) => p.trim()) : [v];
-      if (!parts.length || parts.some((p) => !allowed.includes(p)))
+      if (parts.some((p) => !allowed.includes(p)))
         throw new Error(
           `${k} must be ${allowed.join(', ')}${k === 'cleanup.policy' ? ' (or both)' : ''}.`,
         );
