@@ -917,6 +917,11 @@ export class Simulator {
     };
   }
 
+  /** over 1 msg/s, as the agent's skew check needs: an idle topic has no traffic to be skewed */
+  private busy(name: string): boolean {
+    return this.topicParts(name).reduce((a, s) => a + s.rate, 0) > 1;
+  }
+
   /** attention id → when it first appeared: "since" mustn't move forward every tick */
   private attentionSince = new Map<string, number>();
 
@@ -987,13 +992,14 @@ export class Simulator {
       const def = ps[0]!.def;
       if (def.internal) continue;
       const { max, p, flagged } = skewOf(this.shares(def));
-      if (flagged) {
+      if (flagged && this.busy(name)) {
+        // the design's wording (designs/screens/Main.dc.html), as the agent now uses; first seen, not an hour ago every tick
         items.push({
           id: `skew-${name}`,
           severity: 'info',
           title: `${name} partition ${p} is hot`,
           detail: `${Math.round(max * 100)}% of topic traffic on 1 of ${def.partitions} partitions`,
-          since: new Date(t - 3600e3).toISOString(),
+          since: firstSeen(`skew-${name}`),
           href: `/app/topics/view/?name=${encodeURIComponent(name)}&tab=partitions`,
           action: `Open ${name}`,
         });
@@ -1153,7 +1159,7 @@ export class Simulator {
         fix: 'Set retention.ms or use compaction so the topic stops growing.',
       });
     const sk = skewOf(this.shares(def));
-    if (sk.flagged)
+    if (sk.flagged && this.busy(def.name))
       out.push({
         id: 'skew',
         severity: 'warn',

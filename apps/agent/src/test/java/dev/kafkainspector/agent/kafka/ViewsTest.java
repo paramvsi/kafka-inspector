@@ -142,4 +142,23 @@ class ViewsTest {
         var c = Views.topicDetail(s, t, List.of(), java.util.Set.of()).consumers().get(0);
         assertNull(c.lag(), "no committed offset: lag unknown (the UI showed 0, which reads as caught up)");
     }
+
+    @Test
+    void aSkewedTopicsAttentionItemUsesTheDesignsWording() {
+        ClusterState s = new ClusterState();
+        ClusterState.TopicSnap t = new ClusterState.TopicSnap();
+        t.name = "clickstream";
+        for (int p = 0; p < 4; p++) {
+            ClusterState.PartSnap ps = part(p, 1024);
+            ps.rate = p == 3 ? 70 : 10; // partition 3 takes 70 of 100 msg/s
+            ps.replicas.add(1);
+            ps.isr.add(1);
+            ps.leader = 1;
+            t.partitions.add(ps);
+        }
+        s.topics = java.util.Map.of("clickstream", t);
+        var item = Views.attention(s, List.of(), 0, 0).stream().filter(a -> a.id().equals("skew-clickstream")).findFirst().orElseThrow();
+        assertEquals("clickstream partition 3 is hot", item.title());
+        assertEquals("70% of topic traffic on 1 of 4 partitions", item.detail());
+    }
 }

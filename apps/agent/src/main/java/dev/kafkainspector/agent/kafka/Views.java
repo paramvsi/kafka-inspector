@@ -287,7 +287,12 @@ public final class Views {
         }
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (t.internal) continue;
-            health(s, t).stream().filter(h -> h.id().equals("skew")).findFirst().ifPresent(h -> items.add(new Dto.AttentionItem("skew-" + t.name, "info", t.name + " is skewed", h.fix(), firstSeen.apply("skew-" + t.name), "/app/topics/view/?name=" + t.name + "&tab=partitions", "Open " + t.name)));
+            // the design's wording (designs/screens/Main.dc.html), as the demo says it
+            health(s, t).stream().filter(h -> h.id().equals("skew")).findFirst().ifPresent(h -> {
+                ClusterState.PartSnap hot = t.partitions.stream().max(Comparator.comparingDouble(p -> p.rate)).orElseThrow();
+                String share = Math.round(hot.rate / t.rate() * 100) + "% of topic traffic on 1 of " + t.partitions.size() + " partitions";
+                items.add(new Dto.AttentionItem("skew-" + t.name, "info", t.name + " partition " + hot.partition + " is hot", share, firstSeen.apply("skew-" + t.name), "/app/topics/view/?name=" + java.net.URLEncoder.encode(t.name, java.nio.charset.StandardCharsets.UTF_8) + "&tab=partitions", "Open " + t.name));
+            });
         }
         // severity, then newest first within it (the demo's order)
         items.sort(Comparator.<Dto.AttentionItem>comparingInt(i -> switch (i.severity()) { case "crit" -> 0; case "warn" -> 1; default -> 2; })

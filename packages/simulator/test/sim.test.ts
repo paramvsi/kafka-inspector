@@ -1387,3 +1387,25 @@ test('a search over more than 20 matching topics says it searched only the first
     h.sim.search({ topicRegex: '^orders$', from: 'newest', limit: 100 } as never).note,
   ).toBeUndefined();
 });
+
+test('a skewed topic: the design wording, a since that stays put, no skew while idle (as on the agent)', async () => {
+  const h = make();
+  await h.init();
+  h.sim.runChaos({ kind: 'hot-partition', target: 'orders' });
+  h.advance(5);
+  const item = () => h.sim.getOverview().attention.find((a) => a.id === 'skew-orders');
+  expect(item()?.title).toMatch(/^orders partition \d+ is hot$/);
+  expect(item()?.detail).toMatch(/^\d+% of topic traffic on 1 of \d+ partitions$/);
+  const since = item()!.since;
+  h.advance(30);
+  expect(item()!.since).toBe(since); // first seen, not "an hour ago" recomputed every tick
+  // an idle topic with a hot partition has no traffic to be skewed (the agent needs more than 1 msg/s)
+  await h.sim.createTopic({ name: 'idle-six', partitions: 6, replicationFactor: 3 });
+  try {
+    h.sim.runChaos({ kind: 'hot-partition', target: 'idle-six' });
+  } catch {
+    return; // the demo refuses a hot partition on an idle topic: nothing to compare
+  }
+  h.advance(5);
+  expect(h.sim.getTopic('idle-six').summary.health.some((f) => f.id === 'skew')).toBe(false);
+});
