@@ -46,7 +46,7 @@ public class ApiController {
         this.alerts = alerts;
         this.filters = filters;
         this.trends = trends;
-        this.version = build.map(BuildProperties::getVersion).orElse("0.1.0");
+        this.version = build.map(BuildProperties::getVersion).orElse("0.0.0-dev") /* no build-info: a dev run (bootRun), not a release */;
     }
 
     // ── meta ──

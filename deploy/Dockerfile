@@ -24,7 +24,7 @@ COPY apps/agent/gradlew apps/agent/settings.gradle.kts apps/agent/build.gradle.k
 RUN ./gradlew --no-daemon -q dependencies > /dev/null
 COPY apps/agent/src ./src
 COPY --from=web /src/apps/web/out /src/web-out
-ARG VERSION=0.1.0
+ARG VERSION=0.0.0-dev
 RUN ./gradlew --no-daemon -q bootJar -PwebOut=/src/web-out -Pversion=${VERSION} -x test && cp build/libs/*-${VERSION}.jar /agent.jar
 
 # 3. Runtime: slim JRE, non-root, writable /data only

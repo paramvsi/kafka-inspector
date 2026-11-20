@@ -5,7 +5,14 @@ plugins {
 }
 
 group = "dev.kafkainspector"
-version = (findProperty("version") as String?)?.takeIf { it != "unspecified" } ?: "0.1.0"
+version = (findProperty("version") as String?)?.takeIf { it != "unspecified" } ?: "0.0.0-dev" // a local build without -Pversion is not a release
+
+// META-INF/build-info.properties: /api/info reports this build's version (BuildProperties), not a fallback
+springBoot {
+    buildInfo {
+        excludes = setOf("time") // reproducible: the same source and version give the same jar
+    }
+}
 
 java {
     toolchain {
