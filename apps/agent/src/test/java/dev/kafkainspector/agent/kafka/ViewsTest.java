@@ -161,4 +161,30 @@ class ViewsTest {
         assertEquals("clickstream partition 3 is hot", item.title());
         assertEquals("70% of topic traffic on 1 of 4 partitions", item.detail());
     }
+
+    @Test
+    void theTopologyNeverHasAnEdgeToATopicItLeftOut() {
+        ClusterState s = new ClusterState();
+        ClusterState.TopicSnap internal = new ClusterState.TopicSnap();
+        internal.name = "_events"; // `_`-prefixed topics count as internal and get no node
+        internal.internal = true;
+        internal.partitions.add(part(0, 10));
+        ClusterState.TopicSnap orders = new ClusterState.TopicSnap();
+        orders.name = "orders";
+        orders.partitions.add(part(0, 10));
+        s.topics = java.util.Map.of("_events", internal, "orders", orders);
+        ClusterState.GroupSnap g = new ClusterState.GroupSnap();
+        g.groupId = "audit";
+        g.committed.put("_events", new java.util.HashMap<>(java.util.Map.of(0, 5L)));
+        g.committed.put("orders", new java.util.HashMap<>(java.util.Map.of(0, 5L)));
+        s.groups = java.util.Map.of("audit", g);
+        var t = Views.topology(s);
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        t.nodes().forEach(n -> ids.add(n.id()));
+        for (var e : t.edges()) {
+            assertTrue(ids.contains(e.from()), "edge from a topic with no node: " + e.from());
+            assertTrue(ids.contains(e.to()), "edge to a group with no node: " + e.to());
+        }
+        assertEquals(1, t.edges().size()); // orders → audit only
+    }
 }

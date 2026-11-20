@@ -355,11 +355,13 @@ public final class Views {
         List<Dto.TopologyEdge> edges = new ArrayList<>();
         Set<String> used = new HashSet<>();
         for (ClusterState.GroupSnap g : s.groups.values()) used.addAll(g.committed.keySet());
+        Set<String> shown = new HashSet<>(); // topics that get a node: an edge may only start at one of them
         for (ClusterState.TopicSnap t : s.topics.values()) {
             if (t.internal || (!used.contains(t.name) && t.rate() == 0)) continue;
             List<Dto.HealthFinding> h = health(s, t);
             Dto.HealthFinding f = h.stream().filter(x -> !x.severity().equals("info")).findFirst().orElse(null);
             nodes.add(new Dto.TopologyNode("topic:" + t.name, "topic", t.name, topicNodeStatus(h), t.rate(), f == null ? null : f.message().replace("Skew", "skew")));
+            shown.add(t.name);
         }
         for (ClusterState.GroupSnap g : s.groups.values()) {
             long lag = groupLag(s, g);
@@ -369,7 +371,8 @@ public final class Views {
             double groupRate = 0;
             List<Dto.TopologyEdge> mine = new ArrayList<>();
             for (String topic : g.committed.keySet()) {
-                if (!s.topics.containsKey(topic)) continue;
+                // an internal topic (incl. `_`-prefixed) has no node: its edge would be listed but never drawn
+                if (!shown.contains(topic)) continue;
                 double r = consumeRate(s, g, topic); // what the group reads, not what the topic receives
                 groupRate += r;
                 mine.add(new Dto.TopologyEdge("topic:" + topic, "group:" + g.groupId, r, "consume"));
