@@ -216,6 +216,12 @@ public class MessageService {
                 int perTopic = Math.max(1, (int) Math.ceil((double) max / matched.size())); // ceil, as the simulator: 3 topics × 34 → the full 100 after the cut
                 int each = Math.max(1, (int) Math.ceil((double) perTopic / parts.size()));
                 for (String part : parts) {
+                    // the budget holds inside a topic too: a sampled search reads every partition, one after another,
+                    // and 40 partitions at their 4 s browse budget ran minutes past the 10 s
+                    if (System.currentTimeMillis() > deadline) {
+                        timedOut = true;
+                        break;
+                    }
                     Dto.RawMessagePage page = browse(cid, t, part, "oldest".equals(from) ? "oldest" : "newest", null, null, Map.of(), each, null);
                     out.addAll(page.messages());
                     scanned += page.scanned();
@@ -223,6 +229,7 @@ public class MessageService {
             } catch (dev.kafkainspector.agent.config.Clusters.NotFound e) {
                 // deleted since it matched: the other topics' results still count
             }
+            if (timedOut) break;
         }
         // by time (not the ISO string: "…:00Z" sorts after "…:00.500Z"), then a stable tie-break
         out.sort(Comparator.comparing((Dto.RawMessage r) -> Instant.parse(r.timestamp())).reversed()
