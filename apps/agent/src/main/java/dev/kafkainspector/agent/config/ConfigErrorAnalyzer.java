@@ -20,7 +20,6 @@ public class ConfigErrorAnalyzer implements FailureAnalyzer {
                         "The agent couldn't open its history database: " + e.getMessage(),
                         "Make /data writable by the agent's user (UID 10001). For a host folder, run chown 10001:10001 <folder>, or use the named volume from the generated compose file.",
                         e);
-            if (t.getCause() == t) break;
         }
         return null; // not one of ours: Spring's default report
     }

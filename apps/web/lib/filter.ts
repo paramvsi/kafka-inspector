@@ -38,7 +38,6 @@ let warm = false;
  * accepts only the shape the worker builds (integer indexes, a count, string errors), never arbitrary objects. */
 function reply(d: unknown): FilterResult {
   const r = (d ?? {}) as Record<string, unknown>;
-  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
   if (r.error && !r.matches) return { matches: [], scanned: 0, error: String(r.error) };
   if (
     !Array.isArray(r.matches) ||
@@ -54,7 +53,7 @@ function reply(d: unknown): FilterResult {
       scanned: 0,
       error: 'The filter returned something that is not a result. Check the expression.',
     };
-  return { ...(r as unknown as FilterResult), error: str(r.error), skipError: str(r.skipError) };
+  return r as unknown as FilterResult; // checked above: every field is the type the worker sends
 }
 
 export function runFilter(expr: string, messages: FilterInput[]): Promise<FilterResult> {
