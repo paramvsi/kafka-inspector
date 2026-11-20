@@ -1456,3 +1456,39 @@ test('a chaos poison ended by deleting its topic or group logs its end, like eve
     expect(ends, del).toHaveLength(1);
   }
 });
+
+test('a keyless produce on Auto only picks partitions that can take it, as Kafka does, instead of failing at random', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  a.sim.runChaos({ kind: 'broker-down', target: '1' });
+  a.sim.runChaos({ kind: 'broker-down', target: '2' });
+  a.advance(1);
+  // min.insync.replicas 1: with the default 2 a single-replica topic can't take any write at all
+  await a.sim.createTopic({
+    name: 'one',
+    partitions: 6,
+    replicationFactor: 1,
+    configs: { 'min.insync.replicas': '1' },
+  });
+  const live = new Set(
+    a.sim
+      .getTopic('one')
+      .partitions.filter((p) => p.leader !== null)
+      .map((p) => p.partition),
+  );
+  expect(live.size).toBeGreaterThan(0);
+  expect(live.size).toBeLessThan(6); // some partitions really are dead
+  for (let i = 0; i < 30; i++) {
+    a.advance(1);
+    const res = await a.sim.produce({ topic: 'one', value: '{}' });
+    expect(live.has(res.partition)).toBe(true);
+  }
+  // an explicit pick of a dead partition is still refused, and a keyed message still goes where its key hashes
+  await expect(
+    a.sim.produce({
+      topic: 'one',
+      partition: [...Array(6).keys()].find((p) => !live.has(p))!,
+      value: '{}',
+    }),
+  ).rejects.toThrow('has no leader');
+});

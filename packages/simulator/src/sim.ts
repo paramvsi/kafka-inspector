@@ -2153,18 +2153,22 @@ export class Simulator {
     const ps = this.topicParts(req.topic);
     const enc = new TextEncoder();
     const count = Math.max(1, Math.min(req.count ?? 1, 1000));
+    // the same limits a real cluster applies (producers default to acks=all since Kafka 3.0)
+    const cfg = this.effectiveConfig(req.topic);
+    const minIsr = Number(cfg['min.insync.replicas']);
+    // no key and no partition: like Kafka's partitioner, pick only among partitions that can take the write
+    // (all of them when none can, so the error below says why); `!(<)` is the ISR check below, NaN-safe alike
+    const open = ps.flatMap((p, i) => (p.leader !== null && !(p.isr.length < minIsr) ? [i] : []));
+    const pool = open.length ? open : ps.map((_, i) => i);
     const partition =
       req.partition ??
-      (req.key ? hash(req.key) % ps.length : Math.floor(rng(hash(t))() * ps.length));
+      (req.key ? hash(req.key) % ps.length : pool[Math.floor(rng(hash(t))() * pool.length)]!);
     const s = ps[partition];
     if (!s) throw new Error(`Partition ${partition} does not exist on ${req.topic}.`);
     if (s.leader === null)
       throw new Error(
         `Partition ${partition} of ${req.topic} has no leader (its brokers are down). Pick another partition or bring the broker back.`,
       );
-    // the same limits a real cluster applies (producers default to acks=all since Kafka 3.0)
-    const cfg = this.effectiveConfig(req.topic);
-    const minIsr = Number(cfg['min.insync.replicas']);
     if (s.isr.length < minIsr)
       throw new Error(
         `Not enough in-sync replicas for partition ${partition} of ${req.topic}: ${s.isr.length} of the ${minIsr} min.insync.replicas requires. Bring the broker back, or produce to another partition.`,
