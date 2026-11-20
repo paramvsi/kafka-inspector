@@ -145,6 +145,9 @@ public class SchemaRegistry {
                     Dto.SubjectSummary x = f.get();
                     if (x != null) out.add(x);
                 } catch (java.util.concurrent.ExecutionException e) {
+                    // the list fails now: stop the other fetches (closing the pool would wait for every slow one —
+                    // minutes against a struggling registry with hundreds of subjects)
+                    pool.shutdownNow();
                     throw e.getCause() instanceof RuntimeException r ? r : new IllegalStateException(e.getCause());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
