@@ -83,6 +83,9 @@ public class AlertService {
 
     /** One cluster's alerts (as firingCount counts them); a null cluster (an older web app) lists every cluster's. */
     public List<Event> events(String cid, String state, int limit) {
+        // an unknown state must not read as "resolved": a 400 that says the allowed values
+        if (state != null && !List.of("all", "firing", "resolved").contains(state))
+            throw new IllegalArgumentException("state must be all, firing or resolved.");
         String byState = state == null || "all".equals(state) ? "TRUE" : "firing".equals(state) ? "state = 'firing'" : "state = 'resolved'";
         int n = Math.max(1, Math.min(limit, 500));
         // firing first: a long-running alert must not drop off the list behind newer resolved ones

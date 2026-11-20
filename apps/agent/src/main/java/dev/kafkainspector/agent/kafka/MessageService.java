@@ -187,6 +187,9 @@ public class MessageService {
     }
 
     public Dto.RawMessagePage search(String cid, String topicRegex, String from, int limit, boolean sample, Map<String, ClusterState.TopicSnap> topics) {
+        // as browse does: an unknown start must not quietly read as "newest" (no `from` is newest)
+        if (from != null && !"newest".equals(from) && !"oldest".equals(from))
+            throw new IllegalArgumentException("from must be newest or oldest.");
         Pattern p = dev.kafkainspector.agent.api.SafeRegex.compile(topicRegex, 0);
         List<String> matching = topics.keySet().stream().filter(t -> !t.startsWith("_") && dev.kafkainspector.agent.api.SafeRegex.find(p, t, 50)).sorted().toList();
         List<String> matched = matching.stream().limit(20).toList(); // by name: the same 20 as the demo, whatever the map order

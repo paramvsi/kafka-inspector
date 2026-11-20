@@ -77,4 +77,14 @@ class AlertServiceTest {
             assertEquals("Pick the group, topic or broker this rule watches.", e.getMessage());
         }
     }
+
+    @Test
+    void anUnknownEventStateIsRefusedNotReadAsResolved() {
+        var ds = new DriverManagerDataSource("jdbc:h2:mem:alerts-state;DB_CLOSE_DELAY=-1", "sa", "");
+        Flyway.configure().dataSource(ds).load().migrate();
+        var alerts = new AlertService(new JdbcTemplate(ds));
+        var e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> alerts.events("a", "bogus", 50));
+        assertEquals("state must be all, firing or resolved.", e.getMessage());
+        assertEquals(0, alerts.events("a", "resolved", 50).size()); // the known values still work
+    }
 }

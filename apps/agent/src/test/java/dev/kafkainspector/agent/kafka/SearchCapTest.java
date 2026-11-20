@@ -26,4 +26,12 @@ class SearchCapTest {
         assertEquals("Stopped after 10 s: searched 3 of 20 matching topics. Narrow the pattern to search the rest.", MessageService.searchNote(20, 3, true));
         assertEquals(null, MessageService.searchNote(5, 5, false));
     }
+
+    @Test
+    void anUnknownSearchStartIsRefusedNotReadAsNewest() {
+        // validated before Kafka is touched, so no client is needed; browse refuses the same way
+        var e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new MessageService(null).search("local", ".*", "sideways", 10, false, java.util.Map.of()));
+        assertEquals("from must be newest or oldest.", e.getMessage());
+    }
 }
