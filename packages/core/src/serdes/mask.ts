@@ -70,6 +70,9 @@ export function applyMasks(value: unknown, topic: string, rules: MaskRule[]): Ma
         const last = segments(rule.path)?.at(-1);
         return last === undefined || last === '*' || value.includes(JSON.stringify(last));
       });
+      // …and a key can be spelled other than JSON.stringify spells it only with \u or \/ escapes ("\u0065mail" is
+      // "email"): with either in the text, re-serialise rather than trust a literal search
+      if (/\\[u/]/.test(value)) return { value: JSON.stringify(r.value), applied };
       return { value: named ? JSON.stringify(r.value) : value, applied };
     }
   }

@@ -467,3 +467,22 @@ test('a JSON number a double cannot hold keeps its digits, not Infinity (null in
     value: { big: '1e400', neg: '-2E+999', tiny: '1e-400', z: 0, f: 1.1 },
   });
 });
+
+test('a masked key spelled with JSON escapes does not leak through the text view', () => {
+  const rules = [
+    { id: 'm', name: 'hide email', topics: 'orders', path: '$.email', action: 'mask', enabled: true },
+    { id: 'p', name: 'hide path', topics: 'orders', path: "$['a/b']", action: 'mask', enabled: true },
+  ];
+  // the same key twice, the second null: JSON.parse keeps null (nothing to mask) and the raw text still holds the first
+  for (const text of [
+    // every spelling escaped, so the text never holds "email" or "a/b" literally
+    '{"\\u0065mail":"a@b.c","em\\u0061il":null}',
+    '{"a\\/b":"secret","a\\u002fb":null}',
+  ]) {
+    const v = applyMasks(text, 'orders', rules as never).value as string;
+    expect(v, text).not.toContain('a@b.c');
+    expect(v, text).not.toContain('secret');
+  }
+  // an ordinary body that names no masked field keeps its text exactly
+  expect(applyMasks('{ "orderId": "o1" }', 'orders', rules as never).value).toBe('{ "orderId": "o1" }');
+});
