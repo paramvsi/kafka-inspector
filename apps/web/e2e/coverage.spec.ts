@@ -2148,3 +2148,35 @@ test('a shared "From time" link keeps its seconds: Go does not move the search u
   // what Go submits is the field's value: it must hold the link's seconds (local wall time, so check the tail)
   await expect(page.getByLabel('From time')).toHaveValue(/T\d\d:\d\d:45$/, { timeout: 15_000 });
 });
+
+test('reprocessing a message with a repeated header key keeps each header, not one merged "1, 2"', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=orders&tab=messages&produce=1');
+  const produce = page.getByRole('dialog', { name: /Produce/ });
+  await produce.getByRole('button', { name: '+ Add header' }).click({ timeout: 15_000 });
+  await produce.getByRole('button', { name: '+ Add header' }).click();
+  const names = produce.getByRole('textbox', { name: 'Header name' });
+  const values = produce.getByRole('textbox', { name: 'Header value' });
+  const n = await names.count();
+  await names.nth(n - 2).fill('a');
+  await values.nth(n - 2).fill('1');
+  await names.nth(n - 1).fill('a');
+  await values.nth(n - 1).fill('2');
+  await produce.getByRole('button', { name: /^Produce 1 message/ }).click();
+  await page.getByRole('button', { name: 'Show in messages' }).click(); // opens the produced message (?msg=)
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Reprocess to topic' })
+    .click({ timeout: 15_000 });
+  const re = page.getByRole('dialog', { name: 'Reprocess message' });
+  const rn = re.getByRole('textbox', { name: 'Header name' });
+  await expect(rn.first()).toBeVisible({ timeout: 15_000 });
+  const pairs: string[] = [];
+  for (let i = 0; i < (await rn.count()); i++)
+    pairs.push(
+      `${await rn.nth(i).inputValue()}=${await re.getByRole('textbox', { name: 'Header value' }).nth(i).inputValue()}`,
+    );
+  expect(pairs).toContain('a=1');
+  expect(pairs).toContain('a=2');
+});

@@ -175,8 +175,10 @@ export function ProduceDrawer({
     decodeMessage(m, 'auto', 'auto', lookup, []).then((d) => {
       setValue(d.value.ok ? JSON.stringify(d.value.value, null, 2) : d.value.hex);
       setKey(d.key.ok && d.key.value !== null ? keyText(d.key) : '');
+      // from the raw headers: d.headers joins a repeated key into one "1, 2", which would produce one header
+      const td = new TextDecoder();
       setHeaders([
-        ...Object.entries(d.headers),
+        ...m.headers.map((h): [string, string] => [h.key, td.decode(h.value)]),
         ['reprocessed-from', `${srcTopic}-${m.partition}@${m.offset}`],
       ]);
     });
