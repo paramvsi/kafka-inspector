@@ -1492,3 +1492,25 @@ test('a keyless produce on Auto only picks partitions that can take it, as Kafka
     }),
   ).rejects.toThrow('has no leader');
 });
+
+test('a group cannot consume a partition that has no leader: its committed offsets do not move', async () => {
+  const a = make(new MemoryStore());
+  await a.init();
+  // behind first (a caught-up group is capped at the frozen end anyway): slow it down, then let it run normally
+  const slow = a.sim.runChaos({ kind: 'slow-consumer', target: 'order-service' });
+  a.advance(60);
+  a.sim.stopChaos(slow.id);
+  for (const b of ['1', '2', '3']) a.sim.runChaos({ kind: 'broker-down', target: b });
+  a.advance(1);
+  expect(a.sim.getTopic('orders').partitions.every((p) => p.leader === null)).toBe(true);
+  expect(a.sim.getGroup('order-service').summary.totalLag).toBeGreaterThan(0);
+  const committed = () =>
+    a.sim
+      .getGroup('order-service')
+      .partitions.filter((p) => p.topic === 'orders')
+      .map((p) => p.committedOffset);
+  const before = committed();
+  expect(before.length).toBeGreaterThan(0);
+  a.advance(60);
+  expect(committed()).toEqual(before); // nothing can be fetched without a leader: no progress, no drain to 0
+});

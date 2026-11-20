@@ -539,7 +539,10 @@ export class Simulator {
         const ps = this.parts.get(gp.topic)?.[gp.p];
         if (!ps) continue;
         const before = gp.committed;
-        if (active) {
+        // no leader: nothing can be fetched, so the group keeps committing where it is (Kafka would too) — it
+        // never drains a partition nobody can read to "caught up"
+        if (active && ps.leader === null) gp.lastCommitAt = t;
+        else if (active) {
           const isPoisoned =
             this.poison &&
             this.poison.group === g.def.groupId &&
