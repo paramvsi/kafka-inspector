@@ -1327,13 +1327,19 @@ test('an offline partition is labelled offline on the topic list, not only under
 
 test('the messages footer counts the rows the key filter keeps', async ({ page }) => {
   await page.goto('/app/topics/view/?name=orders&tab=messages');
-  const footer = page.getByText(/messages · .* scanned/);
+  const footer = page.getByText(/messages? · .* scanned/); // "1 message" when one row is kept
   await expect(footer).toBeVisible({ timeout: 15_000 });
-  const firstKey = (await page.getByRole('row').nth(1).getByRole('cell').nth(2).innerText()).trim();
+  // the Key column by its header: cell 2 is the time, which no key contains (the test then passed with 0 rows)
+  const headers = await page.getByRole('columnheader').allInnerTexts();
+  const keyCol = headers.findIndex((h) => /^Key\b/.test(h.trim()));
+  const firstKey = (
+    await page.getByRole('row').nth(1).getByRole('cell').nth(keyCol).innerText()
+  ).trim();
   await page.getByLabel('Key contains').fill(firstKey);
   await expect(async () => {
     const rows = (await page.getByRole('row').count()) - 1;
-    expect(await footer.innerText()).toMatch(new RegExp(`^${rows} messages`));
+    expect(rows).toBeGreaterThan(0); // a filter that keeps nothing proves nothing about the count
+    expect(await footer.innerText()).toMatch(new RegExp(`^${rows} messages? `));
   }).toPass({ timeout: 10_000 });
 });
 
@@ -2192,7 +2198,9 @@ test('after many Load more pages the decode cache keeps the rows on screen, so q
   const headers = await page.getByRole('columnheader').allInnerTexts();
   const keyCol = headers.findIndex((h) => /^Key\b/.test(h.trim()));
   expect(keyCol).toBeGreaterThanOrEqual(0);
-  const firstKey = (await page.getByRole('row').nth(1).getByRole('cell').nth(keyCol).innerText()).trim();
+  const firstKey = (
+    await page.getByRole('row').nth(1).getByRole('cell').nth(keyCol).innerText()
+  ).trim();
   expect(firstKey).not.toBe('');
   const more = page.getByRole('button', { name: 'Load more' });
   // past RING × 2 (4,000) decoded messages the cache trims itself
