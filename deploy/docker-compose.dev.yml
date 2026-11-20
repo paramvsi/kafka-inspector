@@ -1,7 +1,8 @@
 # Local development: Kafka 4.1 (KRaft) + Schema Registry + a small traffic generator + the agent.
 #   docker compose -f deploy/docker-compose.dev.yml up --build
 # Then open http://localhost:8080 and sign in as admin / dev-password (override with KI_ADMIN_PASSWORD).
-# No volumes: Kafka data and stored schemas are gone after `down` (dev only).
+# Kafka and Schema Registry keep no volume: topics and schemas are gone after `down` (dev only). The agent's
+# history and alert rules live in the ki-data volume until `down -v`.
 services:
   kafka:
     image: apache/kafka:4.1.0
