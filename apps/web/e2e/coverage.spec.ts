@@ -2137,3 +2137,14 @@ test('a reset offset beyond 2^53, in exponent or hex form, or negative is refuse
   await field.fill('42');
   await expect(field).not.toHaveAttribute('aria-invalid', 'true');
 });
+
+test('a shared "From time" link keeps its seconds: Go does not move the search up to 59 s earlier', async ({
+  page,
+}) => {
+  const ts = '2026-01-01T10:20:45.000Z';
+  await page.goto(
+    `/app/topics/view/?name=orders&tab=messages&from=timestamp&ts=${encodeURIComponent(ts)}`,
+  );
+  // what Go submits is the field's value: it must hold the link's seconds (local wall time, so check the tail)
+  await expect(page.getByLabel('From time')).toHaveValue(/T\d\d:\d\d:45$/, { timeout: 15_000 });
+});

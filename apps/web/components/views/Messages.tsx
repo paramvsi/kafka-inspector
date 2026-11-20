@@ -102,7 +102,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   const quickRef = useRef<HTMLDivElement>(null);
   const [draftExpr, setDraftExpr] = useState(expr);
   const [offset, setOffset] = useState(url.get('offset') ?? '');
-  const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? ''));
+  const [ts, setTs] = useState(() => toLocalInput(url.get('ts') ?? '', true));
   const [extra, setExtra] = useState<RawMessage[]>([]);
   const [extraScanned, setExtraScanned] = useState(0); // scanned by Load more pages
   const [cursor, setCursor] = useState<string | undefined>();

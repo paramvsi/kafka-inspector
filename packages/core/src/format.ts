@@ -102,12 +102,14 @@ export function formatTimestamp(t: number | string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
 }
 
-/** Value for <input type="datetime-local">: local wall-clock time, minutes precision ("" for invalid input). */
-export function toLocalInput(t: number | string): string {
+/** Value for <input type="datetime-local">: local wall-clock time, minutes precision ("" for invalid input).
+ * `seconds` keeps them, for a field with step="1" (otherwise a :45 timestamp reads back as :00). */
+export function toLocalInput(t: number | string, seconds = false): string {
   const d = new Date(t);
   if (Number.isNaN(d.getTime())) return '';
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  const hm = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  return seconds ? `${hm}:${p(d.getSeconds())}` : hm;
 }
 
 /** 42% · 99% (not "100%" while short of full) · <1% (a non-zero share never reads as none) */
