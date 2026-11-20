@@ -433,7 +433,7 @@ function Partitions({
             shared ? (
               <span className="text-ink-muted">shared</span>
             ) : r.memberId != null ? (
-              `${r.clientId || r.memberId} · ${r.host ?? ''}`
+              shownName(`${r.clientId || r.memberId} · ${r.host ?? ''}`)
             ) : (
               <span className="text-ink-muted">unassigned</span>
             ),

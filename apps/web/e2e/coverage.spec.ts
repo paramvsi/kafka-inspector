@@ -2266,3 +2266,20 @@ test('a filter link that forges the worker reply cannot crash the Messages view'
   await expect(page.getByLabel('Key contains')).toBeVisible(); // the view is still there
   expect(errors, errors.join(' | ')).toEqual([]);
 });
+
+test('a producer-written key with a direction override and a huge value show escaped and capped in the table', async ({
+  page,
+}) => {
+  await page.goto('/app/topics/view/?name=audit-log&tab=messages&produce=1');
+  const produce = page.getByRole('dialog', { name: /Produce/ });
+  await produce.getByLabel('Key').fill('rtl‮key', { timeout: 15_000 });
+  await produce.getByLabel('Value JSON').fill(JSON.stringify({ note: 'x'.repeat(20_000) }));
+  await produce.getByRole('button', { name: /^Produce 1 message/ }).click();
+  await page.getByRole('button', { name: 'Show in messages' }).click();
+  await page.keyboard.press('Escape'); // close the drawer, look at the table row
+  const row = page.getByRole('row').filter({ hasText: 'rtl\\u{202E}key' }).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const text = await row.innerText();
+  expect(text.includes('‮')).toBe(false); // never the raw override
+  expect(text.length).toBeLessThan(2_000); // a preview, not 20,000 characters
+});

@@ -5,6 +5,7 @@ import {
   formatRate,
   toHex,
   formatTimestamp,
+  shownName,
   toLocalInput,
   type RawMessage,
   type RawMessagePage,
@@ -48,6 +49,9 @@ const FROM = [
 const FROMS = FROM.map((o) => o.value);
 
 const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
+/** A table cell's text from producer-written data: capped (a 10 MB value would otherwise be laid out in full in
+ * every row) and with invisible / direction-changing characters shown as escapes. */
+const cellText = (s: string): string => shownName(s.length > 300 ? `${s.slice(0, 300)}…` : s);
 
 function preview(
   d: DecodedMessage | undefined,
@@ -811,7 +815,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                           d.key.value === null ? (
                             <span className="text-ink-muted">null</span>
                           ) : (
-                            keyText(d.key)
+                            cellText(keyText(d.key))
                           )
                         ) : (
                           <span className="text-crit-text">undecodable</span>
@@ -823,7 +827,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                     {cols.map((c) => (
                       <Td key={c} mono>
                         {d?.shown && typeof d.shown === 'object'
-                          ? (JSON.stringify((d.shown as Record<string, unknown>)[c]) ?? '')
+                          ? cellText(JSON.stringify((d.shown as Record<string, unknown>)[c]) ?? '')
                           : ''}
                       </Td>
                     ))}
@@ -836,7 +840,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                           <span className="text-ink-muted">{pv.text}…</span>
                         </span>
                       ) : (
-                        <span className="text-ink-muted">{pv.text}</span>
+                        <span className="text-ink-muted">{cellText(pv.text)}</span>
                       )}
                     </Td>
                   </tr>

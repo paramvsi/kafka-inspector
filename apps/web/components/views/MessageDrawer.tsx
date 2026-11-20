@@ -161,7 +161,11 @@ export function MessageDrawer({
             </Row>
             <Row k="Key">
               <span className="font-mono break-all">
-                {d.key.ok ? (d.key.value === null ? 'null' : keyText(d.key)) : 'undecodable'}
+                {d.key.ok
+                  ? d.key.value === null
+                    ? 'null'
+                    : shownName(keyText(d.key))
+                  : 'undecodable'}
               </span>
             </Row>
             <Row k="Schema">
@@ -178,7 +182,7 @@ export function MessageDrawer({
             <Row k="Headers">
               <span className="font-mono break-all">
                 {Object.entries(d.headers)
-                  .map(([k, v]) => `${k}=${v}`)
+                  .map(([k, v]) => shownName(`${k}=${v}`))
                   .join(' · ') || '—'}
               </span>
             </Row>
