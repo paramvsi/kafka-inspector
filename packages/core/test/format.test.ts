@@ -121,3 +121,11 @@ test('rounding never reports full, empty or "-0" when it isn\'t; counts go to T;
   expect(formatInt(NaN)).toBe('—');
   expect(formatRate(-0.04)).toBe('0/s');
 });
+
+test('duration boundaries: a minute reads in minutes, a day stays in hours until 48 h', () => {
+  expect(formatDuration(59_000)).toBe('59s');
+  expect(formatDuration(60_000)).toBe('1m 0s');
+  expect(formatDuration(86_400_000)).toBe('24h 0m'); // "1d 0h" only from 48 h: a day-and-a-bit reads in hours
+  expect(formatDuration(47 * 3_600_000)).toBe('47h 0m');
+  expect(formatDuration(48 * 3_600_000)).toBe('2d 0h');
+});
