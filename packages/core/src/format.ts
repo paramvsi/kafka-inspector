@@ -97,9 +97,16 @@ export function formatWhen(t: number, now = Date.now()): string {
 /** 2026-11-16 06:00:01.234 in local time (message timestamps; the table shows the time part) */
 export function formatTimestamp(t: number | string): string {
   const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '—';
+  // Kafka's -1 is "no timestamp" (old message formats): it arrives as 1969-12-31T23:59:59.999Z, and 0 as 1970
+  if (Number.isNaN(d.getTime()) || d.getTime() <= 0) return '—';
   const p = (n: number, w = 2) => String(n).padStart(w, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
+/** The time part of formatTimestamp (the message table's column), "—" when there is no timestamp */
+export function formatTimeOfDay(t: number | string): string {
+  const s = formatTimestamp(t);
+  return s === '—' ? s : s.slice(11);
 }
 
 /** Value for <input type="datetime-local">: local wall-clock time, minutes precision ("" for invalid input).

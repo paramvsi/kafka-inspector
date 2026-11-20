@@ -4,6 +4,7 @@ import {
   formatInt,
   formatRate,
   toHex,
+  formatTimeOfDay,
   formatTimestamp,
   shownName,
   toLocalInput,
@@ -48,7 +49,7 @@ const FROM = [
 
 const FROMS = FROM.map((o) => o.value);
 
-const time = (iso: string) => formatTimestamp(iso).slice(11); // HH:MM:SS.mmm
+const time = (iso: string) => formatTimeOfDay(iso); // HH:MM:SS.mmm, or — for a record without a timestamp
 /** A table cell's text from producer-written data: capped (a 10 MB value would otherwise be laid out in full in
  * every row) and with invisible / direction-changing characters shown as escapes. */
 const cellText = (s: string): string => shownName(s.length > 300 ? `${s.slice(0, 300)}…` : s);
