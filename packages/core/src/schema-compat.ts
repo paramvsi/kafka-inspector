@@ -1,6 +1,6 @@
 // Schema compatibility and field diff (F-88, F-89). Avro follows the spec's schema-resolution rules;
 // JSON Schema uses a pragmatic subset (required properties and property types).
-import { namedTypes } from './serdes/avro';
+import { namedTypes, PRIMITIVES } from './serdes/avro';
 import type { CompatibilityResult, SubjectSummary } from './types';
 
 // Parsed Avro schema JSON: deliberately loose (any) — it is walked structurally and checked at runtime.
@@ -40,17 +40,6 @@ const describe = (s: Avro, named: Named): string => {
     return `${t} ${r.name.slice(r.name.lastIndexOf('.') + 1)}`;
   return t;
 };
-
-const PRIMITIVES = new Set([
-  'null',
-  'boolean',
-  'int',
-  'long',
-  'float',
-  'double',
-  'bytes',
-  'string',
-]);
 
 /** Does a default value fit the type? (A union's default fits its first branch — Avro spec.) */
 function fits(s: Avro, v: unknown, named: Named): boolean {

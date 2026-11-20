@@ -33,7 +33,7 @@ export function collectNamed(s: AvroSchema, named: Map<string, AvroSchema>, ns?:
   if (typeof s.type === 'object') collectNamed(s.type, named, space);
 }
 
-const PRIMITIVES = new Set([
+export const PRIMITIVES = new Set([
   'null',
   'boolean',
   'int',
