@@ -22,3 +22,6 @@ designs/
 design-system/
 docs/*
 !docs/img/
+
+# Netlify CLI build cache (netlify deploy)
+.netlify/

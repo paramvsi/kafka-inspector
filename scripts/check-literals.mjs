@@ -8,6 +8,7 @@ const skipDirs = new Set([
   'node_modules',
   '.next',
   'out',
+  '.netlify', // the Netlify CLI's build cache (a copy of out/)
   'coverage',
   'test-results',
   'playwright-report',

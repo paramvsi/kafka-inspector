@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.next/**',
       '**/out/**',
+      '**/.netlify/**', // the Netlify CLI's build cache (netlify deploy)
       '**/coverage/**',
       '**/test-results/**',
       '**/playwright-report/**',

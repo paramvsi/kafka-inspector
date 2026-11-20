@@ -6,6 +6,7 @@ prompts/
 assets/
 pnpm-lock.yaml
 **/out/
+**/.netlify/
 **/.next/
 packages/ui/tokens/
 .claude/
