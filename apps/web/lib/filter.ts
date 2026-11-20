@@ -34,6 +34,29 @@ const spawn = () =>
 const FIRST_RUN_MS = 5000;
 let warm = false;
 
+/** The filter shares the worker's global, so an expression can post a look-alike reply for a request id: the page
+ * accepts only the shape the worker builds (integer indexes, a count, string errors), never arbitrary objects. */
+function reply(d: unknown): FilterResult {
+  const r = (d ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+  if (r.error && !r.matches) return { matches: [], scanned: 0, error: String(r.error) };
+  if (
+    !Array.isArray(r.matches) ||
+    !r.matches.every((i) => Number.isInteger(i) && i >= 0) ||
+    typeof r.scanned !== 'number' ||
+    (r.error !== undefined && typeof r.error !== 'string') ||
+    (r.skipError !== undefined && typeof r.skipError !== 'string') ||
+    (r.skipped !== undefined && !Number.isInteger(r.skipped)) ||
+    (r.timedOut !== undefined && typeof r.timedOut !== 'boolean')
+  )
+    return {
+      matches: [],
+      scanned: 0,
+      error: 'The filter returned something that is not a result. Check the expression.',
+    };
+  return { ...(r as unknown as FilterResult), error: str(r.error), skipError: str(r.skipError) };
+}
+
 export function runFilter(expr: string, messages: FilterInput[]): Promise<FilterResult> {
   if (!worker) {
     worker = spawn();
@@ -59,9 +82,7 @@ export function runFilter(expr: string, messages: FilterInput[]): Promise<Filter
       clearTimeout(timer);
       warm = true;
       w.removeEventListener('message', onMsg);
-      resolve(
-        e.data.error && !e.data.matches ? { matches: [], scanned: 0, error: e.data.error } : e.data,
-      );
+      resolve(reply(e.data));
     };
     w.addEventListener('message', onMsg);
     w.postMessage({ id, expr, messages });

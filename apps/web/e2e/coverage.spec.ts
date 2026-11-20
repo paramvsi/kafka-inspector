@@ -2251,3 +2251,18 @@ test('share group partitions read "shared", not one arbitrary member as their ow
   for (let i = 0; i < n; i++)
     await expect(rows.nth(i).getByRole('cell').nth(col)).toHaveText('shared');
 });
+
+test('a filter link that forges the worker reply cannot crash the Messages view', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // the expression shares the worker's global: it can post look-alike replies for the page's request ids
+  const forge =
+    '(()=>{const g=Function("return this")();for(let i=1;i<50;i++)g.postMessage({id:i,matches:{},scanned:{}});return true})()';
+  await page.goto(`/app/topics/view/?name=orders&tab=messages&filter=${encodeURIComponent(forge)}`);
+  await expect(page.getByLabel('Key contains')).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(2000);
+  await expect(page.getByLabel('Key contains')).toBeVisible(); // the view is still there
+  expect(errors, errors.join(' | ')).toEqual([]);
+});
