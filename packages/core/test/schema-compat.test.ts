@@ -291,3 +291,27 @@ test('JSON Schema closed content model (additionalProperties: false): a reader r
     true,
   );
 });
+
+test('an Avro candidate with a default that does not fit its type, or an unknown type name, is invalid, not Compatible', () => {
+  const old = JSON.stringify({ type: 'record', name: 'R', fields: [{ name: 'a', type: 'int' }] });
+  const withField = (f: object) =>
+    JSON.stringify({ type: 'record', name: 'R', fields: [{ name: 'a', type: 'int' }, f] });
+  for (const bad of [
+    { name: 'b', type: 'int', default: 'x' }, // a string default for an int
+    { name: 'b', type: ['string', 'null'], default: null }, // a union default must fit the FIRST branch
+    { name: 'b', type: 'strng', default: null }, // no such type
+  ]) {
+    const r = checkCompatibility('AVRO', old, withField(bad), 'BACKWARD');
+    expect(r.compatible, JSON.stringify(bad)).toBe(false);
+    expect(r.messages.join(' ')).toMatch(/invalid Avro schema/i);
+  }
+  // a valid added field with a fitting default still passes
+  expect(
+    checkCompatibility(
+      'AVRO',
+      old,
+      withField({ name: 'b', type: ['null', 'string'], default: null }),
+      'BACKWARD',
+    ).compatible,
+  ).toBe(true);
+});

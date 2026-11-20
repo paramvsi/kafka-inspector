@@ -41,6 +41,76 @@ const describe = (s: Avro, named: Named): string => {
   return t;
 };
 
+const PRIMITIVES = new Set([
+  'null',
+  'boolean',
+  'int',
+  'long',
+  'float',
+  'double',
+  'bytes',
+  'string',
+]);
+
+/** Does a default value fit the type? (A union's default fits its first branch — Avro spec.) */
+function fits(s: Avro, v: unknown, named: Named): boolean {
+  const t = typeName(s, named),
+    r = resolve(s, named);
+  if (t === 'union') return fits((r as Avro[])[0], v, named);
+  if (t === 'null') return v === null;
+  if (t === 'boolean') return typeof v === 'boolean';
+  if (t === 'int' || t === 'long') return Number.isInteger(v);
+  if (t === 'float' || t === 'double') return typeof v === 'number';
+  if (t === 'string' || t === 'bytes' || t === 'fixed') return typeof v === 'string';
+  if (t === 'enum') return ((r as { symbols?: string[] }).symbols ?? []).includes(v as string);
+  if (t === 'array') return Array.isArray(v) && v.every((x) => fits(r.items, x, named));
+  if (t === 'map')
+    return (
+      !!v &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      Object.values(v).every((x) => fits(r.values, x, named))
+    );
+  if (t === 'record' || t === 'error') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+    const o = v as Record<string, unknown>;
+    return ((r.fields ?? []) as Array<{ name: string; type: Avro; default?: unknown }>).every(
+      (f) => (f.name in o ? fits(f.type, o[f.name], named) : 'default' in f),
+    );
+  }
+  return false;
+}
+
+/** Why a candidate Avro schema is invalid (a registry refuses it before any compatibility check), or null:
+ * a type name that isn't a primitive or a defined named type, or a default that doesn't fit its field. */
+function invalidAvro(s: Avro, named: Named, path = '', seen = new Set<Avro>()): string | null {
+  const t = typeName(s, named),
+    r = resolve(s, named);
+  if (t === 'union') {
+    for (const b of r as Avro[]) {
+      const e = invalidAvro(b, named, path, seen);
+      if (e) return e;
+    }
+    return null;
+  }
+  if (t === 'record' || t === 'error') {
+    if (seen.has(r)) return null; // recursive types
+    seen.add(r);
+    for (const f of (r.fields ?? []) as Array<{ name: string; type: Avro; default?: unknown }>) {
+      const at = path ? `${path}.${f.name}` : f.name;
+      const e = invalidAvro(f.type, named, at, seen);
+      if (e) return e;
+      if ('default' in f && !fits(f.type, f.default, named))
+        return `${at}: default ${JSON.stringify(f.default)} isn't a ${describe(f.type, named)}`;
+    }
+    return null;
+  }
+  if (t === 'array') return invalidAvro(r.items, named, path, seen);
+  if (t === 'map') return invalidAvro(r.values, named, path, seen);
+  if (t === 'enum' || t === 'fixed' || PRIMITIVES.has(t)) return null;
+  return `${path || 'schema'}: unknown type ${JSON.stringify(t)}`;
+}
+
 const ids = new WeakMap<object, number>();
 let nextId = 0;
 const seenId = (o: object): number => {
@@ -206,6 +276,9 @@ function avroCheck(
   n = nt.root;
   const on: Named = ot.named,
     nn: Named = nt.named;
+  // a registry refuses an invalid schema outright (422): never call it compatible
+  const invalid = invalidAvro(n, nn);
+  if (invalid) return { compatible: false, messages: [`Invalid Avro schema — ${invalid}.`] };
   const messages: string[] = [];
   const backward = mode.startsWith('BACKWARD') || mode.startsWith('FULL');
   const forward = mode.startsWith('FORWARD') || mode.startsWith('FULL');
