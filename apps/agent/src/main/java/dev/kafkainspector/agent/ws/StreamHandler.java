@@ -48,6 +48,21 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
     private final Map<String, Map<String, String[]>> subs = new ConcurrentHashMap<>(); // session → id → [cluster, channel]
     private final Map<String, Runnable> tails = new ConcurrentHashMap<>(); // session|id → stop
     private static final int MAX_TAILS = 8;
+    // the per-connection cap alone is bypassed by opening more connections: each tail is a KafkaConsumer
+    // (sockets, buffers, a thread), so the agent bounds them in total too; subscriptions are cheap but each is
+    // re-rendered on every sample, so a connection gets a generous, finite number
+    private static final int MAX_TAILS_TOTAL = 32;
+    private static final int MAX_SUBS = 64;
+
+    /** Why a new tail `key` (connection `prefix` + id) is refused, or null; a re-sent id replaces its own tail. */
+    static String tailRefusal(java.util.Collection<String> live, String prefix, String key) {
+        if (live.contains(key)) return null;
+        if (live.stream().filter(k -> k.startsWith(prefix)).count() >= MAX_TAILS)
+            return "Too many live tails on this connection (" + MAX_TAILS + ").";
+        if (live.size() >= MAX_TAILS_TOTAL)
+            return "Too many live tails on this agent (" + MAX_TAILS_TOTAL + "). Close a live tail elsewhere and try again.";
+        return null;
+    }
     // broadcasts leave the sampler thread: a client with a stalled TCP window holds the send lock inside Tomcat's
     // blocking send (~20 s), and on the sampler that stalled sampling for every cluster. One thread keeps order.
     private final ExecutorService sender = Executors.newSingleThreadExecutor(Thread.ofVirtual().factory());
@@ -152,7 +167,10 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 String channel = m.path("channel").asString("metrics");
                 if (!CHANNELS.contains(channel))
                     throw new IllegalArgumentException("Unknown channel " + channel + ". Use metrics, lag, events or alerts.");
-                subs.get(raw.getId()).put(id, new String[] {cid, channel});
+                Map<String, String[]> mine = subs.get(raw.getId());
+                if (!mine.containsKey(id) && mine.size() >= MAX_SUBS)
+                    throw new IllegalArgumentException("Too many subscriptions on this connection (" + MAX_SUBS + "). Unsubscribe from one first.");
+                mine.put(id, new String[] {cid, channel});
                 ClusterState st = sampler.state(cid);
                 if (st.ts > 0) push(s, id, cid, channel, st);
             }
@@ -161,8 +179,9 @@ public class StreamHandler extends TextWebSocketHandler implements WebSocketConf
                 int maxRate = Math.max(1, Math.min(500, m.path("maxRate").asInt(50)));
                 String prefix = raw.getId() + "|";
                 // a re-sent id replaces its own tail, so it doesn't count against the limit
-                if (!tails.containsKey(prefix + id) && tails.keySet().stream().filter(k -> k.startsWith(prefix)).count() >= MAX_TAILS) {
-                    send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", "Too many live tails on this connection (" + MAX_TAILS + ")."));
+                String refused = tailRefusal(tails.keySet(), prefix, prefix + id);
+                if (refused != null) {
+                    send(s, Map.of("id", id, "channel", "tail", "ts", Instant.now().toString(), "error", refused));
                     return;
                 }
                 // the error can arrive before this tail is registered, or after a re-sent id replaced it:
