@@ -2236,3 +2236,18 @@ test('an offline broker shows no live-looking traffic or disk figures, only dash
     await expect(down.getByRole('cell').nth(col(name)), name).toHaveText('—');
   }
 });
+
+test('share group partitions read "shared", not one arbitrary member as their owner', async ({
+  page,
+}) => {
+  await page.goto('/app/groups/view/?id=notify-workers');
+  await expect(page.getByText(/Members share every partition/)).toBeVisible({ timeout: 15_000 });
+  const headers = await page.getByRole('columnheader').allInnerTexts();
+  const col = headers.findIndex((h) => h.trim() === 'Member');
+  expect(col).toBeGreaterThanOrEqual(0);
+  const rows = page.locator('tbody tr');
+  const n = await rows.count();
+  expect(n).toBeGreaterThan(0);
+  for (let i = 0; i < n; i++)
+    await expect(rows.nth(i).getByRole('cell').nth(col)).toHaveText('shared');
+});

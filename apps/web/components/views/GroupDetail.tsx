@@ -152,7 +152,12 @@ export function GroupDetailView() {
         ]}
       />
       {tab === 'partitions' ? (
-        <Partitions key={d.summary.groupId} rows={d.partitions} groupId={d.summary.groupId} />
+        <Partitions
+          key={d.summary.groupId}
+          rows={d.partitions}
+          groupId={d.summary.groupId}
+          shared={d.summary.type === 'share'}
+        />
       ) : (
         <Members d={d} />
       )}
@@ -376,7 +381,15 @@ function LagChart({ d, points }: { d: Detail; points: Array<[number, number]> })
   );
 }
 
-function Partitions({ rows, groupId }: { rows: GroupPartitionLag[]; groupId: string }) {
+function Partitions({
+  rows,
+  groupId,
+  shared,
+}: {
+  rows: GroupPartitionLag[];
+  groupId: string;
+  shared: boolean; // a share group: no single owner per partition
+}) {
   const [all, setAll] = useState(false);
   const big = rows.filter((r) => r.lag >= 200 || r.status !== 'healthy');
   const shown = all || big.length === 0 ? rows : big;
@@ -415,9 +428,12 @@ function Partitions({ rows, groupId }: { rows: GroupPartitionLag[]; groupId: str
           key: 'm',
           header: 'Member',
           kind: 'id',
+          // a share group's members all read every partition: no single owner to name
           cell: (r) =>
-            r.clientId ? (
-              `${r.clientId} · ${r.host}`
+            shared ? (
+              <span className="text-ink-muted">shared</span>
+            ) : r.memberId != null ? (
+              `${r.clientId || r.memberId} · ${r.host ?? ''}`
             ) : (
               <span className="text-ink-muted">unassigned</span>
             ),
