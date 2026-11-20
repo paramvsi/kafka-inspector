@@ -256,7 +256,7 @@ describe('writes and persistence', () => {
     });
     expect(page.messages).toHaveLength(1);
     expect(new TextDecoder().decode(page.messages[0]!.value!)).toBe('{"hello":"world"}');
-  });
+  }, 20_000); // a reload replays the action log: past the 5 s default under parallel package runs
 });
 
 describe('topic config edits (F-36)', () => {
@@ -280,7 +280,7 @@ describe('topic config edits (F-36)', () => {
     const b = make(store);
     await b.init();
     expect(value(b.sim, 'segment.ms')).toMatchObject({ value: '1000', isDefault: false });
-  });
+  }, 20_000); // a reload replays the action log: past the 5 s default under parallel package runs
 
   test('create-topic configs show as overrides', async () => {
     const a = make(new MemoryStore());
