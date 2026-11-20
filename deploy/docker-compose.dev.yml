@@ -1,6 +1,7 @@
 # Local development: Kafka 4.1 (KRaft) + Schema Registry + a small traffic generator + the agent.
 #   docker compose -f deploy/docker-compose.dev.yml up --build
 # Then open http://localhost:8080 and sign in as admin / dev-password (override with KI_ADMIN_PASSWORD).
+# No volumes: Kafka data and stored schemas are gone after `down` (dev only).
 services:
   kafka:
     image: apache/kafka:4.1.0
@@ -46,6 +47,12 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - '127.0.0.1:8081:8081'
+    # the agent waits for it, so its first schema calls don't say "Couldn't reach the Schema Registry"
+    healthcheck:
+      test: ['CMD', 'curl', '-fs', 'http://localhost:8081/subjects']
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   loadgen:
     image: apache/kafka:4.1.0
@@ -63,6 +70,8 @@ services:
     image: ghcr.io/paramvsi/kafka-inspector:dev
     depends_on:
       kafka:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
     read_only: true
     security_opt:

@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=$(mktemp -d)
+trap 'rm -rf "$OUT"' EXIT # the generated .env holds the gate password: never leave it behind
 PORT=${GATE_PORT:-8090} # GATE_PORT=… when 8090 is taken
 node apps/web/scripts/gen-selfhost.ts "$OUT" host.docker.internal:29093 "$PORT"
 # the user's step 2: fill in the secrets on the server
