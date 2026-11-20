@@ -129,3 +129,12 @@ test('duration boundaries: a minute reads in minutes, a day stays in hours until
   expect(formatDuration(47 * 3_600_000)).toBe('47h 0m');
   expect(formatDuration(48 * 3_600_000)).toBe('2d 0h');
 });
+
+test('shownName escapes astral invisibles (tag characters), blank-looking fillers and lone surrogates', () => {
+  expect(shownName('a\u{E0041}b')).toBe('a\\u{E0041}b'); // a tag character: invisible "ASCII smuggling"
+  expect(shownName('a\u{FE0F}b')).toBe('a\\u{FE0F}b'); // variation selector
+  expect(shownName('xㅤy')).toBe('x\\u{3164}y'); // Hangul filler renders blank
+  expect(shownName('x y')).toBe('x\\u{2028}y'); // line separator
+  expect(shownName('end\uD83D')).toBe('end\\u{D83D}'); // a lone surrogate (e.g. a cut emoji) shown, not as U+FFFD
+  expect(shownName('ok 😀 name')).toBe('ok 😀 name'); // a whole emoji is fine
+});

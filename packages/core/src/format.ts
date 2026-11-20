@@ -132,11 +132,15 @@ export function formatDelta(pct: number): string {
 /** Kafka's topic-name rule: letters, digits, ".", "_", "-", at most 249 characters, and not "." or "..". */
 export const TOPIC_NAME = /^(?!\.\.?$)[a-zA-Z0-9._-]{1,249}$/;
 
-// bidi overrides/isolates, zero-width and other invisible format characters, and C0/C1 controls
+// bidi overrides/isolates, zero-width and other invisible format characters, C0/C1 controls, line/paragraph
+// separators, blank-rendering fillers (Hangul, Khmer), variation selectors, annotation and musical format characters,
+// tag characters (invisible "ASCII smuggling") and lone surrogates. The 'u' flag matches by code point, so astral
+// characters (tags U+E0000+) match whole — without it their surrogate halves slipped through unescaped.
 const INVISIBLE = new RegExp(
-  // eslint-disable-next-line no-control-regex -- matching control characters is the point: they're made visible
-  '[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u2069\\ufeff]',
-  'g',
+  // control, combining and joiner characters are listed on purpose: matching them is how they're made visible
+  // eslint-disable-next-line no-control-regex, no-misleading-character-class
+  '[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180e\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff9-\\ufffb\\u{1d173}-\\u{1d17a}\\u{e0000}-\\u{e007f}\\u{e0100}-\\u{e01ef}\\ud800-\\udfff]',
+  'gu',
 );
 
 /**
