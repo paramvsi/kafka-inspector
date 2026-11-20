@@ -1096,4 +1096,28 @@ class AgentIntegrationTest {
         assertTrue(page.headers().firstValue("cache-control").orElse("").contains("no-store"), () -> "index.html cache-control: " + page.headers().map());
     }
 
+    @Test
+    @Order(53)
+    void signingOutClosesThatSessionsOpenStream() throws Exception {
+        signIn();
+        String cookie = cookies.getCookieStore().getCookies().stream().map(HttpCookie::toString).reduce((a, b) -> a + "; " + b).orElseThrow();
+        var closed = new java.util.concurrent.CompletableFuture<String>();
+        java.net.http.WebSocket ws = http.newWebSocketBuilder()
+                .header("Cookie", cookie)
+                .buildAsync(URI.create("ws://localhost:" + port + "/api/stream"), new java.net.http.WebSocket.Listener() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<?> onClose(java.net.http.WebSocket w, int code, String reason) {
+                        closed.complete(code + " " + reason);
+                        return null;
+                    }
+                })
+                .get(10, TimeUnit.SECONDS);
+        assertFalse(closed.isDone(), "the stream should be open while signed in");
+        assertEquals(204, send("POST", "/api/auth/logout", null).statusCode());
+        // a stream that kept pushing cluster data after sign-out would outlive the session it was opened with
+        // the web app branches on the code (1008: go to sign-in, no reconnect); the reason text may be Spring or ours
+        assertTrue(closed.get(5, TimeUnit.SECONDS).startsWith("1008 "), () -> "closed with " + closed.getNow("nothing"));
+        ws.abort();
+    }
+
 }
