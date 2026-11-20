@@ -2120,3 +2120,20 @@ test('a stored cluster or saved-filter list with a broken entry is ignored, not 
   await expect(page.getByRole('heading', { name: 'Clusters', level: 1 })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('a reset offset beyond 2^53, in exponent or hex form, or negative is refused with a reason, never rounded', async ({
+  page,
+}) => {
+  await page.goto('/app/groups/view/?id=fraud-scorer&reset=1');
+  const dialog = page.getByRole('dialog', { name: /Reset offsets/ });
+  await dialog.getByRole('radio', { name: 'Offset', exact: true }).check({ timeout: 15_000 });
+  const field = dialog.getByRole('textbox', { name: 'Offset' });
+  for (const bad of ['9007199254740993', '1e3', '0x10', '-5', '3.7']) {
+    await field.fill(bad);
+    await expect(field, bad).toHaveAttribute('aria-invalid', 'true');
+    await expect(dialog.getByRole('alert')).toContainText(/whole number/);
+    await expect(dialog.getByRole('button', { name: /^Apply reset/ })).toBeDisabled();
+  }
+  await field.fill('42');
+  await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+});

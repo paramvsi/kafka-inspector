@@ -24,6 +24,18 @@ const KINDS: Array<{ kind: Kind; label: string }> = [
 ];
 
 /** Reset offsets (F-62): scope, strategy, live dry run, then apply. Demo only in v1. */
+
+/** Digits only (and a leading + or - when `signed`: the field starts at "+1"), within the safe-integer range — so "1e3", "0x10", "3.7" and
+ * an offset past 2^53 (which Number would round to a neighbouring offset) are refused, not reinterpreted.
+ * Empty is 0 for a shift (DECISIONS: an empty Shift means 0), nothing for an offset. */
+function whole(text: string, signed: boolean): number | null {
+  const t = text.trim();
+  if (!t) return signed ? 0 : null;
+  if (!(signed ? /^[+-]?\d+$/ : /^\d+$/).test(t)) return null;
+  const n = Number(t);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
 export function ResetOffsetsDialog({
   open,
   onClose,
@@ -59,16 +71,17 @@ export function ResetOffsetsDialog({
     setTime(toLocalInput(Date.now() - 3600e3)); // "1 hour ago" as of opening, in local time
   }, [open]);
 
+  const shiftBy = whole(by, true);
+  const toOffset = whole(offset, false);
   const strategy = useMemo<ResetStrategy | null>(() => {
-    if (kind === 'shift') return Number.isInteger(Number(by)) ? { kind, by: Number(by) } : null;
-    if (kind === 'offset')
-      return offset && Number.isInteger(Number(offset)) ? { kind, offset: Number(offset) } : null;
+    if (kind === 'shift') return shiftBy === null ? null : { kind, by: shiftBy };
+    if (kind === 'offset') return toOffset === null ? null : { kind, offset: toOffset };
     if (kind === 'timestamp')
       return Number.isNaN(Date.parse(time))
         ? null
         : { kind, timestamp: new Date(time).toISOString() };
     return { kind };
-  }, [kind, by, offset, time]);
+  }, [kind, shiftBy, toOffset, time]);
   const req = useMemo(
     () =>
       strategy
@@ -221,9 +234,7 @@ export function ResetOffsetsDialog({
                 mono
                 value={by}
                 onChange={(e) => setBy(e.target.value)}
-                error={
-                  Number.isInteger(Number(by)) ? undefined : 'Enter a whole number, e.g. 1 or -5.'
-                }
+                error={shiftBy === null ? 'Enter a whole number, e.g. 1 or -5.' : undefined}
               />
             </div>
             {skippedOne && stalled?.committedOffset !== null && (
@@ -242,6 +253,11 @@ export function ResetOffsetsDialog({
               inputMode="numeric"
               value={offset}
               onChange={(e) => setOffset(e.target.value)}
+              error={
+                offset.trim() && toOffset === null
+                  ? 'Enter a whole number from 0 to 9,007,199,254,740,991.'
+                  : undefined
+              }
             />
           </div>
         )}
