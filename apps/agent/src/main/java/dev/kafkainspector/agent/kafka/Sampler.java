@@ -71,23 +71,13 @@ public class Sampler {
     @Scheduled(fixedDelayString = "${ki.sample-interval:10s}", initialDelay = 0)
     public void sampleAll() {
         tick++;
+        // side by side: an unreachable cluster waits up to 20 s per call, and in turn it delayed every cluster after
+        // it each tick. State, caches and alert evaluation are per cluster or synchronized; listeners still run in order.
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            for (String cid : clusters.all().keySet()) pool.submit(() -> sampleOne(cid));
+        }
         for (String cid : clusters.all().keySet()) {
             ClusterState s = states.get(cid);
-            try {
-                sample(cid, s);
-                s.connected = true;
-                s.error = null;
-            } catch (Exception e) {
-                if (s.connected || s.error == null) log.warn("Cluster {} unreachable: {}", cid, reason(e));
-                s.connected = false;
-                s.error = reason(e);
-                // pre-outage samples would judge the first sample after it: a group whose members haven't rejoined
-                // yet reads "stopped" (commit age = the outage) and logs a crit event; start the windows again instead
-                s.windows.clear();
-                s.lastChange.clear();
-                kafka.reset(cid);
-                alerts.forgetPending(cid); // a condition must hold through samples we actually saw, not across an outage
-            }
             for (var l : listeners) {
                 // a failing listener (e.g. a DB error while pushing) must not skip the other clusters this tick
                 try {
@@ -99,11 +89,32 @@ public class Sampler {
         }
     }
 
+    private void sampleOne(String cid) {
+        ClusterState s = states.get(cid);
+        try {
+            sample(cid, s);
+            s.connected = true;
+            s.error = null;
+        } catch (Exception e) {
+            if (s.connected || s.error == null) log.warn("Cluster {} unreachable: {}", cid, reason(e));
+            s.connected = false;
+            s.error = reason(e);
+            // pre-outage samples would judge the first sample after it: a group whose members haven't rejoined
+            // yet reads "stopped" (commit age = the outage) and logs a crit event; start the windows again instead
+            s.windows.clear();
+            s.lastChange.clear();
+            kafka.reset(cid);
+            alerts.forgetPending(cid); // a condition must hold through samples we actually saw, not across an outage
+        }
+    }
+
     /** Why a sample failed, as the user should read it: what failed and what to do (not "TimeoutException"). */
     static String reason(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             if (t instanceof java.util.concurrent.TimeoutException || t instanceof org.apache.kafka.common.errors.TimeoutException)
                 return "No broker answered within 20 s. Check the bootstrap address and the network.";
+            if (t instanceof org.apache.kafka.common.errors.ClusterAuthorizationException)
+                return "The agent's Kafka user isn't allowed to describe the cluster. Grant it DESCRIBE on CLUSTER (and DESCRIBE on the topics and groups to show).";
             if (t instanceof org.apache.kafka.common.errors.AuthenticationException)
             {
                 String m = t.getMessage() == null ? "the broker refused the credentials" : t.getMessage().strip();
