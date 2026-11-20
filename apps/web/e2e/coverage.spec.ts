@@ -1402,6 +1402,22 @@ test('a start offset past the end says so, not "no messages in its retention win
   });
 });
 
+test('a link with an offset that is not a whole number in range reads nothing and says why', async ({
+  page,
+}) => {
+  // 2^53 + 1 rounds to 2^53 in a JS number, and -5 used to read from 0: either read starts somewhere the link doesn't say
+  for (const bad of ['9007199254740993', '-5']) {
+    await page.goto(`/app/topics/view/?name=audit-log&tab=messages&from=offset&offset=${bad}`);
+    // shown in the results and under the Offset field (which the link fills)
+    await expect(
+      page.getByText('Enter a whole number from 0 to 9,007,199,254,740,991.').first(),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/No messages at or after offset/)).toHaveCount(0);
+  }
+});
+
 test('a mistyped address gets a branded page with a way back, not a bare 404', async ({ page }) => {
   // Netlify serves out/404.html for unknown paths; the local static server doesn't, so open it directly
   await page.goto('/404.html');

@@ -70,6 +70,14 @@ function preview(
   };
 }
 
+const OFFSET_RANGE = 'Enter a whole number from 0 to 9,007,199,254,740,991.';
+/** An offset as typed or linked: digits only and exactly representable, else null (no rounding, no clamping). */
+function wholeOffset(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d+$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isSafeInteger(n) ? n : null;
+}
 export function MessagesTab({ topic, partitions }: { topic: string; partitions: number }) {
   const toast = useToast();
   const url = useUrl();
@@ -120,15 +128,19 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
   );
 
   // ── browse (not live) ──
-  // a start that still needs its field reads nothing yet (and the agent would refuse it)
+  // a start that still needs its field reads nothing yet (and the agent would refuse it). A link's offset is read
+  // as written or not at all: Number() rounded 2^53 + 1 and turned -5 into 0, reading from where the link doesn't say.
+  const startOffset = wholeOffset(url.get('offset') ?? '0');
   const needs =
     regex !== undefined
       ? undefined
-      : from === 'timestamp' && !url.get('ts')
-        ? 'Pick a date and time to read from.'
-        : from === 'group' && !group && groups.data
-          ? `No consumer group reads ${topic} yet. Start from another position.`
-          : undefined;
+      : from === 'offset' && startOffset === null
+        ? OFFSET_RANGE
+        : from === 'timestamp' && !url.get('ts')
+          ? 'Pick a date and time to read from.'
+          : from === 'group' && !group && groups.data
+            ? `No consumer group reads ${topic} yet. Start from another position.`
+            : undefined;
   const page = useKafkaQuery<RawMessagePage>(
     ['browse', topic, from, p, url.get('offset'), url.get('ts'), group, regex, url.get('sample')],
     (c, id) =>
@@ -143,7 +155,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             topic,
             partition: p === 'all' ? 'all' : Number(p),
             from,
-            offset: Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0),
+            offset: startOffset ?? 0,
             timestamp: url.get('ts'),
             group,
             limit: 100,
@@ -408,7 +420,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
             className="flex items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              url.set({ offset });
+              if (wholeOffset(offset) !== null) url.set({ offset: offset.trim() });
             }}
           >
             <div className="w-[150px]">
@@ -418,6 +430,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                 value={offset}
                 onChange={(e) => setOffset(e.target.value)}
                 inputMode="numeric"
+                error={offset.trim() && wholeOffset(offset) === null ? OFFSET_RANGE : undefined}
               />
             </div>
             <Button type="submit">Go</Button>
@@ -891,7 +904,7 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
                         ? `${(page.error as Error).message} Fix the pattern and search again.`
                         : `${(page.error as Error).message} Try another start position, or try again.`
                       : from === 'offset'
-                        ? `No messages at or after offset ${formatInt(Math.max(0, Math.floor(Number(url.get('offset') ?? 0)) || 0))} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier offset or Newest.`
+                        ? `No messages at or after offset ${formatInt(startOffset ?? 0)} in ${p === 'all' ? 'any partition' : `partition ${p}`}. Pick an earlier offset or Newest.`
                         : regex !== undefined
                           ? `No messages found in topics matching ${regex || '.*'}. Check the pattern, or search from Oldest.`
                           : from === 'timestamp'
