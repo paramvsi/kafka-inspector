@@ -19,8 +19,8 @@ const INFO = {
     },
   ],
 };
-async function stillLoading(page: Page) {
-  await page.route('**/api/info', (r) => r.fulfill({ json: INFO }));
+async function stillLoading(page: Page, info: object = INFO) {
+  await page.route('**/api/info', (r) => r.fulfill({ json: info }));
   await page.route(/\/api\/(clusters|alerts)/, () => new Promise(() => {}));
 }
 
@@ -84,8 +84,7 @@ test('a failed card load offers Retry, which loads it again without a page reloa
 test('?preview=disconnected never fakes an outage on a real agent (rule 7: previews are demo-only)', async ({
   page,
 }) => {
-  await page.route('**/api/info', (r) => r.fulfill({ json: INFO }));
-  await page.route(/\/api\/(clusters|alerts)/, () => new Promise(() => {}));
+  await stillLoading(page);
   await page.routeWebSocket(/\/api\/stream/, () => {}); // an agent stream that stays open: really connected
   await page.goto('/app/alerts/?preview=disconnected');
   await expect(page.getByRole('heading', { name: 'Alerts', level: 1 })).toBeVisible({
@@ -105,8 +104,7 @@ test('after switching cluster, the chrome names the chosen cluster before its fi
       { ...INFO.clusters[0], id: 'beta', name: 'beta' },
     ],
   };
-  await page.route('**/api/info', (r) => r.fulfill({ json: two }));
-  await page.route(/\/api\/(clusters|alerts)/, () => new Promise(() => {}));
+  await stillLoading(page, two);
   await page.routeWebSocket(/\/api\/stream/, () => {}); // open, but no metrics frame yet
   await page.goto('/app/?c=beta');
   await expect(page.getByRole('button', { name: /^Cluster beta\b/ })).toBeVisible({
