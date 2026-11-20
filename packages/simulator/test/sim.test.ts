@@ -1531,3 +1531,21 @@ test('a tab asleep for 30 days catches up the last 7 days only, not a month of s
   expect(steps).toBeLessThan(10_400);
   expect(sim.getOverview().kpis).toBeTruthy(); // still a working cluster after the jump
 });
+
+test('a slow consumer during a traffic spike falls behind faster than a healthy one, not slower', async () => {
+  const growth = async (slow: boolean) => {
+    const h = make();
+    await h.init();
+    h.sim.runChaos({ kind: 'traffic-spike', target: '*' });
+    if (slow) h.sim.runChaos({ kind: 'slow-consumer', target: 'order-service' });
+    h.advance(2);
+    const lag = () => h.sim.listGroups().find((x) => x.groupId === 'order-service')!.totalLag;
+    const l0 = lag();
+    h.advance(20);
+    return lag() - l0;
+  };
+  const healthy = await growth(false);
+  const slowed = await growth(true);
+  // slowing a consumer can only add lag; it read 60 % of the spiked rate — 6× its usual speed — and drained faster
+  expect(slowed).toBeGreaterThan(healthy);
+});

@@ -564,10 +564,11 @@ export class Simulator {
               cap = 0;
             } else {
               // consumers keep their usual speed through a traffic spike, so a 10× burst builds lag ("lag spikes",
-              // then drains); "Slow consumer" reads at 60 % of what arrives, whatever the group's spare capacity
+              // then drains); "Slow consumer" reads at 60 % of the usual input, whatever the group's spare capacity —
+              // not of the spiked rate, which made a slowed group read 6× faster than a healthy one during a spike
               const spiked = this.spike.get(gp.topic) ?? this.spike.get('*') ?? 1;
               const usual = ps.rate / spiked;
-              if (g.slow) cap = ps.rate * 0.6;
+              if (g.slow) cap = usual * 0.6;
               else if (g.def.groupId === 'payments-sink') {
                 const w = sinkWeight(gp.topic, gp.p);
                 cap = usual + w * (inDip ? -SINK_CYCLE.dipDeficit : SINK_CYCLE.drainSurplus);
