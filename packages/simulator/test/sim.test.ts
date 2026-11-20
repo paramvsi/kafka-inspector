@@ -256,7 +256,7 @@ describe('writes and persistence', () => {
     });
     expect(page.messages).toHaveLength(1);
     expect(new TextDecoder().decode(page.messages[0]!.value!)).toBe('{"hello":"world"}');
-  }, 20_000); // a reload replays the action log: past the 5 s default under parallel package runs
+  });
 });
 
 describe('topic config edits (F-36)', () => {
@@ -280,7 +280,7 @@ describe('topic config edits (F-36)', () => {
     const b = make(store);
     await b.init();
     expect(value(b.sim, 'segment.ms')).toMatchObject({ value: '1000', isDefault: false });
-  }, 20_000); // a reload replays the action log: past the 5 s default under parallel package runs
+  });
 
   test('create-topic configs show as overrides', async () => {
     const a = make(new MemoryStore());
@@ -965,7 +965,7 @@ test('a tab asleep for two hours wakes without a lag jump from one giant step', 
     worst = Math.max(worst, after - before);
   }
   expect(worst).toBeLessThan(200_000);
-}, 20_000); // ~3.5 s alone, over the 5 s default when every package's tests run at once
+});
 
 test('a deleted group leaves no topology edge behind', async () => {
   const h = make();
@@ -1066,7 +1066,7 @@ test('a live tail after an hour asleep samples the gap without listing every off
   stop();
   expect(batches.at(-1)!.length).toBeLessThanOrEqual(50);
   expect(ms).toBeLessThan(1500); // ~78M offsets were pushed into arrays before
-}, 20_000);
+});
 
 test('chaos does what its card says: a traffic spike builds lag, a slow consumer reads at 60 % of input', async () => {
   const lagOf = (h: ReturnType<typeof make>, id: string) =>
@@ -1142,7 +1142,7 @@ test('a reload later in the session never moves offsets backwards (a message the
   // within ~2 s of traffic (the last 15 min of the back-fill keeps per-second noise), not the 10 minutes it lost
   // before (~620,000 messages on partition 0)
   after.forEach((h, i) => expect(h).toBeGreaterThanOrEqual(before[i]! - 2000));
-}, 20_000); // two 24 h back-fills plus hundreds of ticks: ~0.6 s alone, past 5 s under parallel package runs
+});
 
 test('an acknowledged or muted alert stays so after a reload (it was re-raised as new)', async () => {
   let now = LOAD;
@@ -1217,7 +1217,7 @@ test('a message produced to a busy topic is at the same offset after a reload (i
     limit: 1,
   } as never).messages[0]!;
   expect({ offset: m.offset, key: key(m) }).toEqual({ offset: r.offset, key: 'mine' });
-}, 20_000); // two 24 h back-fills plus hundreds of ticks: ~0.6 s alone, past 5 s under parallel package runs
+});
 
 test('Reset demo starts with default topic settings: a config edit does not leak into the next simulator', async () => {
   const a = make();
