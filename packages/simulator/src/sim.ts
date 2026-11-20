@@ -98,6 +98,8 @@ interface PState {
   isr: number[];
   rate: number;
   lastMsgAt: number;
+  /** messages produced by hand since the last step: shown in that step's rate (the end offset already moved) */
+  pending?: number;
 }
 
 interface GPart {
@@ -500,10 +502,15 @@ export class Simulator {
       let produced = 0; // what the partitions actually take: a leaderless one takes nothing (as the topic rows show)
       for (const s of ps) {
         s.rate = s.leader === null ? 0 : rate * shares[s.p]!;
-        produced += s.rate;
         const before = Math.floor(s.end);
         s.end += s.rate * dt;
         if (Math.floor(s.end) > before) s.lastMsgAt = t;
+        if (s.pending) {
+          // a topic read 0 / s while Messages showed what was just produced into it (rule 7)
+          s.rate += s.pending / (dt > 0 ? dt : 1);
+          s.pending = 0;
+        }
+        produced += s.rate;
       }
       if (!def.internal) {
         msgsIn += produced;
@@ -2225,6 +2232,7 @@ export class Simulator {
     for (const m of batch) this.produced.set(`${req.topic}:${partition}:${m.offset}`, m);
     s.end = Math.max(s.end + count, first + count); // never behind the produced messages
     s.lastMsgAt = t;
+    s.pending = (s.pending ?? 0) + count;
     return { partition, offset: first, count };
   }
 

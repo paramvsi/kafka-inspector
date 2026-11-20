@@ -1549,3 +1549,17 @@ test('a slow consumer during a traffic spike falls behind faster than a healthy 
   // slowing a consumer can only add lag; it read 60 % of the spiked rate — 6× its usual speed — and drained faster
   expect(slowed).toBeGreaterThan(healthy);
 });
+
+test('messages produced by hand count toward the topic rate, not only its end offset', async () => {
+  const h = make();
+  await h.init();
+  await h.sim.createTopic({ name: 'hand-fed', partitions: 1, replicationFactor: 3 });
+  for (let i = 0; i < 20; i++) await h.sim.produce({ topic: 'hand-fed', key: `k${i}`, value: '{"n":1}' });
+  h.advance(1);
+  const row = h.sim.listTopics({ size: 500 }).items.find((t) => t.name === 'hand-fed')!;
+  // 20 messages arrived in the last second: the topic read 0 / s while Messages showed them
+  expect(row.messagesInPerSec).toBeGreaterThan(10);
+  expect(row.messagesInPerSec).toBeLessThanOrEqual(20);
+  h.advance(1);
+  expect(h.sim.listTopics({ size: 500 }).items.find((t) => t.name === 'hand-fed')!.messagesInPerSec).toBe(0); // and back to 0
+});
