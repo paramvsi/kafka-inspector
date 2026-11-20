@@ -441,7 +441,11 @@ export class Simulator {
     // A sleeping tab can come back hours later: catch up in 1 s steps (up to 2 min), then 60 s steps, like
     // the back-fill. One giant step would sample the payments-sink dip once for the whole gap (a lag jump of
     // ~1M that takes a day to drain) and leave a straight line across the history.
-    // ponytail: a week asleep is ~10k steps; cap the replay if that ever shows
+    // Replay at most the last 7 days (the longest chart range): a month asleep was ~43k steps in one tick (4 s of a
+    // frozen worker, +128 MB of history). Before that window, one step: nothing shows it, and the replayed week
+    // drains whatever that single step leaves.
+    const REPLAY = 7 * 86_400_000;
+    if (now - this.lastTick > REPLAY) this.step(now - REPLAY);
     if (gap > 2000) {
       const steps = Math.min(120, Math.floor(gap / 1000) - 1);
       for (let i = 1; i <= steps; i++) this.step(this.lastTick + 1000);

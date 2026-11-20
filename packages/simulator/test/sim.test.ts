@@ -1514,3 +1514,20 @@ test('a group cannot consume a partition that has no leader: its committed offse
   a.advance(60);
   expect(committed()).toEqual(before); // nothing can be fetched without a leader: no progress, no drain to 0
 });
+
+test('a tab asleep for 30 days catches up the last 7 days only, not a month of steps', async () => {
+  let now = LOAD;
+  const sim = new Simulator({ store: new MemoryStore(), now: () => now });
+  await sim.init();
+  let steps = 0;
+  const step = (sim as unknown as { step: (t: number) => void }).step.bind(sim);
+  (sim as unknown as { step: (t: number) => void }).step = (t: number) => {
+    steps++;
+    step(t);
+  };
+  now += 30 * 86_400_000;
+  sim.tick(now);
+  // 7 d at 60 s is ~10,080 steps (the longest chart range); a month would be ~43,000 and freeze the worker for seconds
+  expect(steps).toBeLessThan(10_400);
+  expect(sim.getOverview().kpis).toBeTruthy(); // still a working cluster after the jump
+});
