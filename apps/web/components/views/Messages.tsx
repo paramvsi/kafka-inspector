@@ -225,9 +225,12 @@ export function MessagesTab({ topic, partitions }: { topic: string; partitions: 
     Promise.all(todo.map((m) => decodeMessage(m, valueAs, keyAs, lookup, rules))).then((ds) => {
       if (!alive) return;
       for (const d of ds) cache.current.set(d.id, d);
-      if (cache.current.size > RING * 2)
-        for (const k of [...cache.current.keys()].slice(0, cache.current.size - RING))
-          cache.current.delete(k);
+      // trim only what's no longer listed: evicting rows still on screen left holes the effect never refills
+      // (raws didn't change), so filters and quick filters stopped matching after ~40 Load more pages
+      if (cache.current.size > RING * 2) {
+        const listed = new Set(raws.map(msgId));
+        for (const k of [...cache.current.keys()]) if (!listed.has(k)) cache.current.delete(k);
+      }
       bump((n) => n + 1);
     });
     return () => {

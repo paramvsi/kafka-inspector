@@ -2180,3 +2180,31 @@ test('reprocessing a message with a repeated header key keeps each header, not o
   expect(pairs).toContain('a=1');
   expect(pairs).toContain('a=2');
 });
+
+test('after many Load more pages the decode cache keeps the rows on screen, so quick filters still match', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto('/app/topics/view/?name=orders&tab=messages');
+  const footer = page.getByText(/messages · .* scanned/);
+  await expect(footer).toBeVisible({ timeout: 15_000 });
+  // the Key column by its header (cell positions shift with the columns shown)
+  const headers = await page.getByRole('columnheader').allInnerTexts();
+  const keyCol = headers.findIndex((h) => /^Key\b/.test(h.trim()));
+  expect(keyCol).toBeGreaterThanOrEqual(0);
+  const firstKey = (await page.getByRole('row').nth(1).getByRole('cell').nth(keyCol).innerText()).trim();
+  expect(firstKey).not.toBe('');
+  const more = page.getByRole('button', { name: 'Load more' });
+  // past RING × 2 (4,000) decoded messages the cache trims itself
+  for (let i = 0; i < 42; i++) {
+    const before = await footer.innerText();
+    await more.click();
+    await expect(footer).not.toHaveText(before, { timeout: 10_000 });
+  }
+  await expect(footer).toHaveText(/^4,?\d{3} messages/);
+  await page.getByLabel('Key contains').fill(firstKey);
+  // the newest row (decoded first, so trimmed first) still matches its own key
+  await expect
+    .poll(async () => (await page.getByRole('row').count()) - 1, { timeout: 10_000 })
+    .toBeGreaterThan(0);
+});
