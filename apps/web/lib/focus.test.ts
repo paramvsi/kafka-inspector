@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { keepFocus } from './focus';
+import { focusAfterClose, keepFocus } from './focus';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -28,18 +28,21 @@ test('focus on a live control is left alone', () => {
   expect(focus).not.toHaveBeenCalled();
 });
 
-test('with a watch window, focus lost a few frames later is still caught', () => {
+test('focusAfterClose waits for the dialog to close, then moves focus even though nothing is lost yet', () => {
   const focus = vi.fn();
-  const row = { isConnected: true, disabled: false, closest: () => null };
-  const doc = { activeElement: row as unknown, body: {}, getElementById: () => ({ focus }) };
-  vi.stubGlobal('document', doc);
+  let open = true;
+  vi.stubGlobal('document', {
+    activeElement: { isConnected: true, disabled: false, closest: () => null }, // the row, still there
+    querySelector: (sel: string) => (sel === 'dialog[open]' && open ? {} : null),
+    getElementById: () => ({ focus }),
+  });
   vi.stubGlobal('performance', { now: () => 0 });
   const frames: Array<() => void> = [];
   vi.stubGlobal('requestAnimationFrame', (cb: () => void) => frames.push(cb));
-  keepFocus(undefined, 2000);
-  frames.shift()!(); // frame 1: still on the row
-  frames.shift()!(); // frame 2: still on the row
-  row.isConnected = false; // the refresh removes the row
+  focusAfterClose();
+  frames.shift()!(); // dialog still closing
+  expect(focus).not.toHaveBeenCalled();
+  open = false;
   frames.shift()!();
   expect(focus).toHaveBeenCalledTimes(1);
 });

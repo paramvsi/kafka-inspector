@@ -38,7 +38,7 @@ import { previewLabel } from '../../lib/preview';
 import { useKafka, useKafkaQuery, useStream } from '../../lib/kafka';
 import { useUrl } from '../../lib/url';
 import { PageHeader } from '../Page';
-import { keepFocus } from '../../lib/focus';
+import { focusAfterClose, keepFocus } from '../../lib/focus';
 
 const METRICS: Array<{
   value: AlertMetric;
@@ -484,8 +484,8 @@ function RuleDialog({
       await client.deleteAlertRule(rule.id);
       toast({ tone: 'info', title: `Deleted “${rule.name}”` });
       onClose();
-      // the closing dialog hands focus back to the rule's row, which a later render removes: watch for that
-      keepFocus(undefined, 2000);
+      // the closing dialog hands focus back to the rule's row, which the refresh removes whenever it lands
+      focusAfterClose();
     } catch (e) {
       setError(`Couldn't delete the rule: ${(e as Error).message}`);
     }
