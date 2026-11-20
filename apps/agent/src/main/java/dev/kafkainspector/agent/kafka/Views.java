@@ -40,10 +40,27 @@ public final class Views {
     // ── topics ──
 
     private static int consumersOf(ClusterState s, String topic) {
-        // committed offsets, or a member assigned to it (share groups don't commit offsets)
-        return (int) s.groups.values().stream()
-                .filter(g -> g.committed.containsKey(topic) || g.members.stream().anyMatch(m -> m.assignments.stream().anyMatch(a -> a[0].equals(topic))))
-                .count();
+        return consumerCounts(s).getOrDefault(topic, 0);
+    }
+
+    /**
+     * topic → groups reading it (committed offsets, or a member assigned to it: share groups don't commit), built
+     * once per sample. Scanning every group's members per topic made the 2 s topic list O(topics × assignments):
+     * ~1.8 s at 2,000 topics and 400 groups. The sampler publishes a new groups map each sample (never mutated
+     * after), so the map's identity says whether the cache is current.
+     */
+    static Map<String, Integer> consumerCounts(ClusterState s) {
+        Map<String, ClusterState.GroupSnap> groups = s.groups;
+        ClusterState.Counts c = s.consumerCounts;
+        if (c != null && c.groups() == groups) return c.byTopic();
+        Map<String, Integer> byTopic = new HashMap<>();
+        for (ClusterState.GroupSnap g : groups.values()) {
+            Set<String> mine = new HashSet<>(g.committed.keySet());
+            for (ClusterState.MemberSnap m : g.members) for (String[] a : m.assignments) mine.add(a[0]);
+            for (String t : mine) byTopic.merge(t, 1, Integer::sum);
+        }
+        s.consumerCounts = new ClusterState.Counts(groups, byTopic);
+        return byTopic;
     }
 
     private static String offlineLabel(long n) {
@@ -106,6 +123,9 @@ public final class Views {
         double total = t.rate();
         List<Dto.PartitionInfo> parts = t.partitions.stream().map(p -> new Dto.PartitionInfo(p.partition, p.leader, p.replicas, p.isr, p.low, p.high, total > 0 ? Double.valueOf(p.rate / total * 100) : null /* idle: no share to show */, iso(p.lastMessageAt))).toList();
         List<Dto.TopicConsumer> consumers = new ArrayList<>();
+        // by partition number once: a scan per committed entry was groups × partitions² (3 s at 2,000 × 400)
+        Map<Integer, ClusterState.PartSnap> byPartition = new HashMap<>();
+        for (ClusterState.PartSnap p : t.partitions) byPartition.put(p.partition, p);
         for (ClusterState.GroupSnap g : s.groups.values()) {
             Map<Integer, Long> c = g.committed.get(t.name);
             if (c == null) {
@@ -117,7 +137,8 @@ public final class Views {
             long lag = 0;
             List<Lag.Status> st = new ArrayList<>();
             for (var e : c.entrySet()) {
-                for (ClusterState.PartSnap p : t.partitions) if (p.partition == e.getKey()) lag += Math.max(0, p.high - e.getValue());
+                ClusterState.PartSnap p = byPartition.get(e.getKey());
+                if (p != null) lag += Math.max(0, p.high - e.getValue());
                 st.add(g.partStatus.getOrDefault(t.name + "|" + e.getKey(), Lag.Status.unknown));
             }
             consumers.add(new Dto.TopicConsumer(g.groupId, g.type, lag, Lag.rollup(st).name(), g.state));

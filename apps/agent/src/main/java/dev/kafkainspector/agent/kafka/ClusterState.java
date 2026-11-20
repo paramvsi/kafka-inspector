@@ -18,6 +18,9 @@ public class ClusterState {
     public volatile List<BrokerSnap> brokers = List.of();
     public volatile Map<String, TopicSnap> topics = Map.of();
     public volatile Map<String, GroupSnap> groups = Map.of();
+    /** Views' topic → consumer-group count, for the `groups` map it was built from (a new map each sample). */
+    public record Counts(Map<String, GroupSnap> groups, Map<String, Integer> byTopic) {}
+    public volatile Counts consumerCounts;
     /** group|topic|partition → samples (bounded). Written by the sampler, read by REST/WS threads: concurrent types. */
     public final Map<String, Deque<Lag.Sample>> windows = new java.util.concurrent.ConcurrentHashMap<>();
     public final Map<String, Long> lastChange = new java.util.concurrent.ConcurrentHashMap<>();
