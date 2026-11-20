@@ -192,7 +192,9 @@ function ChromeInner({ children, boot }: { children: ReactNode; boot: Boot }) {
   const { info, client } = k;
   // ?preview=readonly shows the self-hosted chrome (Read-only badge, no demo-only pages)
   const mode: Mode = info.mode === 'demo' && preview !== 'readonly' ? 'demo' : 'self';
-  const cluster = overview?.cluster ?? info.clusters[0]!;
+  // before the first live sample: the chosen cluster (?c= / the session), not whichever is listed first
+  const cluster =
+    overview?.cluster ?? info.clusters.find((c) => c.id === k.clusterId) ?? info.clusters[0]!;
   const counts = overview
     ? {
         brokers: overview.kpis.brokersTotal,

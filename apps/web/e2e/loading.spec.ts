@@ -94,3 +94,23 @@ test('?preview=disconnected never fakes an outage on a real agent (rule 7: previ
   await page.waitForTimeout(1500);
   await expect(page.getByText(/attempt 3 of 10/)).toHaveCount(0);
 });
+
+test('after switching cluster, the chrome names the chosen cluster before its first live sample', async ({
+  page,
+}) => {
+  const two = {
+    ...INFO,
+    clusters: [
+      { ...INFO.clusters[0], id: 'alpha', name: 'alpha' },
+      { ...INFO.clusters[0], id: 'beta', name: 'beta' },
+    ],
+  };
+  await page.route('**/api/info', (r) => r.fulfill({ json: two }));
+  await page.route(/\/api\/(clusters|alerts)/, () => new Promise(() => {}));
+  await page.routeWebSocket(/\/api\/stream/, () => {}); // open, but no metrics frame yet
+  await page.goto('/app/?c=beta');
+  await expect(page.getByRole('button', { name: /^Cluster beta\b/ })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('button', { name: /^Cluster alpha\b/ })).toHaveCount(0);
+});
