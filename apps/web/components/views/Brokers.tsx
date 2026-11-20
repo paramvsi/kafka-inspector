@@ -24,7 +24,9 @@ export function BrokersView() {
   const overview = useKafkaQuery(['overview-static'], (c, id) => c.getOverview(id), 10_000);
   // an unknown broker in the link (?broker=abc or 99) falls back to the controller
   const asked = brokers.data?.find((b) => String(b.id) === url.get('broker'))?.id;
-  const selected = asked ?? brokers.data?.find((b) => b.isController)?.id ?? 1;
+  // no controller flagged (all offline, or ids like 101/102): the first broker, never a made-up id 1
+  const selected =
+    asked ?? brokers.data?.find((b) => b.isController)?.id ?? brokers.data?.[0]?.id ?? 1;
   const config = useKafkaQuery(['broker-config', selected], (c, id) =>
     c.getBrokerConfig(id, selected),
   );
@@ -104,7 +106,9 @@ export function BrokersView() {
             key: 'in',
             header: 'In / s',
             kind: 'num',
-            cell: (b) => (b.bytesInPerSec == null ? '—' : formatBytes(b.bytesInPerSec)),
+            // offline: its last or zeroed rate isn't a live reading (rule 7)
+            cell: (b) =>
+              !b.online || b.bytesInPerSec == null ? '—' : formatBytes(b.bytesInPerSec),
           },
           {
             key: 'disk',
@@ -113,7 +117,7 @@ export function BrokersView() {
             kind: 'num',
             // not reported (agent without DescribeLogDirs) → a dash, never invented numbers
             cell: (b) =>
-              b.diskUsedBytes == null
+              !b.online || b.diskUsedBytes == null
                 ? '—'
                 : b.diskTotalBytes
                   ? `${formatBytes(b.diskUsedBytes)} · ${formatPct((b.diskUsedBytes / b.diskTotalBytes) * 100)}`
@@ -141,7 +145,7 @@ export function BrokersView() {
                   key={b.id}
                   className="grid grid-cols-[70px_1fr_48px] items-center gap-3 text-[13px]"
                 >
-                  <span className="text-ink-muted">broker {b.id}</span>
+                  <span className="font-mono tabular-nums text-ink-muted">broker {b.id}</span>
                   <span
                     className="h-2 overflow-hidden rounded-full bg-surface-hover"
                     aria-hidden="true"

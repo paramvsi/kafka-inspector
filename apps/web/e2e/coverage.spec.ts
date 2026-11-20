@@ -2216,3 +2216,23 @@ test('after many Load more pages the decode cache keeps the rows on screen, so q
     .poll(async () => (await page.getByRole('row').count()) - 1, { timeout: 10_000 })
     .toBeGreaterThan(0);
 });
+
+test('an offline broker shows no live-looking traffic or disk figures, only dashes', async ({
+  page,
+}) => {
+  await page.goto('/app/chaos/');
+  const card = page.getByRole('article').filter({ hasText: 'Broker down' });
+  await card.getByRole('button', { name: 'Trigger' }).click({ timeout: 15_000 });
+  await page.getByRole('link', { name: 'Brokers', exact: true }).first().click(); // in-app: keeps the incident
+  const down = page
+    .getByRole('row')
+    .filter({ hasText: /offline/i })
+    .first();
+  await expect(down).toBeVisible({ timeout: 20_000 });
+  const headers = await page.getByRole('columnheader').allInnerTexts(); // once the table is there
+  const col = (name: string) => headers.findIndex((h) => h.trim() === name);
+  for (const name of ['In / s', 'Kafka data']) {
+    expect(col(name), name).toBeGreaterThanOrEqual(0);
+    await expect(down.getByRole('cell').nth(col(name)), name).toHaveText('—');
+  }
+});
